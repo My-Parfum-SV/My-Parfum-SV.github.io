@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>My Parfum SV — Arma tu Perfume</title>
+<style>
+  :root {
+    --bg: #0a0a0a; --card: #161616; --border: #2a2a2a; --gold: #FFD60A; --gold-bright: #FFE55C;
+    --green: #4ADE80; --blue: #56CCF2; --red: #FF2D2D; --text: #EDEDED; --text-dim: #9a9a9a;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 0; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 80px; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; padding: 14px 16px; border-bottom: 1px solid var(--border); position: sticky; top:0; background: var(--bg); z-index: 10; }
+  .brand { font-size: 18px; font-weight: 800; color: var(--gold-bright); }
+  .steps { display:flex; gap:6px; }
+  .step-dot { width:10px; height:10px; border-radius:50%; background: var(--border); }
+  .step-dot.active { background: var(--green); }
+  .step-dot.done { background: var(--gold); }
+  h1,h2,h3 { color: var(--gold-bright); }
+  p { color: var(--text-dim); line-height: 1.5; }
+  .btn { background: var(--green); color:#0a0a0a; border:none; border-radius:10px; padding: 12px 22px; font-weight:700; font-size:15px; cursor:pointer; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .actions { display:flex; justify-content:space-between; margin-top: 24px; gap: 10px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap: 12px; margin-top: 16px; }
+  .perfume-card img { width:100%; aspect-ratio: 1/1; object-fit: contain; background:#fff; border-radius: 8px; }
+  .perfume-card { cursor:pointer; transition: transform 0.1s; }
+  .perfume-card:hover { transform: scale(1.02); border-color: var(--gold); }
+  .perfume-nombre { font-weight:700; margin-top: 8px; font-size: 14px; }
+  .perfume-disenador { font-size:12px; color: var(--text-dim); }
+  .filtros { display:flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+  .filtros select, .filtros input { background:#111; color: var(--text); border:1px solid var(--border); border-radius:8px; padding: 8px 10px; font-size: 14px; }
+  .reminder { background: rgba(255,214,10,0.08); border:1px solid var(--gold); border-radius:10px; padding:10px 14px; margin-bottom: 16px; font-size: 13px; }
+  .opciones { display:flex; gap: 10px; flex-wrap: wrap; margin: 10px 0 18px; }
+  .opcion { border:1px solid var(--border); border-radius:10px; padding: 14px; flex:1; min-width: 140px; cursor:pointer; text-align:center; }
+  .opcion.selected { border-color: var(--green); background: rgba(74,222,128,0.08); }
+  .opcion .titulo { font-weight:700; font-size:15px; }
+  .opcion .beneficio { font-size:12px; color: var(--text-dim); margin-top:6px; }
+  .price-box { position: sticky; bottom:0; background: var(--card); border-top:2px solid var(--gold); padding: 14px 16px; display:flex; justify-content:space-between; align-items:center; margin: 20px -16px -80px; }
+  .price-total { font-size: 22px; font-weight: 800; color: var(--green); }
+  .field { margin-bottom: 14px; }
+  .field label { display:block; font-size:13px; color: var(--gold); margin-bottom: 5px; }
+  .field input, .field select, .field textarea { width:100%; background:#111; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; font-size:14px; }
+  .empty { text-align:center; padding: 40px 20px; color: var(--text-dim); }
+  .lealtad-link { font-size:12px; color: var(--blue); cursor:pointer; text-decoration:underline; }
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:50; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background: var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; max-width: 420px; width:90%; }
+  .checkbox-row { display:flex; align-items:center; gap:8px; margin: 8px 0; }
+  .disclaimer { font-size: 11px; color: var(--text-dim); border-top:1px solid var(--border); margin-top:30px; padding-top:14px; }
+  .confirm-icon { font-size: 50px; text-align:center; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">✨ My Parfum SV</div>
+  <div class="steps" id="steps"></div>
+</div>
+
+<div class="wrap">
+  <div id="loading" class="empty">Cargando catálogo…</div>
+  <div id="app" style="display:none;">
+
+    <!-- FASE 1: BIENVENIDA -->
+    <div class="fase" id="fase-1">
+      <h1>Bienvenido a My Parfum SV</h1>
+      <p>Creamos perfumes artesanales <strong>contratipo</strong> — inspirados en las fragancias y diseñadores que ya amas, con la misma esencia dominante, a una fracción del precio.</p>
+      <p>Aquí armas tu propia solicitud en 5 pasos: eliges el perfume que te inspira, el volumen y envase, algunos extras opcionales, y confirmas tus datos. Nosotros nos encargamos del resto.</p>
+      <p style="margin-top:20px;"><span class="lealtad-link" onclick="abrirModalLealtad()">🎁 ¿Ya eres cliente? Consulta tus puntos de Lealtad aquí</span></p>
+      <div class="actions">
+        <div></div>
+        <button class="btn" onclick="irAFase(2)">Comenzar →</button>
+      </div>
+    </div>
+
+    <!-- FASE 2: CATÁLOGO -->
+    <div class="fase" id="fase-2" style="display:none;">
+      <h2>🎵 Elige el perfume que te inspira</h2>
+      <p>Filtra por género o busca por nombre o diseñador.</p>
+      <div class="filtros">
+        <select id="f-genero" onchange="renderCatalogo()">
+          <option value="">Todos los géneros</option>
+          <option value="Hombre">Hombre</option>
+          <option value="Mujer">Mujer</option>
+          <option value="Unisex">Unisex</option>
+        </select>
+        <input id="f-texto" placeholder="Buscar por nombre o diseñador…" oninput="renderCatalogo()">
+      </div>
+      <div class="grid" id="catalogo-grid"></div>
+      <div class="actions">
+        <button class="btn btn-outline" onclick="irAFase(1)">← Atrás</button>
+        <div></div>
+      </div>
+    </div>
+
+    <!-- FASE 3: VOLUMEN + CIERRE + ENVASE -->
+    <div class="fase" id="fase-3" style="display:none;">
+      <div class="reminder" id="recordatorio-perfume"></div>
+      <h2>Volumen</h2>
+      <div class="opciones" id="opciones-volumen"></div>
+      <h2>Tipo de cierre</h2>
+      <div class="opciones" id="opciones-cierre"></div>
+      <h2>Elige tu envase</h2>
+      <div class="grid" id="envases-grid"></div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="chk-caja" onchange="onCajaToggle()">
+        <label for="chk-caja">Agregar caja de regalo</label>
+      </div>
+      <div id="cajas-grid" class="grid" style="display:none;"></div>
+      <div class="actions">
+        <button class="btn btn-outline" onclick="irAFase(2)">← Atrás</button>
+        <button class="btn" id="btn-fase3-siguiente" onclick="irAFase(4)" disabled>Siguiente →</button>
+      </div>
+    </div>
+
+    <!-- FASE 4: EXTRAS -->
+    <div class="fase" id="fase-4" style="display:none;">
+      <h2>Extras opcionales</h2>
+      <p>Personaliza tu perfume con estos añadidos (cada uno suma su propio precio).</p>
+      <div id="extras-lista"></div>
+      <div class="actions">
+        <button class="btn btn-outline" onclick="irAFase(3)">← Atrás</button>
+        <button class="btn" onclick="irAFase(5)">Siguiente →</button>
+      </div>
+    </div>
+
+    <!-- FASE 5: CONFIRMACIÓN -->
+    <div class="fase" id="fase-5" style="display:none;">
+      <h2>Confirma tu solicitud</h2>
+      <div class="card" id="resumen-final"></div>
+      <p style="margin-top:14px;font-size:12px;">⏳ Estimado: tu perfume podría estar listo entre <strong>20 y 35 días</strong> después de que Kike apruebe tu solicitud (varía según la fragancia y el volumen de trabajo del momento).</p>
+      <div class="field"><label>Nombre y apellido</label><input id="c-nombre" placeholder="ej. María López"></div>
+      <div class="field">
+        <label>Cómo prefieres que te contactemos</label>
+        <select id="c-contacto-tipo">
+          <option value="WhatsApp">WhatsApp</option>
+          <option value="Teléfono">Teléfono</option>
+          <option value="Email">Email</option>
+        </select>
+      </div>
+      <div class="field"><label>Tu contacto</label><input id="c-contacto-valor" placeholder="ej. 7000-0000 o correo@ejemplo.com"></div>
+      <p style="font-size:11px;margin-top:-8px;">Este mismo dato te servirá más adelante para consultar tus puntos de Lealtad.</p>
+      <div class="field"><label>Lugar preferido de entrega</label><input id="c-lugar" placeholder="ej. Colonia Escalón, San Salvador"></div>
+      <div class="field"><label>Notas (opcional)</label><textarea id="c-notas" rows="2" placeholder="Alguna preferencia o comentario adicional"></textarea></div>
+      <div class="actions">
+        <button class="btn btn-outline" onclick="irAFase(4)">← Atrás</button>
+        <button class="btn" id="btn-enviar" onclick="enviarSolicitud()">Enviar solicitud ✓</button>
+      </div>
+    </div>
+
+    <!-- FASE 6 (confirmación final, no cuenta como paso del stepper) -->
+    <div class="fase" id="fase-6" style="display:none;">
+      <div class="confirm-icon">🎉</div>
+      <h2 style="text-align:center;">¡Solicitud enviada!</h2>
+      <p style="text-align:center;">Ya guardamos tu solicitud y Kike la revisará pronto.</p>
+      <div class="card" style="margin-top:16px;" id="card-confirmar-extra">
+        <div style="font-size:14px;margin-bottom:10px;">Para asegurarnos de que te contactamos más rápido, si quieres puedes avisarle a Kike directamente (esto es opcional, tu solicitud ya quedó guardada de todas formas):</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn" id="btn-confirmar-whatsapp" onclick="confirmarPorWhatsapp()">📱 Confirmar por WhatsApp</button>
+          <button class="btn btn-outline" id="btn-confirmar-email" onclick="confirmarPorEmail()">✉️ Confirmar por correo</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      Los nombres de marcas y diseñadores mencionados se usan únicamente como referencia comparativa para describir el estilo olfativo de nuestras fragancias inspiradas. My Parfum SV no está afiliado ni respaldado por dichas marcas.
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: consulta de puntos de lealtad -->
+<div class="modal-overlay" id="modal-lealtad">
+  <div class="modal">
+    <h3>🎁 Consulta tus puntos</h3>
+    <div class="field"><label>Tu teléfono o correo (el mismo que nos diste antes)</label><input id="lealtad-telefono" placeholder="ej. 7000-0000 o correo@ejemplo.com"></div>
+    <div id="lealtad-resultado" style="margin: 12px 0; font-size: 14px;"></div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn" onclick="consultarLealtad()">Consultar</button>
+      <button class="btn btn-outline" onclick="cerrarModalLealtad()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════ CONFIGURACIÓN — Kike debe pegar aquí la URL de su Apps Script desplegado ═══════════════
+const APPS_SCRIPT_URL = 'PEGA_AQUI_LA_URL_DE_TU_APPS_SCRIPT_DEPLOYADO';
+
+let DATA = { catalogo: [], envases: [], cajas: [], preciosExtras: {} };
+let estado = {
+  fase: 1,
+  perfumeElegido: null,
+  volumen: null,
+  cierre: null,
+  envaseId: null,
+  incluyeCaja: false,
+  cajaId: null,
+  extras: [],
+  precioTotal: 0,
+};
+
+async function cargarDatos() {
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?action=data');
+    DATA = await res.json();
+  } catch (e) {
+    document.getElementById('loading').innerHTML = '<p style="color:var(--red);">No se pudo cargar el catálogo. Intenta de nuevo más tarde.</p>';
+    return;
+  }
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  renderSteps();
+  renderCatalogo();
+  renderOpcionesFase3();
+  renderExtras();
+}
+cargarDatos();
+
+function renderSteps() {
+  const el = document.getElementById('steps');
+  el.innerHTML = [1,2,3,4,5].map(n => `<div class="step-dot ${n===estado.fase?'active':(n<estado.fase?'done':'')}"></div>`).join('');
+}
+
+function irAFase(n) {
+  document.querySelectorAll('.fase').forEach(f => f.style.display = 'none');
+  document.getElementById('fase-' + n).style.display = 'block';
+  estado.fase = n;
+  renderSteps();
+  if (n === 3) { renderRecordatorioPerfume(); renderEnvases(); actualizarPrecio(); }
+  if (n === 5) renderResumenFinal();
+  window.scrollTo(0,0);
+}
+
+// ═══════════════ FASE 2: CATÁLOGO ═══════════════
+function renderCatalogo() {
+  const genero = document.getElementById('f-genero').value;
+  const texto = (document.getElementById('f-texto').value || '').toLowerCase();
+  const lista = DATA.catalogo.filter(p => {
+    if (genero && p.genero !== genero) return false;
+    if (texto && !(p.nombre.toLowerCase().includes(texto) || (p.disenador||'').toLowerCase().includes(texto))) return false;
+    return true;
+  });
+  const grid = document.getElementById('catalogo-grid');
+  if (!lista.length) { grid.innerHTML = '<div class="empty">Sin resultados con estos filtros.</div>'; return; }
+  grid.innerHTML = lista.map(p => `
+    <div class="perfume-card card" onclick="elegirPerfume(${p.id})">
+      <img src="${p.imagen}" alt="${p.nombre}">
+      <div class="perfume-nombre">${p.nombre}</div>
+      <div class="perfume-disenador">${p.disenador || ''}</div>
+    </div>
+  `).join('');
+}
+
+function elegirPerfume(id) {
+  estado.perfumeElegido = DATA.catalogo.find(p => p.id === id);
+  irAFase(3);
+}
+
+function renderRecordatorioPerfume() {
+  const p = estado.perfumeElegido;
+  if (!p) return;
+  document.getElementById('recordatorio-perfume').innerHTML = `Perfume inspirado en <strong>${p.nombre}</strong>${p.disenador ? ' — ' + p.disenador : ''}`;
+}
+
+// ═══════════════ FASE 3: VOLUMEN + CIERRE + ENVASE + CAJA ═══════════════
+function renderOpcionesFase3() {
+  document.getElementById('opciones-volumen').innerHTML = [50,100].map(v => `
+    <div class="opcion" id="vol-${v}" onclick="elegirVolumen(${v})">
+      <div class="titulo">${v} ml</div>
+    </div>`).join('');
+  document.getElementById('opciones-cierre').innerHTML = `
+    <div class="opcion" id="cierre-Rosca" onclick="elegirCierre('Rosca')">
+      <div class="titulo">Rosca</div>
+      <div class="beneficio">Más económico · envase reutilizable con descuento · más variedad de diseños</div>
+    </div>
+    <div class="opcion" id="cierre-Sellado" onclick="elegirCierre('Sellado')">
+      <div class="titulo">Sellado</div>
+      <div class="beneficio">Evita derrames · más seguro al transportar · garantía de 10 días por desperfecto</div>
+    </div>`;
+}
+
+function elegirVolumen(v) {
+  estado.volumen = v;
+  document.querySelectorAll('#opciones-volumen .opcion').forEach(el => el.classList.remove('selected'));
+  document.getElementById('vol-' + v).classList.add('selected');
+  actualizarPrecio();
+  validarFase3();
+}
+function elegirCierre(c) {
+  estado.cierre = c;
+  document.querySelectorAll('#opciones-cierre .opcion').forEach(el => el.classList.remove('selected'));
+  document.getElementById('cierre-' + c).classList.add('selected');
+  actualizarPrecio();
+  validarFase3();
+}
+
+function renderEnvases() {
+  const grid = document.getElementById('envases-grid');
+  if (!DATA.envases.length) { grid.innerHTML = '<div class="empty">Aún no hay envases cargados — vuelve pronto.</div>'; return; }
+  grid.innerHTML = DATA.envases.map(ev => `
+    <div class="perfume-card card ${estado.envaseId===ev.id?'selected':''}" id="envase-${ev.id}" onclick="elegirEnvase(${ev.id})">
+      <img src="${ev.foto || ''}" alt="${ev.nombre}">
+      <div class="perfume-nombre">${ev.nombre}</div>
+      ${(ev.stock||0) <= 0 ? '<div style="font-size:11px;color:var(--red);">Pendiente de verificación de existencia</div>' : ''}
+    </div>
+  `).join('');
+}
+function elegirEnvase(id) {
+  estado.envaseId = id;
+  document.querySelectorAll('#envases-grid .perfume-card').forEach(el => el.classList.remove('selected'));
+  document.getElementById('envase-' + id).classList.add('selected');
+  actualizarPrecio();
+  validarFase3();
+}
+
+function onCajaToggle() {
+  estado.incluyeCaja = document.getElementById('chk-caja').checked;
+  const grid = document.getElementById('cajas-grid');
+  grid.style.display = estado.incluyeCaja ? 'grid' : 'none';
+  if (estado.incluyeCaja) {
+    grid.innerHTML = DATA.cajas.map(c => `
+      <div class="perfume-card card ${estado.cajaId===c.id?'selected':''}" id="caja-${c.id}" onclick="elegirCaja(${c.id})">
+        <img src="${c.foto || ''}" alt="${c.nombre}">
+        <div class="perfume-nombre">${c.nombre}</div>
+      </div>`).join('') || '<div class="empty">Sin cajas disponibles todavía.</div>';
+  } else {
+    estado.cajaId = null;
+  }
+  actualizarPrecio();
+}
+function elegirCaja(id) {
+  estado.cajaId = id;
+  document.querySelectorAll('#cajas-grid .perfume-card').forEach(el => el.classList.remove('selected'));
+  document.getElementById('caja-' + id).classList.add('selected');
+  actualizarPrecio();
+}
+
+function validarFase3() {
+  const ok = estado.volumen && estado.cierre && estado.envaseId;
+  document.getElementById('btn-fase3-siguiente').disabled = !ok;
+}
+
+async function actualizarPrecio() {
+  if (!estado.volumen || !estado.envaseId) return;
+  const params = new URLSearchParams({
+    action: 'precio', volumen: estado.volumen, envaseId: estado.envaseId,
+    caja: estado.incluyeCaja ? '1' : '0', cajaId: estado.cajaId || '',
+    extras: estado.extras.join(','),
+  });
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?' + params.toString());
+    const data = await res.json();
+    estado.precioTotal = data.precioTotal || 0;
+    mostrarPrecioFlotante();
+  } catch (e) { /* si falla, se recalcula en el próximo cambio */ }
+}
+
+function mostrarPrecioFlotante() {
+  let el = document.getElementById('price-box-flotante');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'price-box-flotante';
+    el.className = 'price-box';
+    document.querySelector('.wrap').appendChild(el);
+  }
+  el.innerHTML = `<span>Precio estimado</span><span class="price-total">$${estado.precioTotal.toFixed(2)}</span>`;
+}
+
+// ═══════════════ FASE 4: EXTRAS ═══════════════
+function renderExtras() {
+  const nombres = { colorante: '🎨 Colorante', feromonas: '💫 Feromonas', atomizadorPortatil5ml: '🧴 Atomizador portátil 5ml' };
+  const el = document.getElementById('extras-lista');
+  el.innerHTML = Object.keys(nombres).map(key => `
+    <div class="checkbox-row card">
+      <input type="checkbox" id="extra-${key}" onchange="toggleExtra('${key}')">
+      <label for="extra-${key}">${nombres[key]} — $${(DATA.preciosExtras[key]||0).toFixed(2)}</label>
+    </div>
+  `).join('');
+}
+function toggleExtra(key) {
+  const checked = document.getElementById('extra-' + key).checked;
+  if (checked) estado.extras.push(key); else estado.extras = estado.extras.filter(e => e !== key);
+  actualizarPrecio();
+}
+
+// ═══════════════ FASE 5: CONFIRMACIÓN ═══════════════
+function renderResumenFinal() {
+  const p = estado.perfumeElegido;
+  const envase = DATA.envases.find(e => e.id === estado.envaseId);
+  const caja = estado.incluyeCaja ? DATA.cajas.find(c => c.id === estado.cajaId) : null;
+  document.getElementById('resumen-final').innerHTML = `
+    <div><strong>Perfume:</strong> ${p.nombre}${p.disenador ? ' — ' + p.disenador : ''}</div>
+    <div><strong>Volumen:</strong> ${estado.volumen} ml — <strong>Cierre:</strong> ${estado.cierre}</div>
+    <div><strong>Envase:</strong> ${envase ? envase.nombre : '—'}</div>
+    ${caja ? `<div><strong>Caja:</strong> ${caja.nombre}</div>` : ''}
+    ${estado.extras.length ? `<div><strong>Extras:</strong> ${estado.extras.join(', ')}</div>` : ''}
+    <div style="margin-top:10px;font-size:20px;color:var(--green);font-weight:800;">Total: $${estado.precioTotal.toFixed(2)}</div>
+  `;
+}
+
+async function enviarSolicitud() {
+  const nombre = document.getElementById('c-nombre').value.trim();
+  const contactoValor = document.getElementById('c-contacto-valor').value.trim();
+  const lugar = document.getElementById('c-lugar').value.trim();
+  if (!nombre || !contactoValor || !lugar) {
+    alert('Por favor completa tu nombre, contacto y lugar de entrega.');
+    return;
+  }
+  const p = estado.perfumeElegido;
+  const envase = DATA.envases.find(e => e.id === estado.envaseId);
+  const btn = document.getElementById('btn-enviar');
+  btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    await fetch(APPS_SCRIPT_URL + '?action=solicitud', {
+      method: 'POST',
+      body: JSON.stringify({
+        clienteNombre: nombre,
+        contactoTipo: document.getElementById('c-contacto-tipo').value,
+        contactoValor: contactoValor,
+        lugarEntrega: lugar,
+        catalogoId: p.id,
+        esenciaNombre: p.nombre,
+        disenador: p.disenador,
+        volumen: estado.volumen,
+        cierre: estado.cierre,
+        envaseId: estado.envaseId,
+        envaseNombre: envase ? envase.nombre : '',
+        incluyeCaja: estado.incluyeCaja,
+        cajaId: estado.cajaId,
+        extras: estado.extras,
+        precioTotal: estado.precioTotal,
+        notas: document.getElementById('c-notas').value.trim(),
+      }),
+    });
+    document.querySelectorAll('.fase').forEach(f => f.style.display = 'none');
+    document.getElementById('fase-6').style.display = 'block';
+    document.getElementById('btn-confirmar-whatsapp').style.display = DATA.whatsappNumero ? 'inline-block' : 'none';
+    document.getElementById('btn-confirmar-email').style.display = DATA.emailContacto ? 'inline-block' : 'none';
+    document.getElementById('card-confirmar-extra').style.display = (DATA.whatsappNumero || DATA.emailContacto) ? 'block' : 'none';
+    const pb = document.getElementById('price-box-flotante');
+    if (pb) pb.remove();
+    window.scrollTo(0,0);
+  } catch (e) {
+    alert('No se pudo enviar la solicitud. Intenta de nuevo.');
+    btn.disabled = false; btn.textContent = 'Enviar solicitud ✓';
+  }
+}
+
+function construirResumenTexto() {
+  const p = estado.perfumeElegido;
+  const envase = DATA.envases.find(e => e.id === estado.envaseId);
+  const caja = estado.incluyeCaja ? DATA.cajas.find(c => c.id === estado.cajaId) : null;
+  const nombre = document.getElementById('c-nombre').value.trim();
+  const lugar = document.getElementById('c-lugar').value.trim();
+  let msg = `Hola Kike, soy ${nombre}. Acabo de enviar una solicitud desde la Vitrina:\n`;
+  msg += `- Perfume inspirado en: ${p.nombre}${p.disenador ? ' — ' + p.disenador : ''}\n`;
+  msg += `- Volumen: ${estado.volumen}ml, Cierre: ${estado.cierre}\n`;
+  msg += `- Envase: ${envase ? envase.nombre : '—'}\n`;
+  if (caja) msg += `- Caja: ${caja.nombre}\n`;
+  if (estado.extras.length) msg += `- Extras: ${estado.extras.join(', ')}\n`;
+  msg += `- Total estimado: $${estado.precioTotal.toFixed(2)}\n`;
+  msg += `- Lugar de entrega preferido: ${lugar}\n`;
+  return msg;
+}
+
+function confirmarPorWhatsapp() {
+  if (!DATA.whatsappNumero) return;
+  const url = 'https://wa.me/' + DATA.whatsappNumero + '?text=' + encodeURIComponent(construirResumenTexto());
+  window.open(url, '_blank');
+}
+
+function confirmarPorEmail() {
+  if (!DATA.emailContacto) return;
+  const asunto = encodeURIComponent('Nueva solicitud desde la Vitrina — My Parfum SV');
+  const cuerpo = encodeURIComponent(construirResumenTexto());
+  window.location.href = 'mailto:' + DATA.emailContacto + '?subject=' + asunto + '&body=' + cuerpo;
+}
+
+// ═══════════════ MODAL: CONSULTA DE LEALTAD ═══════════════
+function abrirModalLealtad() { document.getElementById('modal-lealtad').classList.add('open'); }
+function cerrarModalLealtad() { document.getElementById('modal-lealtad').classList.remove('open'); }
+async function consultarLealtad() {
+  const id = document.getElementById('lealtad-telefono').value.trim();
+  const el = document.getElementById('lealtad-resultado');
+  el.innerHTML = 'Consultando…';
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + '?action=lealtad&identificador=' + encodeURIComponent(id));
+    const data = await res.json();
+    if (data.error) { el.innerHTML = data.error; return; }
+    if (!data.encontrado) { el.innerHTML = 'No encontramos ese dato. Verifica que sea el mismo teléfono o correo que nos diste antes.'; return; }
+    let html = `Ciclo #${data.ciclo} — <strong>${data.saldoCiclo} pts</strong> vigentes.`;
+    if (data.proximoPremio) html += `<br>Próximo premio: ${data.proximoPremio.nombre} (${data.proximoPremio.umbral} pts)`;
+    if (data.premiosPendientes.length) html += `<br><br>🎁 ¡Ya calificas para: ${data.premiosPendientes.map(p=>p.nombre).join(', ')}! Kike te lo entregará pronto.`;
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = 'No se pudo consultar en este momento.';
+  }
+}
+</script>
+</body>
+</html>
