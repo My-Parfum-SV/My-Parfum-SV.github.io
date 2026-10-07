@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Parfum27_V89 -->
+<!-- Parfum27_V90 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -703,12 +703,13 @@
     <span id="sync-status">⏳ Conectando...</span>
     <span id="auth-status" class="auth-status">No conectado</span>
     <button class="btn btn-outline btn-sm" id="btn-auth" onclick="handleAuth()">Conectar Drive</button>
-    <button class="btn btn-outline btn-sm" onclick="descargarBackup()">📥 Respaldo</button>
+    <button class="btn btn-outline btn-sm" onclick="abrirModalDatos()">💾 Datos</button>
   </div>
 </header>
 
 <nav>
   <button class="active" onclick="showPage('dashboard')">📊 Dashboard</button>
+  <button onclick="showPage('catalogo-vitrina')">🛍️ Catálogo</button>
   <button onclick="showPage('pedidos')">📝 Pedidos</button>
   <button onclick="showPage('lotes')">⚗️ Lotes</button>
   <button onclick="showPage('esencias')">🌸 Esencias</button>
@@ -717,7 +718,6 @@
     <button id="nav-mas-btn" onclick="toggleNavDropdown(event)">Más ▾</button>
     <div class="nav-dropdown-menu" id="nav-mas-menu">
       <button onclick="showPage('clientes')">👤 Clientes</button>
-      <button onclick="showPage('catalogo-vitrina')">🛍️ Catálogo (Vitrina)</button>
       <button onclick="showPage('insumos')">💧 Insumos</button>
       <button onclick="showPage('aditivos')">🧪 Insumos Aditivos Modificadores</button>
       <button onclick="showPage('envases')">🍶 Envases</button>
@@ -1016,7 +1016,7 @@
     <div class="alert-info" style="font-size:12px;opacity:0.85;margin-bottom:16px;">Las marcas registradas y los logotipos aquí mostrados pertenecen exclusivamente a sus respectivos propietarios. Su uso es meramente informativo y descriptivo para orientar sobre el perfil olfativo de cada fragancia, elaboradas de forma artesanal siguiendo altos estándares de calidad. No existe afiliación ni patrocinio con ninguna de las marcas originales que aquí se muestran como referencia.</div>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <div>
-        <div class="section-title">🛍️ Catálogo (Vitrina)</div>
+        <div class="section-title">🛍️ Catálogo</div>
         <div class="section-sub">Esencias contratipo que se ofrecen al público — independiente de lo que tengas registrado en Esencias/Almacén</div>
       </div>
       <button class="btn btn-primary" onclick="abrirNuevaEsenciaCatalogo()">+ Nueva Esencia al Catálogo</button>
@@ -3145,6 +3145,7 @@ function nombreCortoProveedor(proveedor) {
 // db.vinetas es lista de variantes: { id, esenciaId, tipo: 'ilustrativa'|'marca', foto, stock, costoUnitario }
 // db.contadorLote es el número ascendente para generar códigos de lote (LOT-0001, LOT-0002...)
 let db = { esencias: [], insumos: {}, envases: [], lotes: [], ventas: [], familiasExtra: [], vinetas: [], vinetasLote: [], contadorLote: 0, contadorPedido: 0, proveedoresExtra: [], proveedoresAbreviados: {}, margenVentaPct: 70, costoVinetaUnitario: 0, disenadoresExtra: [], nombresEsenciaExtra: [], clientes: [], materialUsado: [], equipos: [], categoriasEquipoExtra: [], articulosExtra: [], ventasArticulosExtra: [], cajas: [], pedidos: [], formatoVinetaLoteImg: '', formatoVinetaLotePosLote: 18, formatoVinetaLotePosVolumen: 88, bajasInventario: [], envaseConjuntos: [], cajaConjuntos: [], familiasOlfativas: [], formulaBase: null, notasOlfativasTaxonomia: [], insumosAditivos: {}, catalogoVitrina: [], vitrinaAppsScriptUrl: '', vitrinaWhatsappNumero: '', vitrinaEmailContacto: 'myparfum.sv@gmail.com', vitrinaPreciosExtras: { colorante: 0, feromonas: 0, atomizadorPortatil5ml: 0 } };
+const P27_DB_DEFAULT = JSON.parse(JSON.stringify(db)); // V90: estructura vacía de referencia para Restaurar
 
 const NIVELES_MACERACION = {
   express:    { label: 'Express (14 días)', dias: 14 },
@@ -3534,19 +3535,139 @@ async function loadFromDrive() {
   } catch(e) { updateSyncStatus('error'); }
 }
 
-function descargarBackup() {
+function p27Stamp() {
+  const d = new Date(), p = (n) => String(n).padStart(2, '0');
+  return `${hoyISO()}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+// Descarga una copia de TODOS los datos (mismo formato que parfum27_data.json). Devuelve true/false.
+function descargarBackup(etiqueta) {
   try {
     const body = JSON.stringify(db, null, 2);
     const blob = new Blob([body], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Parfum27_Backup_${hoyISO()}.json`;
+    a.download = `Parfum27_${etiqueta || 'Respaldo'}_${p27Stamp()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } catch(e) { alert('No se pudo generar el respaldo. Intenta de nuevo.'); }
+    return true;
+  } catch (e) { alert('No se pudo generar el respaldo. Intenta de nuevo.'); return false; }
+}
+
+// ═══════════════ V90: RESPALDO, RESTAURAR Y LIMPIEZA SELECTIVA ═══════════════
+const P27_LIMPIEZA = [
+  { key: 'pedidos',  label: 'Pedidos y Solicitudes', n: () => (db.pedidos || []).length,
+    nota: 'Reinicia la numeración de pedidos (ORD-0001).' },
+  { key: 'lotes',    label: 'Lotes', n: () => (db.lotes || []).length,
+    nota: 'Incluye sus viñetas de lote y reinicia LOT-0001. Los pedidos que estaban vinculados vuelven a "Aprobado".' },
+  { key: 'ventas',   label: 'Ventas', n: () => (db.ventas || []).length + (db.ventasArticulosExtra || []).length,
+    nota: 'Incluye las ventas de Artículos Extra.' },
+  { key: 'clientes', label: 'Clientes', n: () => (db.clientes || []).length,
+    nota: 'Si quedan pedidos, lotes o ventas con ese nombre, el cliente se vuelve a crear solo al recargar: limpia todo junto.' },
+  { key: 'usados',   label: 'Historial de Materia Prima Usada', n: () => (db.materialUsado || []).length,
+    nota: 'Solo borra el historial. No devuelve nada al stock.' },
+];
+let _p27RespaldoCargado = null;
+
+function abrirModalDatos() {
+  _p27RespaldoCargado = null;
+  document.getElementById('datos-restaurar-resumen').innerHTML = '';
+  document.getElementById('datos-restaurar-confirmar').style.display = 'none';
+  document.getElementById('datos-restaurar-palabra').value = '';
+  document.getElementById('datos-lim-palabra').value = '';
+  document.getElementById('datos-lim-lista').innerHTML = P27_LIMPIEZA.map(x => `
+    <label style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">
+      <input type="checkbox" id="datos-lim-${x.key}" style="margin-top:3px;">
+      <span><strong>${x.label}</strong> <span style="opacity:.7">(${x.n()} registro${x.n() === 1 ? '' : 's'})</span>
+        <span style="display:block;font-size:11px;color:#56CCF2;opacity:.85;">${x.nota}</span></span>
+    </label>`).join('');
+  openModal('modal-datos');
+}
+
+function p27LeerRespaldo(input) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  const res = document.getElementById('datos-restaurar-resumen');
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const o = JSON.parse(rd.result);
+      if (!o || typeof o !== 'object' || !Array.isArray(o.esencias) || !o.insumos || typeof o.insumos !== 'object' || !Array.isArray(o.lotes)) throw new Error('formato');
+      _p27RespaldoCargado = { datos: o, nombre: f.name };
+      const n = (k) => Array.isArray(o[k]) ? o[k].length : 0;
+      res.innerHTML = `<div class="alert alert-info" style="font-size:12px;"><div><strong>${f.name}</strong><br>Contiene: ${n('esencias')} esencias · ${n('lotes')} lotes · ${n('pedidos')} pedidos · ${n('ventas')} ventas · ${n('clientes')} clientes.<br>Restaurar <strong>reemplaza TODO</strong> lo que hay ahora en la app y en Drive por el contenido de este archivo.</div></div>`;
+      document.getElementById('datos-restaurar-confirmar').style.display = 'block';
+    } catch (e) {
+      _p27RespaldoCargado = null;
+      document.getElementById('datos-restaurar-confirmar').style.display = 'none';
+      res.innerHTML = '<div style="color:#FF2D2D;font-size:12px;">Ese archivo no parece un respaldo de Parfum27 (no se pudo leer o le faltan datos). No se cambió nada.</div>';
+    }
+    input.value = '';
+  };
+  rd.onerror = () => { res.innerHTML = '<div style="color:#FF2D2D;font-size:12px;">No se pudo leer el archivo.</div>'; };
+  rd.readAsText(f);
+}
+
+async function p27EjecutarRestauracion() {
+  if (!_p27RespaldoCargado) { alert('Primero elige un archivo de respaldo.'); return; }
+  if (document.getElementById('datos-restaurar-palabra').value.trim().toUpperCase() !== 'RESTAURAR') {
+    alert('Para confirmar, escribe la palabra RESTAURAR.'); return;
+  }
+  if (!accessToken) { alert('Primero conecta tu sesión de Google (Drive) para poder guardar lo restaurado.'); return; }
+  // Antes de reemplazar, se baja una copia de lo actual (por si te arrepientes)
+  if (!descargarBackup('AntesDeRestaurar') && !confirm('No se pudo guardar la copia de seguridad de lo actual. ¿Restaurar de todos modos?')) return;
+  const base = JSON.parse(JSON.stringify(P27_DB_DEFAULT));
+  db = { ...base, ..._p27RespaldoCargado.datos };
+  document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+  renderAll();
+  await saveToDrive();
+  if (guardadoPendiente) {
+    alert('Se restauró en pantalla, pero Drive aún no confirmó el guardado. Reconecta la sesión si aparece el aviso: se guardará solo.');
+    return;
+  }
+  // Se vuelve a leer desde Drive: así corren las mismas migraciones de siempre y queda comprobado que Drive tiene lo restaurado
+  await loadFromDrive();
+  renderAll();
+  alert('✅ Respaldo restaurado y guardado en Drive.');
+}
+
+async function p27EjecutarLimpieza() {
+  const sel = P27_LIMPIEZA.filter(x => document.getElementById('datos-lim-' + x.key).checked);
+  if (!sel.length) { alert('Marca al menos una opción para limpiar.'); return; }
+  if (document.getElementById('datos-lim-palabra').value.trim().toUpperCase() !== 'BORRAR') {
+    alert('Para confirmar, escribe la palabra BORRAR.'); return;
+  }
+  if (!accessToken) { alert('Primero conecta tu sesión de Google (Drive) para poder guardar los cambios.'); return; }
+  if (!descargarBackup('AntesDeLimpiar') && !confirm('No se pudo guardar la copia de seguridad previa. ¿Limpiar de todos modos?')) return;
+  const tiene = (k) => sel.some(x => x.key === k);
+  if (tiene('pedidos')) {
+    db.pedidos = []; db.contadorPedido = 0;
+    (db.lotes || []).forEach(l => { l.pedidoId = null; });
+  }
+  if (tiene('lotes')) {
+    db.lotes = []; db.vinetasLote = []; db.contadorLote = 0;
+    (db.pedidos || []).forEach(p => {
+      if (p.loteId) {
+        p.loteId = null;
+        if (['En producción', 'Listo', 'Entregado'].includes(p.estado)) p.estado = 'Aprobado';
+      }
+    });
+  }
+  if (tiene('ventas')) { db.ventas = []; db.ventasArticulosExtra = []; }
+  if (tiene('clientes')) {
+    db.clientes = [];
+    (db.pedidos || []).forEach(p => { p.clienteId = null; });
+    (db.ventas || []).forEach(v => { v.clienteId = null; });
+  }
+  if (tiene('usados')) db.materialUsado = [];
+  closeModal('modal-datos');
+  renderAll();
+  await saveToDrive();
+  alert(guardadoPendiente
+    ? 'Se limpió en pantalla, pero Drive aún no confirmó el guardado. Reconecta la sesión si aparece el aviso: se guardará solo.'
+    : '✅ Listo. Se limpió lo marcado y quedó guardado en Drive.');
 }
 
 // Un intento de guardado. Devuelve 'ok' | 'auth' (token vencido y no se pudo renovar) | 'red' (otro fallo).
@@ -4352,7 +4473,7 @@ function renderCeldaVencimiento(fechaISO) {
 // ═══════════════ NAV ═══════════════
 // Páginas agrupadas bajo el menú desplegable "Más" en el nav — cuando el usuario está en alguna de
 // estas, el botón "Más" se resalta como activo (además del botón específico dentro del desplegable).
-const PAGINAS_SUBMENU_MAS = ['insumos', 'envases', 'cajas', 'vinetas', 'articulos-extra', 'equipos', 'usados', 'baja-inventario', 'clientes', 'catalogo-vitrina'];
+const PAGINAS_SUBMENU_MAS = ['insumos', 'envases', 'cajas', 'vinetas', 'articulos-extra', 'equipos', 'usados', 'baja-inventario', 'clientes'];
 
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -11660,5 +11781,39 @@ renderAll();
   <button type="button" class="btn btn-primary btn-sm" onclick="reconectarDrive()">Reconectar</button>
 </div>
 <div id="p27-borradores"></div>
+
+<div class="modal-overlay" id="modal-datos">
+  <div class="modal modal-wide">
+    <button type="button" class="modal-close-x" onclick="closeModal('modal-datos')" aria-label="Cerrar">✕</button>
+    <div class="modal-body">
+      <div class="modal-title">💾 Respaldo, restauración y limpieza</div>
+
+      <div class="card-title" style="font-size:14px;margin:6px 0 8px;">1. Respaldar</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Descarga a tu equipo una copia de todos tus datos (archivo .json). Hazlo antes de empezar pruebas o cambios grandes.</div>
+      <button type="button" class="btn btn-primary" onclick="descargarBackup()">📥 Descargar respaldo ahora</button>
+
+      <div class="card-title" style="font-size:14px;margin:22px 0 8px;">2. Restaurar un respaldo</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Elige el archivo .json que descargaste antes. No hace falta subirlo a Drive: la app lo guarda por ti en el mismo archivo de siempre, así la Vitrina sigue enlazada.</div>
+      <input type="file" id="datos-restaurar-archivo" accept=".json,application/json" style="display:none;" onchange="p27LeerRespaldo(this)">
+      <button type="button" class="btn btn-outline" onclick="document.getElementById('datos-restaurar-archivo').click()">📂 Elegir archivo de respaldo…</button>
+      <div id="datos-restaurar-resumen" style="margin-top:10px;"></div>
+      <div id="datos-restaurar-confirmar" style="display:none;margin-top:8px;">
+        <div class="field"><label>Para confirmar, escribe RESTAURAR</label><input id="datos-restaurar-palabra" type="text" autocomplete="off" placeholder="RESTAURAR"></div>
+        <button type="button" class="btn btn-danger" onclick="p27EjecutarRestauracion()">♻️ Restaurar este respaldo</button>
+        <div style="color:#56CCF2;font-size:11px;opacity:.8;margin-top:6px;">Antes de reemplazar, la app descarga una copia de lo que hay ahora, por si te arrepientes.</div>
+      </div>
+
+      <div class="card-title" style="font-size:14px;margin:22px 0 8px;">3. Limpieza selectiva</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:6px;">Marca lo que quieres vaciar. Lo demás (catálogo, esencias, insumos, envases, configuración) no se toca. <strong>No devuelve stock</strong>: lo que los lotes de prueba gastaron se queda gastado. Para volver exactamente al inicio, usa la opción 2.</div>
+      <div id="datos-lim-lista"></div>
+      <div class="field" style="margin-top:12px;"><label>Para confirmar, escribe BORRAR</label><input id="datos-lim-palabra" type="text" autocomplete="off" placeholder="BORRAR"></div>
+      <button type="button" class="btn btn-danger" onclick="p27EjecutarLimpieza()">🧹 Limpiar lo marcado</button>
+      <div style="color:#56CCF2;font-size:11px;opacity:.8;margin-top:6px;">También descarga una copia automática antes de borrar. Tu navegador puede preguntar si permites varias descargas: acepta.</div>
+
+      <div class="modal-actions"><button type="button" class="btn btn-outline" onclick="closeModal('modal-datos')">Cerrar</button></div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
