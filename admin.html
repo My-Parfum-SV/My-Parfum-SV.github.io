@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<!-- Parfum27_V89 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -674,6 +675,11 @@
   }
   .lightbox-overlay.open { display: flex; flex-direction: column; }
   .lightbox-overlay img { max-width: 90%; max-height: 85vh; border-radius: 8px; box-shadow: var(--shadow); }
+
+/* V89: aviso de sesión vencida + borradores recuperables */
+#p27-sesion-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:99999;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top,0px));background:#2a0505;border-bottom:2px solid #FF2D2D;color:#fff;font-size:13px;text-align:center;}
+#p27-borradores{display:none;position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-width:560px;z-index:99998;}
+.p27-borr-fila{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:6px;padding:10px 12px;background:#0b1620;border:1px solid #56CCF2;border-radius:10px;color:#fff;font-size:13px;box-shadow:0 4px 18px rgba(0,0,0,.6);}
 </style>
 </head>
 <body class="app-locked">
@@ -3147,6 +3153,14 @@ const NIVELES_MACERACION = {
 };
 let tokenClient, accessToken = null, driveFileId = null;
 let isSignedIn = false;
+// V89 — control de vencimiento del token de Google (dura ~1 hora)
+let tokenExpiraEn = 0;            // marca de tiempo (ms) en que vence el token actual
+let tokenTimerRenovar = null;     // temporizador de renovación preventiva
+let renovacionEnCurso = null;     // Promise de la renovación que está corriendo (evita duplicadas)
+let _resolverRenovacion = null, _timerEsperaRenovacion = null;
+let guardadoPendiente = false;    // true mientras haya cambios en pantalla que Drive aún no confirmó
+let guardandoEnCurso = false, guardarOtraVez = false, _timerReintentoRed = null;
+const TOKEN_MARGEN_MS = 5 * 60 * 1000; // se renueva 5 min antes de que venza
 
 // Init insumos base
 INSUMOS_BASE.forEach(n => { if (!db.insumos[n]) db.insumos[n] = { stock: 0, costoPorGramo: 0, pesoUnidad: PESO_UNIDAD_DEFAULT[n], grupos: [] }; });
@@ -3192,13 +3206,28 @@ function initGoogleAuth() {
     scope: SCOPES,
     callback: async (resp) => {
       if (resp.error) {
+        // Renovación fallida con la sesión ya iniciada: NO se toca la pantalla ni los datos,
+        // solo se avisa para que Kike reconecte con un toque.
+        if (isSignedIn) { resolverRenovacion(false); return; }
         updateSyncStatus('error');
         const msg = document.getElementById('login-gate-msg');
         if (msg) { msg.textContent = 'No se pudo iniciar sesión. Intenta de nuevo.'; msg.className = 'login-msg error'; }
         return;
       }
+      const eraRenovacion = isSignedIn;
       accessToken = resp.access_token;
+      tokenExpiraEn = Date.now() + ((parseInt(resp.expires_in, 10) || 3600) * 1000);
+      programarRenovacionToken();
       isSignedIn = true;
+      ocultarBannerSesion();
+      resolverRenovacion(true);
+      if (eraRenovacion) {
+        // Renovación (no es un login nuevo): NUNCA se recarga desde Drive ni se re-dibuja todo,
+        // para no pisar lo que hay en pantalla. Si había un guardado pendiente, se reintenta ya.
+        updateSyncStatus(guardadoPendiente ? 'saving' : 'ok');
+        if (guardadoPendiente && !guardandoEnCurso) saveToDrive(); // si ya hay un guardado en curso, él mismo continúa
+        return;
+      }
       document.getElementById('auth-status').textContent = 'Drive conectado ✓';
       document.getElementById('auth-status').className = 'auth-status connected';
       document.getElementById('btn-auth').style.display = 'none';
@@ -3209,11 +3238,78 @@ function initGoogleAuth() {
       if (gate) gate.style.display = 'none';
       await loadFromDrive();
       renderAll();
+      p27MostrarBorradores();
+    },
+    error_callback: () => {
+      // Popup bloqueado o cerrado durante una renovación: se avisa con el banner (un toque lo resuelve)
+      if (isSignedIn) resolverRenovacion(false);
     }
   });
   // Auto-intent silent
   tryAutoAuth();
 }
+
+// ═══════════════ V89: RENOVACIÓN DEL TOKEN SIN RECARGAR LA PÁGINA ═══════════════
+function resolverRenovacion(ok) {
+  if (_timerEsperaRenovacion) { clearTimeout(_timerEsperaRenovacion); _timerEsperaRenovacion = null; }
+  if (_resolverRenovacion) {
+    const r = _resolverRenovacion;
+    _resolverRenovacion = null; renovacionEnCurso = null;
+    r(ok);
+  }
+}
+// Pide un token nuevo a Google SIN recargar la página (lo que hay en pantalla no se toca).
+// interactivo=true cuando viene de un toque de Kike (da más tiempo para que complete la ventanita).
+function renovarToken(interactivo) {
+  if (!tokenClient) return Promise.resolve(false);
+  if (renovacionEnCurso) return renovacionEnCurso;
+  renovacionEnCurso = new Promise((res) => {
+    _resolverRenovacion = res;
+    _timerEsperaRenovacion = setTimeout(() => resolverRenovacion(false), interactivo ? 120000 : 10000);
+    try { tokenClient.requestAccessToken({ prompt: '' }); }
+    catch (e) { resolverRenovacion(false); }
+  });
+  return renovacionEnCurso;
+}
+function tokenVigente() { return !!accessToken && Date.now() < tokenExpiraEn - 30000; }
+async function asegurarToken() {
+  if (tokenVigente()) return true;
+  return await renovarToken(false);
+}
+function programarRenovacionToken() {
+  if (tokenTimerRenovar) clearTimeout(tokenTimerRenovar);
+  const espera = Math.max(5000, tokenExpiraEn - Date.now() - TOKEN_MARGEN_MS);
+  tokenTimerRenovar = setTimeout(async () => {
+    const ok = await renovarToken(false);
+    if (!ok) mostrarBannerSesion();
+  }, espera);
+}
+// Botón "Reconectar" (siempre viene de un toque de Kike, así el navegador sí permite la ventanita)
+async function reconectarDrive() {
+  const ok = await renovarToken(true);
+  if (!ok) mostrarBannerSesion();
+}
+function mostrarBannerSesion() {
+  const b = document.getElementById('p27-sesion-banner');
+  if (b) b.style.display = 'flex';
+  updateSyncStatus('expired');
+}
+function ocultarBannerSesion() {
+  const b = document.getElementById('p27-sesion-banner');
+  if (b) b.style.display = 'none';
+}
+// Al volver a la pestaña (ej. el celular estuvo bloqueado): si el token ya venció o está por vencer, se renueva.
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || !isSignedIn) return;
+  if (Date.now() > tokenExpiraEn - TOKEN_MARGEN_MS) {
+    const ok = await renovarToken(false);
+    if (!ok) mostrarBannerSesion();
+  }
+});
+// Si Kike intenta cerrar/recargar con cambios que Drive aún no confirmó, el navegador le avisa.
+window.addEventListener('beforeunload', (e) => {
+  if (guardadoPendiente && accessToken) { e.preventDefault(); e.returnValue = ''; }
+});
 
 function tryAutoAuth() {
   const saved = localStorage.getItem('p27_hint');
@@ -3233,9 +3329,18 @@ function updateSyncStatus(s) {
   const el = document.getElementById('sync-status');
   if (s === 'ok') el.textContent = '☁️ Sincronizado';
   else if (s === 'saving') el.textContent = '💾 Guardando...';
-  else if (s === 'error') el.textContent = '❌ Error Drive';
+  else if (s === 'error') el.textContent = '❌ Error Drive — toca para reintentar';
+  else if (s === 'expired') el.textContent = '⚠️ Sesión vencida — toca para reconectar';
   else el.textContent = '🔌 Sin Drive';
+  el.dataset.estado = s;
+  el.style.cursor = (s === 'expired' || s === 'error') ? 'pointer' : '';
 }
+document.addEventListener('click', (e) => {
+  const el = document.getElementById('sync-status');
+  if (!el || e.target !== el) return;
+  if (el.dataset.estado === 'expired') reconectarDrive();
+  else if (el.dataset.estado === 'error') saveToDrive();
+});
 
 // ═══════════════ DRIVE I/O ═══════════════
 // Catálogo semilla (Distribuidora del Caribe — Hombres, sept 2026): se carga una sola vez si
@@ -3444,27 +3549,232 @@ function descargarBackup() {
   } catch(e) { alert('No se pudo generar el respaldo. Intenta de nuevo.'); }
 }
 
+// Un intento de guardado. Devuelve 'ok' | 'auth' (token vencido y no se pudo renovar) | 'red' (otro fallo).
+async function guardarEnDriveUnaVez() {
+  for (let intento = 0; intento < 2; intento++) {
+    if (!(await asegurarToken())) return 'auth';
+    try {
+      const body = JSON.stringify(db);
+      const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+      let r;
+      if (driveFileId) {
+        r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,
+          { method: 'PATCH', headers, body });
+      } else {
+        const meta = await fetch('https://www.googleapis.com/drive/v3/files',
+          { method: 'POST', headers, body: JSON.stringify({ name: FILE_NAME, mimeType: 'application/json' }) });
+        if (meta.status === 401) { tokenExpiraEn = 0; continue; }
+        if (!meta.ok) return 'red';
+        const mj = await meta.json();
+        driveFileId = mj.id;
+        r = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,
+          { method: 'PATCH', headers, body });
+      }
+      if (r.status === 401) { tokenExpiraEn = 0; continue; } // token vencido: se renueva y se reintenta una vez
+      if (!r.ok) return 'red';
+      return 'ok';
+    } catch (e) { return 'red'; }
+  }
+  return 'auth';
+}
+
+// V89: el guardado ya NO dice "Sincronizado" si Drive lo rechazó. Si el token venció lo renueva y
+// reintenta solo; si no puede, deja el trabajo en pantalla, muestra el aviso y reintenta al reconectar.
+// Varios guardados seguidos se agrupan en uno (siempre se sube la base completa).
 async function saveToDrive() {
   if (!accessToken) return;
+  guardadoPendiente = true;
+  if (guardandoEnCurso) { guardarOtraVez = true; return; }
+  guardandoEnCurso = true;
   updateSyncStatus('saving');
   try {
-    const body = JSON.stringify(db);
-    const blob = new Blob([body], { type: 'application/json' });
-    if (driveFileId) {
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,
-        { method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body });
+    let resultado;
+    do {
+      guardarOtraVez = false;
+      resultado = await guardarEnDriveUnaVez();
+      if (resultado !== 'ok') break;
+    } while (guardarOtraVez);
+    if (resultado === 'ok') {
+      guardadoPendiente = false;
+      if (_timerReintentoRed) { clearTimeout(_timerReintentoRed); _timerReintentoRed = null; }
+      updateSyncStatus('ok');
+    } else if (resultado === 'auth') {
+      mostrarBannerSesion();
     } else {
-      const meta = await fetch('https://www.googleapis.com/drive/v3/files',
-        { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: FILE_NAME, mimeType: 'application/json' }) });
-      const mj = await meta.json();
-      driveFileId = mj.id;
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`,
-        { method: 'PATCH', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body });
+      updateSyncStatus('error');
+      if (!_timerReintentoRed) _timerReintentoRed = setTimeout(() => { _timerReintentoRed = null; saveToDrive(); }, 20000);
     }
-    updateSyncStatus('ok');
-  } catch(e) { updateSyncStatus('error'); }
+  } catch (e) { updateSyncStatus('error'); }
+  finally { guardandoEnCurso = false; }
 }
+window.addEventListener('online', () => { if (guardadoPendiente && accessToken) saveToDrive(); });
+
+
+// ═══════════════ V89: BORRADORES AUTOMÁTICOS (formularios de registro NUEVO) ═══════════════
+// Mientras Kike llena un formulario, la app va guardando una copia en ESTE navegador (localStorage,
+// no en Drive). Se borra sola al guardar o al cancelar. Si la página se recarga o se cierra por error,
+// al volver a entrar aparece "Recuperar / Descartar". No cubre ediciones de registros existentes ni
+// las fotos (esas hay que volver a adjuntarlas).
+const P27_BORR_PREFIX = 'p27_borrador_v1:';
+const P27_BORR_MAX_MS = 7 * 24 * 60 * 60 * 1000;
+let _borrRestaurando = false;
+const _borrTimers = {};
+
+function _loteExtraGet() {
+  return {
+    botes: lBotesSeleccionados.slice(),
+    insumos: JSON.parse(JSON.stringify(lInsumosSeleccionados)),
+    gm: !!lGramosTocadoManual, vm: !!lVolumenNominalTocadoManual
+  };
+}
+function _loteRestaurar(d) {
+  const val = (id) => { const c = d.campos.find(x => x[0] === id); return c ? c[1] : undefined; };
+  const setSel = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && v !== undefined && [...el.options].some(o => o.value === v)) el.value = v;
+  };
+  setSel('l-pedido-vinculado', val('l-pedido-vinculado'));
+  setSel('l-esencia', val('l-esencia'));
+  if (!document.getElementById('l-esencia').value) return; // la esencia ya no existe: no hay qué restaurar
+  onEsenciaLoteChange(); // prepara la fórmula y limpia estados internos
+  const ex = d.extra || {};
+  const esencia = db.esencias.find(e => e.id === parseInt(document.getElementById('l-esencia').value));
+  lBotesSeleccionados = (ex.botes || []).filter(id => ((esencia && esencia.botes) || []).some(b => b.id === id && !b.usado));
+  INSUMOS_LOTE_CONFIG.forEach(cfg => {
+    lInsumosSeleccionados[cfg.key] = ((ex.insumos || {})[cfg.key] || [])
+      .filter(s => gruposActivosInsumo(cfg.nombre).some(g => g.id === s.grupoId));
+  });
+  ['l-gramos-esencia', 'l-volumen-nominal', 'l-fecha', 'l-nivel-maceracion', 'l-notas'].forEach(id => {
+    const el = document.getElementById(id), v = val(id);
+    if (el && v !== undefined) el.value = v;
+  });
+  lGramosTocadoManual = !!ex.gm; lVolumenNominalTocadoManual = !!ex.vm;
+  renderBotesLoteSeleccionados(); actualizarCostoLotePreview(); actualizarRecomendacionMaceracion();
+}
+
+// Formularios cubiertos. "titulo" asegura que solo se guarde borrador cuando el formulario está en
+// modo NUEVO (no al editar un registro existente ni al agregar a un conjunto ya creado).
+const P27_BORRADORES = {
+  'modal-esencia':          { nombre: 'Nueva Esencia',             titulo: /Nueva Esencia/i,        abrir() { clearEsenciaForm(); poblarSelectoresProveedor(); openModal('modal-esencia'); } },
+  'modal-insumo':           { nombre: 'Compra de Insumo Base',                                         abrir() { openModal('modal-insumo'); onInsumoSelectChange(); } },
+  'modal-aditivo':          { nombre: 'Nuevo Insumo Aditivo',      titulo: /Nuevo Insumo Aditivo/i, abrir() { abrirNuevoAditivo(); } },
+  'modal-envase':           { nombre: 'Nuevo Envase',              titulo: /Agregar Envase/i,       abrir() { openNuevoEnvase(); } },
+  'modal-equipo':           { nombre: 'Nuevo Equipo',              titulo: /Agregar Equipo/i,       abrir() { openNuevoEquipo(); } },
+  'modal-caja':             { nombre: 'Nueva Caja',                titulo: /Agregar Caja/i,         abrir() { openNuevaCaja(); } },
+  'modal-pedido':           { nombre: 'Nuevo Pedido',              titulo: /Nuevo Pedido/i,         abrir() { openNuevoPedido(); } },
+  'modal-lote':             { nombre: 'Nuevo Lote',                                                   abrir() { openModal('modal-lote'); }, extraGet: _loteExtraGet, restaurar: _loteRestaurar },
+  'modal-cliente-perfil':   { nombre: 'Nuevo Cliente',             titulo: /Nuevo Cliente/i,        abrir() { abrirNuevoCliente(); } },
+  'modal-catalogo-vitrina': { nombre: 'Nueva Esencia al Catálogo', titulo: /Nueva Esencia al Cat/i, abrir() { abrirNuevaEsenciaCatalogo(); } },
+  'modal-articulo-extra':   { nombre: 'Nuevo Artículo Extra',      titulo: /Agregar Art/i,          abrir() { openNuevoArticuloExtra(); } },
+  'modal-editar-familia':   { nombre: 'Nueva Familia Olfativa',    titulo: /Nueva Familia/i,        abrir() { abrirEditarFamilia(null); } },
+};
+
+function p27BorrarBorrador(overlayId) {
+  if (_borrTimers[overlayId]) { clearTimeout(_borrTimers[overlayId]); delete _borrTimers[overlayId]; }
+  try { localStorage.removeItem(P27_BORR_PREFIX + overlayId); } catch (e) {}
+}
+
+function p27GuardarBorrador(overlayId) {
+  const cfg = P27_BORRADORES[overlayId];
+  if (!cfg) return;
+  const ov = document.getElementById(overlayId);
+  if (!ov || !ov.classList.contains('open')) return;
+  const tituloEl = ov.querySelector('.modal-title');
+  const titulo = tituloEl ? tituloEl.textContent : '';
+  if (cfg.titulo && !cfg.titulo.test(titulo)) return; // modo edición / agregar a conjunto: no aplica
+  const campos = [];
+  ov.querySelectorAll('input[id], select[id], textarea[id]').forEach((el) => {
+    const t = (el.type || '').toLowerCase();
+    if (['file', 'hidden', 'password', 'button', 'submit'].includes(t)) return;
+    if (t === 'checkbox' || t === 'radio') campos.push([el.id, el.checked, 1]);
+    else if (String(el.value).length <= 3000) campos.push([el.id, el.value, 0]);
+  });
+  const data = { t: Date.now(), titulo, campos };
+  if (cfg.extraGet) { try { data.extra = cfg.extraGet(); } catch (e) {} }
+  try { localStorage.setItem(P27_BORR_PREFIX + overlayId, JSON.stringify(data)); } catch (e) {}
+}
+
+function _p27ProgramarBorrador(e) {
+  if (_borrRestaurando) return;
+  const t = e.target;
+  const ov = t && t.closest ? t.closest('.modal-overlay') : null;
+  if (!ov || !P27_BORRADORES[ov.id]) return;
+  if (_borrTimers[ov.id]) clearTimeout(_borrTimers[ov.id]);
+  _borrTimers[ov.id] = setTimeout(() => { delete _borrTimers[ov.id]; p27GuardarBorrador(ov.id); }, 600);
+}
+['input', 'change', 'click'].forEach(ev => document.addEventListener(ev, _p27ProgramarBorrador, true));
+
+function p27AplicarCampos(campos) {
+  campos.forEach(([id, v, esCheck]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (esCheck) {
+      if (el.checked !== v) { el.checked = v; el.dispatchEvent(new Event('change', { bubbles: true })); }
+    } else if (el.tagName === 'SELECT') {
+      if ([...el.options].some(o => o.value === v)) { el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }
+    } else {
+      el.value = v;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+}
+
+function p27RecuperarBorrador(overlayId) {
+  const cfg = P27_BORRADORES[overlayId];
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(P27_BORR_PREFIX + overlayId)); } catch (e) {}
+  if (!cfg || !d) return;
+  _borrRestaurando = true;
+  try {
+    cfg.abrir();
+    if (cfg.restaurar) cfg.restaurar(d); else p27AplicarCampos(d.campos);
+  } catch (e) { console.error('No se pudo recuperar el borrador', e); }
+  finally { _borrRestaurando = false; }
+  p27GuardarBorrador(overlayId);
+}
+
+function _p27HaceCuanto(ms) {
+  const min = Math.max(1, Math.round((Date.now() - ms) / 60000));
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.round(min / 60);
+  return h < 48 ? `hace ${h} h` : `hace ${Math.round(h / 24)} días`;
+}
+
+// Se llama una vez al iniciar sesión: ofrece recuperar los borradores que quedaron sin guardar.
+function p27MostrarBorradores() {
+  const cont = document.getElementById('p27-borradores');
+  if (!cont) return;
+  const filas = [];
+  Object.keys(P27_BORRADORES).forEach((id) => {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(P27_BORR_PREFIX + id)); } catch (e) {}
+    if (!d) return;
+    if (Date.now() - d.t > P27_BORR_MAX_MS) { p27BorrarBorrador(id); return; }
+    filas.push({ id, d });
+  });
+  if (!filas.length) { cont.style.display = 'none'; cont.innerHTML = ''; return; }
+  cont.innerHTML = filas.map(({ id, d }) => `
+    <div class="p27-borr-fila" data-id="${id}">
+      <span>📝 Borrador sin guardar: <strong>${P27_BORRADORES[id].nombre}</strong> <span style="opacity:.7">(${_p27HaceCuanto(d.t)})</span></span>
+      <span style="display:flex;gap:6px;">
+        <button type="button" class="btn btn-primary btn-sm" data-accion="recuperar">Recuperar</button>
+        <button type="button" class="btn btn-outline btn-sm" data-accion="descartar">Descartar</button>
+      </span>
+    </div>`).join('');
+  cont.style.display = 'block';
+}
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest && e.target.closest('#p27-borradores [data-accion]');
+  if (!btn) return;
+  const fila = btn.closest('.p27-borr-fila');
+  const id = fila.dataset.id;
+  if (btn.dataset.accion === 'recuperar') p27RecuperarBorrador(id);
+  else p27BorrarBorrador(id);
+  fila.remove();
+  const cont = document.getElementById('p27-borradores');
+  if (!cont.querySelector('.p27-borr-fila')) cont.style.display = 'none';
+});
 
 // ═══════════════ FOTOS (compresión + preview + lightbox) ═══════════════
 function handleFotoUpload(event, previewId, hiddenInputId) {
@@ -4092,7 +4402,7 @@ function openModal(id) {
   if (id === 'modal-lote') { populateLoteSelect(); }
 }
 function openNuevoEnvase() { resetEnvaseForm(); poblarSelectoresProveedor(); poblarDatalistsEnvases(); openModal('modal-envase'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); p27BorrarBorrador(id); }
 
 // Nota: los modales de formulario (Esencia, Insumo, Envases, Lote, Venta, Viñeta) NO se cierran
 // con clic fuera — solo con los botones Cancelar/Guardar/✕, para evitar perder datos por accidente.
@@ -6751,6 +7061,7 @@ function resetPedidoForm() {
 // conserva cliente/contacto/fechas/lugar de entrega, para agregar un segundo (o tercer) artículo
 // a la misma orden sin retipear los datos del cliente.
 function resetPedidoFormParaOtroArticulo() {
+  p27BorrarBorrador('modal-pedido'); // el pedido ya se guardó: su borrador ya no aplica
   editandoPedidoId = null;
   document.getElementById('ped-esencia').value = '';
   document.getElementById('ped-disenador').value = '';
@@ -11343,5 +11654,11 @@ if (!db.catalogoVitrina.some(e => e.genero === 'Mujer')) {
 asegurarFamiliasCatalogoRegistradas();
 renderAll();
 </script>
+
+<div id="p27-sesion-banner">
+  <span>⚠️ Tu sesión de Google venció. No se perdió nada: lo que ves sigue en pantalla. Toca para reconectar y guardar.</span>
+  <button type="button" class="btn btn-primary btn-sm" onclick="reconectarDrive()">Reconectar</button>
+</div>
+<div id="p27-borradores"></div>
 </body>
 </html>
