@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Parfum27_V91 -->
+<!-- Parfum27_V92 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -7656,60 +7656,140 @@ function guardarConfigVitrina() {
 // Trae las solicitudes pendientes desde el Apps Script de la Vitrina y crea un Pedido nuevo
 // (estado "Pendiente de Aprobación") por cada una que aún no se haya importado. Marca cada
 // solicitud como importada en el propio Apps Script para no duplicarla en una siguiente sync.
+// ═══════════════ IMPORTAR SOLICITUDES DE LA VITRINA (V92: sin duplicados y con reintentos) ═══════════════
+let VITRINA_ESPERAS = [1500, 3500]; // segundos entre reintentos (milisegundos)
+let _importandoVitrina = false;
+
+// Llama al Apps Script con reintentos automáticos si la conexión falla un momento.
+async function vitrinaPedirJson(url, init, validar, intentos) {
+  intentos = intentos || 3;
+  let ultimo = new Error('sin respuesta');
+  for (let i = 1; i <= intentos; i++) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 25000);
+    try {
+      const res = await fetch(url, Object.assign({}, init || {}, { signal: ctl.signal }));
+      const data = await res.json();
+      clearTimeout(t);
+      if (validar && !validar(data)) throw new Error('respuesta inesperada');
+      return data;
+    } catch (e) {
+      clearTimeout(t);
+      ultimo = e;
+      if (i < intentos) await new Promise(r => setTimeout(r, VITRINA_ESPERAS[i - 1] || 3500));
+    }
+  }
+  throw ultimo;
+}
+
+// "Huella" del contenido de una solicitud: sirve para detectar reenvíos idénticos aunque tengan id distinto.
+function huellaSolicitudVitrina(s) {
+  const contacto = String(s.contactoValor || '');
+  return [
+    contacto.replace(/\D/g, '') || contacto.toLowerCase().trim(),
+    String(s.esenciaNombre || '').toLowerCase().trim(),
+    s.volumen, s.cierre, s.envaseId,
+    s.incluyeCaja ? 1 : 0, s.cajaId || '',
+    (s.extras || []).join(','),
+    s.precioTotal || 0,
+    String(s.notas || '').trim(),
+    String(s.lugarEntrega || '').trim().toLowerCase(),
+  ].join('|');
+}
+
 async function importarSolicitudesVitrina() {
+  if (_importandoVitrina) return;
   const url = db.vitrinaAppsScriptUrl;
   if (!url) { alert('Primero configura la URL de tu Apps Script en "⚙️ Config. Vitrina".'); return; }
-  let data;
+  _importandoVitrina = true;
   try {
-    const res = await fetch(url + '?action=solicitudesPendientes');
-    data = await res.json();
-  } catch (e) {
-    alert('No se pudo conectar con la Vitrina. Verifica la URL configurada y tu conexión a internet.');
-    return;
-  }
-  const pendientes = (data && data.solicitudes) || [];
-  if (!pendientes.length) { alert('No hay solicitudes nuevas de la Vitrina.'); return; }
-
-  let creadas = 0;
-  for (const s of pendientes) {
-    let cliente = db.clientes.find(c => (c.contactoValor || '').replace(/\D/g,'') === (s.contactoValor || '').replace(/\D/g,'') && (s.contactoValor||'').replace(/\D/g,''));
-    if (!cliente) {
-      cliente = { id: Date.now() + Math.random(), nombre: s.clienteNombre || 'Cliente Vitrina', contactoTipo: s.contactoTipo || 'WhatsApp', contactoValor: s.contactoValor || '', lugarEntrega: s.lugarEntrega || '', notas: '', fechaAlta: hoyISO(), lealtadEntregados: [] };
-      db.clientes.push(cliente);
-    }
-    db.pedidos.push({
-      id: Date.now() + Math.random(),
-      codigo: siguienteCodigoPedido(),
-      clienteId: cliente.id,
-      clienteNombre: cliente.nombre,
-      contactoTipo: s.contactoTipo || 'WhatsApp',
-      contactoValor: s.contactoValor || '',
-      esenciaNombre: s.esenciaNombre || '',
-      disenador: s.disenador || '',
-      familiaOlfativa: '',
-      prioridad: 'Media',
-      presentacion: s.volumen ? `${s.volumen}ml` : '',
-      tapa: s.cierre || '',
-      incluyeCaja: !!s.incluyeCaja,
-      fechaPedido: s.fechaSolicitud || hoyISO(),
-      fechaEntregaMin: '',
-      fechaEntregaMax: '',
-      lugarEntrega: s.lugarEntrega || '',
-      precioVenta: s.precioTotal || 0,
-      destino: 'cliente',
-      estado: 'Pendiente de Aprobación',
-      loteId: null,
-      nota: `Solicitud recibida vía Vitrina.${s.extras && s.extras.length ? ' Extras: ' + s.extras.join(', ') + '.' : ''}${s.notas ? ' Notas del cliente: ' + s.notas : ''}`,
-      origenVitrina: true,
-    });
+    let data;
     try {
-      await fetch(url + '?action=marcarImportada', { method: 'POST', body: JSON.stringify({ id: s.id }) });
-    } catch (e) { /* si falla el marcado, la próxima sync la reintentará — no se pierde el pedido ya creado */ }
-    creadas++;
+      data = await vitrinaPedirJson(url + '?action=solicitudesPendientes', null, (d) => d && Array.isArray(d.solicitudes));
+    } catch (e) {
+      alert('No se pudo conectar con la Vitrina después de varios intentos. Revisa tu conexión e inténtalo de nuevo. No se importó nada, así que no hay riesgo de duplicados.');
+      return;
+    }
+    const pendientes = data.solicitudes || [];
+    if (!pendientes.length) { alert('No hay solicitudes nuevas de la Vitrina.'); return; }
+
+    let creadas = 0, repetidas = 0;
+    const paraMarcar = [];          // ids que ya tienen su Pedido (o son repetidas) y deben salir de "pendientes"
+    const vistas = [];              // solicitudes ya procesadas en este lote, para detectar reenvíos idénticos
+    for (const s of pendientes) {
+      // 1) Ya existe un Pedido hecho desde esta misma solicitud (ej. falló el "marcar como importada" la vez anterior)
+      if (db.pedidos.some(p => p.vitrinaId !== undefined && String(p.vitrinaId) === String(s.id))) {
+        paraMarcar.push(s.id); repetidas++; continue;
+      }
+      // 2) Reenvío idéntico (mismo contenido, pocos minutos de diferencia): se descarta como repetida
+      const huella = huellaSolicitudVitrina(s);
+      if (vistas.some(v => v.huella === huella && Math.abs((Number(v.id) || 0) - (Number(s.id) || 0)) < 15 * 60 * 1000)) {
+        paraMarcar.push(s.id); repetidas++; continue;
+      }
+      vistas.push({ huella, id: s.id });
+
+      let cliente = db.clientes.find(c => (c.contactoValor || '').replace(/\D/g,'') === (s.contactoValor || '').replace(/\D/g,'') && (s.contactoValor||'').replace(/\D/g,''));
+      if (!cliente) {
+        cliente = { id: Date.now() + Math.random(), nombre: s.clienteNombre || 'Cliente Vitrina', contactoTipo: s.contactoTipo || 'WhatsApp', contactoValor: s.contactoValor || '', lugarEntrega: s.lugarEntrega || '', notas: '', fechaAlta: hoyISO(), lealtadEntregados: [] };
+        db.clientes.push(cliente);
+      }
+      db.pedidos.push({
+        id: Date.now() + Math.random(),
+        codigo: siguienteCodigoPedido(),
+        clienteId: cliente.id,
+        clienteNombre: cliente.nombre,
+        contactoTipo: s.contactoTipo || 'WhatsApp',
+        contactoValor: s.contactoValor || '',
+        esenciaNombre: s.esenciaNombre || '',
+        disenador: s.disenador || '',
+        familiaOlfativa: '',
+        prioridad: 'Media',
+        presentacion: s.volumen ? `${s.volumen}ml` : '',
+        tapa: s.cierre || '',
+        incluyeCaja: !!s.incluyeCaja,
+        fechaPedido: s.fechaSolicitud || hoyISO(),
+        fechaEntregaMin: '',
+        fechaEntregaMax: '',
+        lugarEntrega: s.lugarEntrega || '',
+        precioVenta: s.precioTotal || 0,
+        destino: 'cliente',
+        estado: 'Pendiente de Aprobación',
+        loteId: null,
+        nota: `Solicitud recibida vía Vitrina.${s.extras && s.extras.length ? ' Extras: ' + s.extras.join(', ') + '.' : ''}${s.notas ? ' Notas del cliente: ' + s.notas : ''}`,
+        origenVitrina: true,
+        vitrinaId: s.id,   // V92: de qué solicitud viene, para no importarla dos veces nunca
+      });
+      paraMarcar.push(s.id);
+      creadas++;
+    }
+
+    if (creadas > 0 || guardadoPendiente) {
+      renderAll();
+      // Primero se GUARDA en Drive; solo si Drive confirma se marcan como importadas en la Vitrina.
+      // Así, si algo falla en medio, la solicitud nunca se pierde ni se duplica.
+      await saveToDrive();
+      if (guardadoPendiente) {
+        alert(`Drive aún no confirmó el guardado${creadas > 0 ? ` de los ${creadas} Pedido(s) nuevo(s)` : ' de tus últimos cambios'}. Reconecta la sesión si aparece el aviso: se guardará solo. Las solicitudes NO se marcaron como importadas en la Vitrina todavía; al volver a importar no se duplicarán.`);
+        return;
+      }
+    }
+
+    let sinMarcar = 0;
+    for (const id of paraMarcar) {
+      try {
+        await vitrinaPedirJson(url + '?action=marcarImportada', { method: 'POST', body: JSON.stringify({ id }) }, (d) => d && d.ok === true);
+      } catch (e) { sinMarcar++; }
+    }
+    renderAll();
+    let msg = creadas > 0
+      ? `Se importaron ${creadas} solicitud(es) nueva(s) como Pedidos "Pendiente de Aprobación".`
+      : 'No había solicitudes nuevas distintas.';
+    if (repetidas > 0) msg += ` Se omitieron ${repetidas} repetida(s) (reenvíos por fallas de conexión).`;
+    if (sinMarcar > 0) msg += ` ${sinMarcar} no se pudieron marcar en la Vitrina por la conexión; no se duplicarán la próxima vez.`;
+    alert(msg);
+  } finally {
+    _importandoVitrina = false;
   }
-  saveToDrive();
-  renderAll();
-  alert(`Se importaron ${creadas} solicitud(es) nueva(s) como Pedidos "Pendiente de Aprobación".`);
 }
 
 function abrirPerfilCliente(id) {

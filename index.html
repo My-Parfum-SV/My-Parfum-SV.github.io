@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
+<!-- Catalogo_V3 -->
 <title>My Parfum SV — Arma tu Perfume</title>
 <style>
   :root {
@@ -191,6 +192,44 @@
 // ═══════════════ CONFIGURACIÓN — Kike debe pegar aquí la URL de su Apps Script desplegado ═══════════════
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzHsUh5sqebmjoq_hYr95wGGvnt1upkyByHgqfbDBqczKqTupfVSVK9220qdE97LkPv/exec';
 
+// ═══════════════ RED CON REINTENTOS (Catalogo_V3) ═══════════════
+// Si la conexión falla un momento, se reintenta sola hasta 3 veces antes de molestar al cliente.
+const _esperar = (ms) => new Promise(r => setTimeout(r, ms));
+async function pedirJson(url, init, opc) {
+  const o = Object.assign({ intentos: 3, timeoutMs: 20000, esperas: [1500, 3500], validar: null, onReintento: null }, opc || {});
+  let ultimoError = new Error('sin respuesta');
+  for (let i = 1; i <= o.intentos; i++) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), o.timeoutMs);
+    try {
+      const res = await fetch(url, Object.assign({}, init || {}, { signal: ctl.signal }));
+      const data = await res.json();
+      clearTimeout(t);
+      if (o.validar && !o.validar(data)) throw new Error('respuesta inesperada');
+      return data;
+    } catch (e) {
+      clearTimeout(t);
+      ultimoError = e;
+      if (i < o.intentos) {
+        if (o.onReintento) o.onReintento(i + 1, o.intentos);
+        await _esperar(o.esperas[i - 1] || 3500);
+      }
+    }
+  }
+  throw ultimoError;
+}
+// Clave única de cada envío: la MISMA mientras el contenido no cambie, así un reenvío nunca crea una solicitud nueva.
+function _idSesionEnvio() {
+  try { if (window.crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+  return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+}
+let sesionEnvioId = _idSesionEnvio();
+function _huellaTexto(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
 let DATA = { catalogo: [], envases: [], cajas: [], preciosExtras: {} };
 let estado = {
   fase: 1,
@@ -205,11 +244,17 @@ let estado = {
 };
 
 async function cargarDatos() {
+  const cargando = document.getElementById('loading');
+  cargando.style.display = '';
+  cargando.textContent = 'Cargando catálogo…';
   try {
-    const res = await fetch(APPS_SCRIPT_URL + '?action=data');
-    DATA = await res.json();
+    DATA = await pedirJson(APPS_SCRIPT_URL + '?action=data', null, {
+      validar: (d) => d && Array.isArray(d.catalogo),
+      timeoutMs: 30000,
+      onReintento: (n, total) => { cargando.textContent = `Cargando catálogo… (reintentando ${n}/${total})`; },
+    });
   } catch (e) {
-    document.getElementById('loading').innerHTML = '<p style="color:var(--red);">No se pudo cargar el catálogo. Intenta de nuevo más tarde.</p>';
+    cargando.innerHTML = '<p style="color:var(--red);">No se pudo cargar el catálogo. Revisa tu conexión.</p><button class="btn" style="margin-top:10px;" onclick="cargarDatos()">Reintentar</button>';
     return;
   }
   document.getElementById('loading').style.display = 'none';
@@ -345,16 +390,20 @@ function validarFase3() {
   document.getElementById('btn-fase3-siguiente').disabled = !ok;
 }
 
+let _precioReq = 0;
 async function actualizarPrecio() {
   if (!estado.volumen || !estado.envaseId) return;
+  const miSolicitud = ++_precioReq;
   const params = new URLSearchParams({
     action: 'precio', volumen: estado.volumen, envaseId: estado.envaseId,
     caja: estado.incluyeCaja ? '1' : '0', cajaId: estado.cajaId || '',
     extras: estado.extras.join(','),
   });
   try {
-    const res = await fetch(APPS_SCRIPT_URL + '?' + params.toString());
-    const data = await res.json();
+    const data = await pedirJson(APPS_SCRIPT_URL + '?' + params.toString(), null, {
+      validar: (d) => d && typeof d.precioTotal === 'number',
+    });
+    if (miSolicitud !== _precioReq) return; // llegó una respuesta más vieja que otra ya pedida: se ignora
     estado.precioTotal = data.precioTotal || 0;
     mostrarPrecioFlotante();
   } catch (e) { /* si falla, se recalcula en el próximo cambio */ }
@@ -415,28 +464,32 @@ async function enviarSolicitud() {
   const envase = DATA.envases.find(e => e.id === estado.envaseId);
   const btn = document.getElementById('btn-enviar');
   btn.disabled = true; btn.textContent = 'Enviando…';
+  const payload = {
+    clienteNombre: nombre,
+    contactoTipo: document.getElementById('c-contacto-tipo').value,
+    contactoValor: contactoValor,
+    lugarEntrega: lugar,
+    catalogoId: p.id,
+    esenciaNombre: p.nombre,
+    disenador: p.disenador,
+    volumen: estado.volumen,
+    cierre: estado.cierre,
+    envaseId: estado.envaseId,
+    envaseNombre: envase ? envase.nombre : '',
+    incluyeCaja: estado.incluyeCaja,
+    cajaId: estado.cajaId,
+    extras: estado.extras,
+    precioTotal: estado.precioTotal,
+    notas: document.getElementById('c-notas').value.trim(),
+  };
+  // Misma clave en cada reintento mientras el contenido no cambie → el servidor nunca guarda dos veces lo mismo.
+  payload.claveSolicitud = sesionEnvioId + '-' + _huellaTexto(JSON.stringify(payload));
   try {
-    await fetch(APPS_SCRIPT_URL + '?action=solicitud', {
-      method: 'POST',
-      body: JSON.stringify({
-        clienteNombre: nombre,
-        contactoTipo: document.getElementById('c-contacto-tipo').value,
-        contactoValor: contactoValor,
-        lugarEntrega: lugar,
-        catalogoId: p.id,
-        esenciaNombre: p.nombre,
-        disenador: p.disenador,
-        volumen: estado.volumen,
-        cierre: estado.cierre,
-        envaseId: estado.envaseId,
-        envaseNombre: envase ? envase.nombre : '',
-        incluyeCaja: estado.incluyeCaja,
-        cajaId: estado.cajaId,
-        extras: estado.extras,
-        precioTotal: estado.precioTotal,
-        notas: document.getElementById('c-notas').value.trim(),
-      }),
+    await pedirJson(APPS_SCRIPT_URL + '?action=solicitud', { method: 'POST', body: JSON.stringify(payload) }, {
+      validar: (d) => d && d.ok === true,   // solo se da por enviada si el servidor lo CONFIRMA
+      onReintento: (n, total) => { btn.textContent = `Reintentando… (${n}/${total})`; },
     });
+    sesionEnvioId = _idSesionEnvio();       // el próximo pedido empezará con una clave nueva
     document.querySelectorAll('.fase').forEach(f => f.style.display = 'none');
     document.getElementById('fase-6').style.display = 'block';
     document.getElementById('btn-confirmar-whatsapp').style.display = DATA.whatsappNumero ? 'inline-block' : 'none';
@@ -446,8 +499,8 @@ async function enviarSolicitud() {
     if (pb) pb.remove();
     window.scrollTo(0,0);
   } catch (e) {
-    alert('No se pudo enviar la solicitud. Intenta de nuevo.');
-    btn.disabled = false; btn.textContent = 'Enviar solicitud ✓';
+    alert('No pudimos confirmar el envío de tu solicitud por un problema de conexión. Es posible que sí se haya recibido. Revisa tu internet y toca "Reintentar envío": no se duplicará.');
+    btn.disabled = false; btn.textContent = 'Reintentar envío ✓';
   }
 }
 
@@ -489,8 +542,7 @@ async function consultarLealtad() {
   const el = document.getElementById('lealtad-resultado');
   el.innerHTML = 'Consultando…';
   try {
-    const res = await fetch(APPS_SCRIPT_URL + '?action=lealtad&identificador=' + encodeURIComponent(id));
-    const data = await res.json();
+    const data = await pedirJson(APPS_SCRIPT_URL + '?action=lealtad&identificador=' + encodeURIComponent(id), null, { intentos: 2, esperas: [1500] });
     if (data.error) { el.innerHTML = data.error; return; }
     if (!data.encontrado) { el.innerHTML = 'No encontramos ese dato. Verifica que sea el mismo teléfono o correo que nos diste antes.'; return; }
     let html = `Ciclo #${data.ciclo} — <strong>${data.saldoCiclo} pts</strong> vigentes.`;
