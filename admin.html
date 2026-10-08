@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Parfum27_V90 -->
+<!-- Parfum27_V91 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -3209,7 +3209,7 @@ function initGoogleAuth() {
       if (resp.error) {
         // Renovación fallida con la sesión ya iniciada: NO se toca la pantalla ni los datos,
         // solo se avisa para que Kike reconecte con un toque.
-        if (isSignedIn) { resolverRenovacion(false); return; }
+        if (isSignedIn) { resolverRenovacion(false, resp.error || 'error'); return; }
         updateSyncStatus('error');
         const msg = document.getElementById('login-gate-msg');
         if (msg) { msg.textContent = 'No se pudo iniciar sesión. Intenta de nuevo.'; msg.className = 'login-msg error'; }
@@ -3241,17 +3241,19 @@ function initGoogleAuth() {
       renderAll();
       p27MostrarBorradores();
     },
-    error_callback: () => {
+    error_callback: (err) => {
       // Popup bloqueado o cerrado durante una renovación: se avisa con el banner (un toque lo resuelve)
-      if (isSignedIn) resolverRenovacion(false);
+      if (isSignedIn) resolverRenovacion(false, (err && err.type) || 'popup');
     }
   });
   // Auto-intent silent
   tryAutoAuth();
 }
 
-// ═══════════════ V89: RENOVACIÓN DEL TOKEN SIN RECARGAR LA PÁGINA ═══════════════
-function resolverRenovacion(ok) {
+// ═══════════════ RENOVACIÓN DEL TOKEN SIN RECARGAR LA PÁGINA (V89, corregida en V91) ═══════════════
+let _motivoRenovacion = '', _intentoReconectar = 0;
+function resolverRenovacion(ok, motivo) {
+  if (!ok && motivo) _motivoRenovacion = motivo;
   if (_timerEsperaRenovacion) { clearTimeout(_timerEsperaRenovacion); _timerEsperaRenovacion = null; }
   if (_resolverRenovacion) {
     const r = _resolverRenovacion;
@@ -3260,15 +3262,19 @@ function resolverRenovacion(ok) {
   }
 }
 // Pide un token nuevo a Google SIN recargar la página (lo que hay en pantalla no se toca).
-// interactivo=true cuando viene de un toque de Kike (da más tiempo para que complete la ventanita).
-function renovarToken(interactivo) {
+// interactivo=true cuando viene de un toque de Kike. forzar=true descarta cualquier solicitud anterior que
+// haya quedado colgada (V91: antes un intento bloqueado dejaba "esperando" y los toques siguientes no hacían nada).
+function renovarToken(interactivo, forzar, prompt) {
   if (!tokenClient) return Promise.resolve(false);
-  if (renovacionEnCurso) return renovacionEnCurso;
+  if (renovacionEnCurso) {
+    if (!forzar) return renovacionEnCurso;
+    resolverRenovacion(false, 'reemplazada');
+  }
   renovacionEnCurso = new Promise((res) => {
     _resolverRenovacion = res;
-    _timerEsperaRenovacion = setTimeout(() => resolverRenovacion(false), interactivo ? 120000 : 10000);
-    try { tokenClient.requestAccessToken({ prompt: '' }); }
-    catch (e) { resolverRenovacion(false); }
+    _timerEsperaRenovacion = setTimeout(() => resolverRenovacion(false, 'sin_respuesta'), interactivo ? 45000 : 10000);
+    try { tokenClient.requestAccessToken({ prompt: prompt || '' }); }
+    catch (e) { resolverRenovacion(false, 'excepcion'); }
   });
   return renovacionEnCurso;
 }
@@ -3285,19 +3291,45 @@ function programarRenovacionToken() {
     if (!ok) mostrarBannerSesion();
   }, espera);
 }
-// Botón "Reconectar" (siempre viene de un toque de Kike, así el navegador sí permite la ventanita)
-async function reconectarDrive() {
-  const ok = await renovarToken(true);
-  if (!ok) mostrarBannerSesion();
+
+const P27_MSG_SESION_BASE = '⚠️ Tu sesión de Google venció. No se perdió nada: lo que ves sigue en pantalla. Toca para reconectar y guardar.';
+function textoMotivoSesion(m) {
+  if (m === 'popup_failed_to_open') return '🚫 El navegador bloqueó la ventana de Google. Toca el icono de ventana bloqueada en la barra de direcciones, permite ventanas emergentes para este sitio y toca Reconectar otra vez.';
+  if (m === 'popup_closed') return 'La ventana de Google se cerró antes de terminar. Toca Reconectar y completa los pasos hasta el final.';
+  if (m === 'access_denied') return 'Google no dio el permiso. Elige la cuenta myparfum.sv@gmail.com y acepta. Toca Reconectar para intentarlo de nuevo.';
+  if (m === 'sin_respuesta') return 'Google no respondió a tiempo. Toca Reconectar otra vez; si sigue igual, usa "Recargar página" (lo que ya estaba guardado en Drive no se pierde).';
+  return `No se pudo reconectar${m ? ' (' + m + ')' : ''}. Toca Reconectar otra vez o usa "Recargar página".`;
+}
+function ponerMensajeSesion(texto) {
+  const m = document.getElementById('p27-sesion-msg');
+  if (m) m.textContent = texto;
+  ajustarEspacioBanner();
+}
+// El aviso es fijo arriba: se empuja el contenido hacia abajo para que no tape la cabecera.
+function ajustarEspacioBanner() {
+  const b = document.getElementById('p27-sesion-banner');
+  document.body.style.paddingTop = (b && b.style.display === 'flex') ? (b.offsetHeight + 'px') : '';
+}
+// Botón "Reconectar". IMPORTANTE: pide el token de inmediato (sin 'await' antes) para que el navegador lo
+// trate como un clic directo y deje abrir la ventana de Google. Cada toque descarta intentos colgados.
+function reconectarDrive() {
+  _intentoReconectar++;
+  ponerMensajeSesion('🔄 Abriendo la ventana de Google… si no aparece, revisa si el navegador la bloqueó (icono en la barra de direcciones).');
+  renovarToken(true, true, _intentoReconectar >= 2 ? 'consent' : '').then((ok) => {
+    if (!ok) { mostrarBannerSesion(); ponerMensajeSesion(textoMotivoSesion(_motivoRenovacion)); }
+  });
 }
 function mostrarBannerSesion() {
   const b = document.getElementById('p27-sesion-banner');
-  if (b) b.style.display = 'flex';
+  if (b && b.style.display !== 'flex') { b.style.display = 'flex'; ponerMensajeSesion(P27_MSG_SESION_BASE); }
+  ajustarEspacioBanner();
   updateSyncStatus('expired');
 }
 function ocultarBannerSesion() {
   const b = document.getElementById('p27-sesion-banner');
   if (b) b.style.display = 'none';
+  _intentoReconectar = 0; _motivoRenovacion = '';
+  ajustarEspacioBanner();
 }
 // Al volver a la pestaña (ej. el celular estuvo bloqueado): si el token ya venció o está por vencer, se renueva.
 document.addEventListener('visibilitychange', async () => {
@@ -11777,8 +11809,11 @@ renderAll();
 </script>
 
 <div id="p27-sesion-banner">
-  <span>⚠️ Tu sesión de Google venció. No se perdió nada: lo que ves sigue en pantalla. Toca para reconectar y guardar.</span>
-  <button type="button" class="btn btn-primary btn-sm" onclick="reconectarDrive()">Reconectar</button>
+  <span id="p27-sesion-msg">⚠️ Tu sesión de Google venció. No se perdió nada: lo que ves sigue en pantalla. Toca para reconectar y guardar.</span>
+  <span style="display:flex;gap:8px;">
+    <button type="button" class="btn btn-primary btn-sm" onclick="reconectarDrive()">Reconectar</button>
+    <button type="button" class="btn btn-outline btn-sm" onclick="location.reload()">Recargar página</button>
+  </span>
 </div>
 <div id="p27-borradores"></div>
 
