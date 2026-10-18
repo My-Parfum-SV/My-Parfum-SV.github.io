@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Parfum27_V92 -->
+<!-- Parfum27_V93 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -680,6 +680,11 @@
 #p27-sesion-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:99999;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top,0px));background:#2a0505;border-bottom:2px solid #FF2D2D;color:#fff;font-size:13px;text-align:center;}
 #p27-borradores{display:none;position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));max-width:560px;z-index:99998;}
 .p27-borr-fila{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:6px;padding:10px 12px;background:#0b1620;border:1px solid #56CCF2;border-radius:10px;color:#fff;font-size:13px;box-shadow:0 4px 18px rgba(0,0,0,.6);}
+
+/* V93: lista "Qué hay guardado" */
+.p27-chip{display:inline-block;padding:4px 9px;border:1px solid var(--border);border-radius:999px;font-size:12px;opacity:.55;}
+.p27-chip.on{opacity:1;border-color:#C9A227;color:#fff;background:rgba(201,162,39,.12);}
+.p27-chip.fab{opacity:.8;border-style:dashed;}
 </style>
 </head>
 <body class="app-locked">
@@ -703,7 +708,7 @@
     <span id="sync-status">⏳ Conectando...</span>
     <span id="auth-status" class="auth-status">No conectado</span>
     <button class="btn btn-outline btn-sm" id="btn-auth" onclick="handleAuth()">Conectar Drive</button>
-    <button class="btn btn-outline btn-sm" onclick="abrirModalDatos()">💾 Datos</button>
+    <button class="btn btn-outline btn-sm" id="btn-datos" onclick="abrirModalDatos()">💾 Datos</button>
   </div>
 </header>
 
@@ -3144,7 +3149,7 @@ function nombreCortoProveedor(proveedor) {
 // db.envases es ahora una LISTA de variantes (cada una con su categoría base, nombre, foto, stock, costo, precio)
 // db.vinetas es lista de variantes: { id, esenciaId, tipo: 'ilustrativa'|'marca', foto, stock, costoUnitario }
 // db.contadorLote es el número ascendente para generar códigos de lote (LOT-0001, LOT-0002...)
-let db = { esencias: [], insumos: {}, envases: [], lotes: [], ventas: [], familiasExtra: [], vinetas: [], vinetasLote: [], contadorLote: 0, contadorPedido: 0, proveedoresExtra: [], proveedoresAbreviados: {}, margenVentaPct: 70, costoVinetaUnitario: 0, disenadoresExtra: [], nombresEsenciaExtra: [], clientes: [], materialUsado: [], equipos: [], categoriasEquipoExtra: [], articulosExtra: [], ventasArticulosExtra: [], cajas: [], pedidos: [], formatoVinetaLoteImg: '', formatoVinetaLotePosLote: 18, formatoVinetaLotePosVolumen: 88, bajasInventario: [], envaseConjuntos: [], cajaConjuntos: [], familiasOlfativas: [], formulaBase: null, notasOlfativasTaxonomia: [], insumosAditivos: {}, catalogoVitrina: [], vitrinaAppsScriptUrl: '', vitrinaWhatsappNumero: '', vitrinaEmailContacto: 'myparfum.sv@gmail.com', vitrinaPreciosExtras: { colorante: 0, feromonas: 0, atomizadorPortatil5ml: 0 } };
+let db = { esencias: [], insumos: {}, envases: [], lotes: [], ventas: [], familiasExtra: [], vinetas: [], vinetasLote: [], contadorLote: 0, contadorPedido: 0, proveedoresExtra: [], proveedoresAbreviados: {}, margenVentaPct: 70, costoVinetaUnitario: 0, disenadoresExtra: [], nombresEsenciaExtra: [], clientes: [], materialUsado: [], equipos: [], categoriasEquipoExtra: [], articulosExtra: [], ventasArticulosExtra: [], cajas: [], pedidos: [], formatoVinetaLoteImg: '', formatoVinetaLotePosLote: 18, formatoVinetaLotePosVolumen: 88, bajasInventario: [], envaseConjuntos: [], cajaConjuntos: [], familiasOlfativas: [], formulaBase: null, notasOlfativasTaxonomia: [], insumosAditivos: {}, catalogoVitrina: [], vitrinaAppsScriptUrl: '', vitrinaWhatsappNumero: '', vitrinaEmailContacto: 'myparfum.sv@gmail.com', vitrinaPreciosExtras: { colorante: 0, feromonas: 0, atomizadorPortatil5ml: 0 }, ultimoGuardado: '', ultimoRespaldo: '', actividad: [] };
 const P27_DB_DEFAULT = JSON.parse(JSON.stringify(db)); // V90: estructura vacía de referencia para Restaurar
 
 const NIVELES_MACERACION = {
@@ -3162,6 +3167,11 @@ let _resolverRenovacion = null, _timerEsperaRenovacion = null;
 let guardadoPendiente = false;    // true mientras haya cambios en pantalla que Drive aún no confirmó
 let guardandoEnCurso = false, guardarOtraVez = false, _timerReintentoRed = null;
 const TOKEN_MARGEN_MS = 5 * 60 * 1000; // se renueva 5 min antes de que venza
+// V93 — último guardado, registro de actividad y guardado en curso
+let _ultimoGuardadoMostrado = '';   // fecha/hora (ISO) del último guardado confirmado por Drive
+let _snapActividad = null;          // "foto" de los datos en el último guardado, para detectar qué cambió
+let _actividadEspecial = null;      // evento especial que reemplaza el detalle automático del próximo guardado
+let _guardadoPromesa = null;        // promesa del guardado que está corriendo (para poder esperarlo)
 
 // Init insumos base
 INSUMOS_BASE.forEach(n => { if (!db.insumos[n]) db.insumos[n] = { stock: 0, costoPorGramo: 0, pesoUnidad: PESO_UNIDAD_DEFAULT[n], grupos: [] }; });
@@ -3360,13 +3370,14 @@ function handleAuth() {
 
 function updateSyncStatus(s) {
   const el = document.getElementById('sync-status');
-  if (s === 'ok') el.textContent = '☁️ Sincronizado';
+  if (s === 'ok') el.textContent = '☁️ Sincronizado' + (_ultimoGuardadoMostrado ? ' · ' + p27FormatoFecha(_ultimoGuardadoMostrado) : '');
   else if (s === 'saving') el.textContent = '💾 Guardando...';
   else if (s === 'error') el.textContent = '❌ Error Drive — toca para reintentar';
   else if (s === 'expired') el.textContent = '⚠️ Sesión vencida — toca para reconectar';
   else el.textContent = '🔌 Sin Drive';
   el.dataset.estado = s;
   el.style.cursor = (s === 'expired' || s === 'error') ? 'pointer' : '';
+  try { p27ActualizarAvisoRespaldo(); } catch (e) { /* aún no cargó todo */ }
 }
 document.addEventListener('click', (e) => {
   const el = document.getElementById('sync-status');
@@ -3563,6 +3574,9 @@ async function loadFromDrive() {
         }
       });
     }
+    if (!Array.isArray(db.actividad)) db.actividad = [];
+    _ultimoGuardadoMostrado = db.ultimoGuardado || '';
+    _snapActividad = p27TomarSnapshot();   // desde aquí se detectan los cambios del registro de actividad
     updateSyncStatus('ok');
   } catch(e) { updateSyncStatus('error'); }
 }
@@ -3571,6 +3585,25 @@ function p27Stamp() {
   const d = new Date(), p = (n) => String(n).padStart(2, '0');
   return `${hoyISO()}_${p(d.getHours())}${p(d.getMinutes())}`;
 }
+function _p27Esc(s) {
+  return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+// "hoy 3:42 pm" / "ayer 8:10 pm" / "15 oct 3:42 pm"
+function p27FormatoFecha(iso) {
+  const d = new Date(iso);
+  if (!iso || isNaN(d)) return '';
+  const hoy = new Date(), ayer = new Date();
+  ayer.setDate(hoy.getDate() - 1);
+  let h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, '0'), ap = h >= 12 ? 'pm' : 'am';
+  h = h % 12 || 12;
+  const hora = `${h}:${m} ${ap}`;
+  if (d.toDateString() === hoy.toDateString()) return `hoy ${hora}`;
+  if (d.toDateString() === ayer.toDateString()) return `ayer ${hora}`;
+  const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  return `${d.getDate()} ${meses[d.getMonth()]}${d.getFullYear() !== hoy.getFullYear() ? ' ' + d.getFullYear() : ''} ${hora}`;
+}
+
 // Descarga una copia de TODOS los datos (mismo formato que parfum27_data.json). Devuelve true/false.
 function descargarBackup(etiqueta) {
   try {
@@ -3584,23 +3617,119 @@ function descargarBackup(etiqueta) {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    return true;
   } catch (e) { alert('No se pudo generar el respaldo. Intenta de nuevo.'); return false; }
+  // V93: se anota cuándo fue el último respaldo (queda guardado en Drive junto con los datos)
+  db.ultimoRespaldo = new Date().toISOString();
+  const nota = etiqueta === 'AntesDeLimpiar' ? ' (antes de limpiar)' : etiqueta === 'AntesDeRestaurar' ? ' (antes de restaurar)' : '';
+  p27AgregarActividad('💾 Respaldo descargado' + nota, 'Sistema');
+  try { p27ActualizarAvisoRespaldo(); } catch (e) {}
+  if (!etiqueta) saveToDrive();
+  return true;
 }
 
-// ═══════════════ V90: RESPALDO, RESTAURAR Y LIMPIEZA SELECTIVA ═══════════════
-const P27_LIMPIEZA = [
-  { key: 'pedidos',  label: 'Pedidos y Solicitudes', n: () => (db.pedidos || []).length,
-    nota: 'Reinicia la numeración de pedidos (ORD-0001).' },
-  { key: 'lotes',    label: 'Lotes', n: () => (db.lotes || []).length,
-    nota: 'Incluye sus viñetas de lote y reinicia LOT-0001. Los pedidos que estaban vinculados vuelven a "Aprobado".' },
-  { key: 'ventas',   label: 'Ventas', n: () => (db.ventas || []).length + (db.ventasArticulosExtra || []).length,
-    nota: 'Incluye las ventas de Artículos Extra.' },
-  { key: 'clientes', label: 'Clientes', n: () => (db.clientes || []).length,
-    nota: 'Si quedan pedidos, lotes o ventas con ese nombre, el cliente se vuelve a crear solo al recargar: limpia todo junto.' },
-  { key: 'usados',   label: 'Historial de Materia Prima Usada', n: () => (db.materialUsado || []).length,
-    nota: 'Solo borra el historial. No devuelve nada al stock.' },
+// ═══════════════ V93: "QUÉ HAY GUARDADO" ═══════════════
+const _p27Len = (k) => Array.isArray(db[k]) ? db[k].length : 0;
+const _p27Grupos = (obj) => Object.keys(obj || {}).reduce((s, k) => s + (((obj[k] || {}).grupos || []).length), 0);
+const P27_INVENTARIO = [
+  { grupo: 'Operación', items: [
+    { l: 'Pedidos', n: () => _p27Len('pedidos') },
+    { l: 'Lotes', n: () => _p27Len('lotes') },
+    { l: 'Viñetas de lote', n: () => _p27Len('vinetasLote') },
+    { l: 'Ventas', n: () => _p27Len('ventas') },
+    { l: 'Ventas de artículos extra', n: () => _p27Len('ventasArticulosExtra') },
+    { l: 'Clientes', n: () => _p27Len('clientes') },
+    { l: 'Materia prima usada (historial)', n: () => _p27Len('materialUsado') },
+    { l: 'Bajas de inventario', n: () => _p27Len('bajasInventario') },
+  ] },
+  { grupo: 'Inventario', items: [
+    { l: 'Esencias', n: () => _p27Len('esencias'), extra: () => { const b = (db.esencias || []).reduce((s, e) => s + ((e.botes || []).length), 0); return b ? `${b} bote${b === 1 ? '' : 's'}` : ''; } },
+    { l: 'Insumos base (compras)', n: () => _p27Grupos(db.insumos) },
+    { l: 'Insumos aditivos', n: () => Object.keys(db.insumosAditivos || {}).length, extra: () => { const c = _p27Grupos(db.insumosAditivos); return c ? `${c} compra${c === 1 ? '' : 's'}` : ''; } },
+    { l: 'Envases', n: () => _p27Len('envases') },
+    { l: 'Cajas', n: () => _p27Len('cajas') },
+    { l: 'Viñetas', n: () => _p27Len('vinetas') },
+    { l: 'Equipos', n: () => _p27Len('equipos') },
+    { l: 'Artículos extra', n: () => _p27Len('articulosExtra') },
+  ] },
+  { grupo: 'Listas que agregaste tú', items: [
+    { l: 'Proveedores', n: () => _p27Len('proveedoresExtra') },
+    { l: 'Diseñadores', n: () => _p27Len('disenadoresExtra') },
+    { l: 'Nombres de esencia', n: () => _p27Len('nombresEsenciaExtra') },
+    { l: 'Familias', n: () => _p27Len('familiasExtra') },
+    { l: 'Categorías de equipo', n: () => _p27Len('categoriasEquipoExtra') },
+  ] },
+  { grupo: 'Viene con la app (no cuenta como "guardado por ti")', fabrica: true, items: [
+    { l: 'Catálogo de la Vitrina', n: () => _p27Len('catalogoVitrina') },
+    { l: 'Familias olfativas', n: () => _p27Len('familiasOlfativas') },
+    { l: 'Taxonomía de notas', n: () => _p27Len('notasOlfativasTaxonomia') },
+  ] },
 ];
+function p27TotalRegistrosUsuario() {
+  let t = 0;
+  P27_INVENTARIO.forEach(g => { if (!g.fabrica) g.items.forEach(i => { t += i.n(); }); });
+  return t;
+}
+function p27RespaldoViejo() {
+  if (p27TotalRegistrosUsuario() === 0) return false;
+  const ms = Date.parse(db.ultimoRespaldo || '');
+  return !ms || (Date.now() - ms) > 7 * 24 * 60 * 60 * 1000;
+}
+// Marca el botón "💾 Datos" con ⚠️ si hay datos y el último respaldo es de hace más de 7 días (o nunca).
+function p27ActualizarAvisoRespaldo() {
+  const b = document.getElementById('btn-datos');
+  if (!b) return;
+  const viejo = p27RespaldoViejo();
+  b.textContent = viejo ? '💾 Datos ⚠️' : '💾 Datos';
+  b.title = viejo ? 'Hace más de 7 días que no descargas un respaldo' : '';
+}
+function p27RenderEstadoDatos() {
+  const ult = _ultimoGuardadoMostrado ? `${p27FormatoFecha(_ultimoGuardadoMostrado)} <span style="opacity:.7">(${_p27HaceCuanto(Date.parse(_ultimoGuardadoMostrado))})</span>` : '<span style="opacity:.7">todavía no hay un guardado registrado</span>';
+  const ms = Date.parse(db.ultimoRespaldo || '');
+  const viejo = p27RespaldoViejo();
+  const resp = ms ? `${p27FormatoFecha(db.ultimoRespaldo)} <span style="opacity:.7">(${_p27HaceCuanto(ms)})</span>` : 'ninguno registrado todavía';
+  document.getElementById('datos-estado').innerHTML =
+    `<div>☁️ Último guardado en Drive: <strong>${ult}</strong></div>` +
+    `<div style="margin-top:4px;${viejo ? 'color:#FFB020;' : ''}">💾 Último respaldo descargado: <strong>${resp}</strong>${viejo ? ' — ⚠️ conviene descargar uno' : ''}</div>`;
+}
+function p27RenderInventario() {
+  document.getElementById('datos-inventario').innerHTML = P27_INVENTARIO.map(g => `
+    <div style="margin:8px 0 2px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;opacity:.75;">${g.grupo}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">` + g.items.map(i => {
+      const n = i.n(), ex = i.extra ? i.extra() : '';
+      return `<span class="p27-chip${n > 0 && !g.fabrica ? ' on' : ''}${g.fabrica ? ' fab' : ''}">${i.l} <b>${n}</b>${ex ? ` <span style="opacity:.7">· ${ex}</span>` : ''}</span>`;
+    }).join('') + '</div>').join('');
+}
+
+// ═══════════════ V90/V93: RESPALDO, RESTAURAR Y LIMPIEZA SELECTIVA ═══════════════
+const _p27ConfirmarListas = () => ['proveedoresExtra', 'disenadoresExtra', 'nombresEsenciaExtra', 'familiasExtra', 'categoriasEquipoExtra'].reduce((s, k) => s + _p27Len(k), 0);
+const P27_LIMPIEZA = [
+  { grupo: 'Operación', key: 'pedidos',  label: 'Pedidos y Solicitudes', n: () => _p27Len('pedidos'),
+    nota: 'Reinicia la numeración de pedidos (ORD-0001).' },
+  { key: 'lotes',    label: 'Lotes', n: () => _p27Len('lotes'),
+    nota: 'Incluye sus viñetas de lote y reinicia LOT-0001. Los pedidos que estaban vinculados vuelven a "Aprobado".' },
+  { key: 'ventas',   label: 'Ventas', n: () => _p27Len('ventas') + _p27Len('ventasArticulosExtra'),
+    nota: 'Incluye las ventas de Artículos Extra.' },
+  { key: 'clientes', label: 'Clientes', n: () => _p27Len('clientes'), dep: ['pedidos', 'lotes', 'ventas'],
+    nota: 'Si quedan pedidos, lotes o ventas con ese nombre, el cliente se vuelve a crear solo al recargar: limpia todo junto.' },
+  { key: 'usados',   label: 'Historial de Materia Prima Usada', n: () => _p27Len('materialUsado'),
+    nota: 'Solo borra el historial. No devuelve nada al stock.' },
+  { key: 'bajas',    label: 'Bajas de inventario', n: () => _p27Len('bajasInventario'),
+    nota: 'Solo borra el historial de bajas.' },
+  { grupo: 'Inventario', key: 'esencias', label: 'Esencias (con sus botes)', n: () => _p27Len('esencias'), dep: ['lotes'],
+    nota: 'Los lotes guardan referencias a las esencias que usaron.' },
+  { key: 'insumos',  label: 'Insumos base (compras registradas)', n: () => _p27Grupos(db.insumos), dep: ['lotes'],
+    nota: 'Vacía las compras y el stock. Los insumos base (alcohol, IPADEO, etc.) siguen existiendo en la lista.' },
+  { key: 'aditivos', label: 'Insumos aditivos (definiciones y compras)', n: () => Object.keys(db.insumosAditivos || {}).length, dep: ['lotes'],
+    nota: 'Borra los aditivos que creaste y sus compras.' },
+  { key: 'envases',  label: 'Envases (y sus conjuntos)', n: () => _p27Len('envases'), dep: ['lotes', 'ventas'] },
+  { key: 'cajas',    label: 'Cajas (y sus conjuntos)', n: () => _p27Len('cajas'), dep: ['lotes', 'ventas'] },
+  { key: 'vinetas',  label: 'Viñetas (marca / ilustrativas)', n: () => _p27Len('vinetas'), dep: ['lotes'] },
+  { key: 'equipos',  label: 'Equipos', n: () => _p27Len('equipos') },
+  { key: 'articulos', label: 'Artículos extra', n: () => _p27Len('articulosExtra'), dep: ['ventas'] },
+  { grupo: 'Listas personalizadas', key: 'listas', label: 'Proveedores, diseñadores, nombres, familias y categorías que agregaste', n: () => _p27ConfirmarListas(),
+    nota: 'No toca las listas que vienen con la app.' },
+];
+const P27_LIMPIEZA_NOMBRES = { pedidos: 'Pedidos', lotes: 'Lotes', ventas: 'Ventas', clientes: 'Clientes', usados: 'Materia prima usada', bajas: 'Bajas', esencias: 'Esencias', insumos: 'Insumos base', aditivos: 'Insumos aditivos', envases: 'Envases', cajas: 'Cajas', vinetas: 'Viñetas', equipos: 'Equipos', articulos: 'Artículos extra', listas: 'Listas personalizadas' };
 let _p27RespaldoCargado = null;
 
 function abrirModalDatos() {
@@ -3609,13 +3738,29 @@ function abrirModalDatos() {
   document.getElementById('datos-restaurar-confirmar').style.display = 'none';
   document.getElementById('datos-restaurar-palabra').value = '';
   document.getElementById('datos-lim-palabra').value = '';
+  p27RenderEstadoDatos();
+  p27RenderInventario();
   document.getElementById('datos-lim-lista').innerHTML = P27_LIMPIEZA.map(x => `
+    ${x.grupo ? `<div style="margin:12px 0 2px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;opacity:.75;">${x.grupo}</div>` : ''}
     <label style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">
       <input type="checkbox" id="datos-lim-${x.key}" style="margin-top:3px;">
       <span><strong>${x.label}</strong> <span style="opacity:.7">(${x.n()} registro${x.n() === 1 ? '' : 's'})</span>
-        <span style="display:block;font-size:11px;color:#56CCF2;opacity:.85;">${x.nota}</span></span>
+        ${x.nota ? `<span style="display:block;font-size:11px;color:#56CCF2;opacity:.85;">${x.nota}</span>` : ''}</span>
     </label>`).join('');
+  document.getElementById('datos-lim-avisos').innerHTML = '';
   openModal('modal-datos');
+}
+
+// Avisa (sin bloquear) si marcas algo que otros registros todavía usan.
+function p27AvisosLimpieza() {
+  const marcado = (k) => { const c = document.getElementById('datos-lim-' + k); return !!(c && c.checked); };
+  const avisos = [];
+  P27_LIMPIEZA.forEach(x => {
+    if (!marcado(x.key) || !x.dep) return;
+    const faltan = x.dep.filter(k => !marcado(k) && (P27_LIMPIEZA.find(y => y.key === k).n() > 0)).map(k => P27_LIMPIEZA_NOMBRES[k]);
+    if (faltan.length) avisos.push(`⚠️ Al limpiar <strong>${P27_LIMPIEZA_NOMBRES[x.key]}</strong> quedarían registros que lo usan (<strong>${faltan.join(', ')}</strong>). Considera marcarlos también.`);
+  });
+  document.getElementById('datos-lim-avisos').innerHTML = avisos.map(a => `<div style="margin-top:6px;">${a}</div>`).join('');
 }
 
 function p27LeerRespaldo(input) {
@@ -3629,7 +3774,7 @@ function p27LeerRespaldo(input) {
       if (!o || typeof o !== 'object' || !Array.isArray(o.esencias) || !o.insumos || typeof o.insumos !== 'object' || !Array.isArray(o.lotes)) throw new Error('formato');
       _p27RespaldoCargado = { datos: o, nombre: f.name };
       const n = (k) => Array.isArray(o[k]) ? o[k].length : 0;
-      res.innerHTML = `<div class="alert alert-info" style="font-size:12px;"><div><strong>${f.name}</strong><br>Contiene: ${n('esencias')} esencias · ${n('lotes')} lotes · ${n('pedidos')} pedidos · ${n('ventas')} ventas · ${n('clientes')} clientes.<br>Restaurar <strong>reemplaza TODO</strong> lo que hay ahora en la app y en Drive por el contenido de este archivo.</div></div>`;
+      res.innerHTML = `<div class="alert alert-info" style="font-size:12px;"><div><strong>${_p27Esc(f.name)}</strong><br>Contiene: ${n('esencias')} esencias · ${n('lotes')} lotes · ${n('pedidos')} pedidos · ${n('ventas')} ventas · ${n('clientes')} clientes.<br>Restaurar <strong>reemplaza TODO</strong> lo que hay ahora en la app y en Drive por el contenido de este archivo.</div></div>`;
       document.getElementById('datos-restaurar-confirmar').style.display = 'block';
     } catch (e) {
       _p27RespaldoCargado = null;
@@ -3650,8 +3795,15 @@ async function p27EjecutarRestauracion() {
   if (!accessToken) { alert('Primero conecta tu sesión de Google (Drive) para poder guardar lo restaurado.'); return; }
   // Antes de reemplazar, se baja una copia de lo actual (por si te arrepientes)
   if (!descargarBackup('AntesDeRestaurar') && !confirm('No se pudo guardar la copia de seguridad de lo actual. ¿Restaurar de todos modos?')) return;
+  // El registro de actividad y la fecha del último respaldo son de ESTA app, no del respaldo: se conservan
+  const actividadActual = Array.isArray(db.actividad) ? db.actividad : [];
+  const respaldoActual = db.ultimoRespaldo || '';
+  const nombre = _p27RespaldoCargado.nombre;
   const base = JSON.parse(JSON.stringify(P27_DB_DEFAULT));
   db = { ...base, ..._p27RespaldoCargado.datos };
+  db.actividad = actividadActual;
+  db.ultimoRespaldo = respaldoActual;
+  p27RegistrarEspecial(`♻️ Restaurado el respaldo ${nombre}`, 'Sistema');
   document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
   renderAll();
   await saveToDrive();
@@ -3694,6 +3846,17 @@ async function p27EjecutarLimpieza() {
     (db.ventas || []).forEach(v => { v.clienteId = null; });
   }
   if (tiene('usados')) db.materialUsado = [];
+  if (tiene('bajas')) db.bajasInventario = [];
+  if (tiene('esencias')) db.esencias = [];
+  if (tiene('insumos')) Object.keys(db.insumos || {}).forEach(k => { if (db.insumos[k]) { db.insumos[k].grupos = []; db.insumos[k].stock = 0; db.insumos[k].costoPorGramo = 0; } });
+  if (tiene('aditivos')) db.insumosAditivos = {};
+  if (tiene('envases')) { db.envases = []; db.envaseConjuntos = []; }
+  if (tiene('cajas')) { db.cajas = []; db.cajaConjuntos = []; }
+  if (tiene('vinetas')) db.vinetas = [];
+  if (tiene('equipos')) db.equipos = [];
+  if (tiene('articulos')) db.articulosExtra = [];
+  if (tiene('listas')) { db.proveedoresExtra = []; db.disenadoresExtra = []; db.nombresEsenciaExtra = []; db.familiasExtra = []; db.categoriasEquipoExtra = []; }
+  p27RegistrarEspecial('🧹 Limpiado: ' + sel.map(x => P27_LIMPIEZA_NOMBRES[x.key]).join(', '), 'Sistema');
   closeModal('modal-datos');
   renderAll();
   await saveToDrive();
@@ -3701,6 +3864,159 @@ async function p27EjecutarLimpieza() {
     ? 'Se limpió en pantalla, pero Drive aún no confirmó el guardado. Reconecta la sesión si aparece el aviso: se guardará solo.'
     : '✅ Listo. Se limpió lo marcado y quedó guardado en Drive.');
 }
+
+// ═══════════════ V93: REGISTRO DE ACTIVIDAD (automático + eventos especiales) ═══════════════
+// Después de cada guardado la app compara cómo estaban los datos antes y después y anota la diferencia.
+// Unos pocos eventos (importar, restaurar, limpiar, respaldar) escriben su propia línea resumida.
+const P27_ACT_MAX = 300;
+const P27_TRACK = [
+  { key: 'pedidos', modulo: 'Pedidos', nombre: 'Pedido', campos: ['codigo', 'clienteNombre'] },
+  { key: 'lotes', modulo: 'Lotes', nombre: 'Lote', campos: ['codigo', 'codigoCompleto', 'esenciaNombre'] },
+  { key: 'ventas', modulo: 'Ventas', nombre: 'Venta', campos: ['esenciaNombre', 'nombreEsencia', 'loteCodigo', 'codigoLote', 'cliente'] },
+  { key: 'ventasArticulosExtra', modulo: 'Ventas', nombre: 'Venta de artículo extra', campos: ['nombre'] },
+  { key: 'clientes', modulo: 'Clientes', nombre: 'Cliente', campos: ['nombre'] },
+  { key: 'esencias', modulo: 'Esencias', nombre: 'Esencia', campos: ['nombre'] },
+  { key: 'envases', modulo: 'Envases', nombre: 'Envase', campos: ['nombre'], ruido: ['stock'] },
+  { key: 'cajas', modulo: 'Cajas', nombre: 'Caja', campos: ['nombre'], ruido: ['stock'] },
+  { key: 'vinetas', modulo: 'Viñetas', nombre: 'Viñeta', campos: ['nombre', 'esenciaNombre', 'tipo'], ruido: ['stock'] },
+  { key: 'equipos', modulo: 'Equipos', nombre: 'Equipo', campos: ['nombre'] },
+  { key: 'articulosExtra', modulo: 'Artículos extra', nombre: 'Artículo extra', campos: ['nombre'], ruido: ['stock'] },
+  { key: 'bajasInventario', modulo: 'Bajas', nombre: 'Baja de inventario', campos: ['nombre'] },
+  { key: 'catalogoVitrina', modulo: 'Catálogo', nombre: 'Catálogo', campos: ['nombre'] },
+  { key: 'familiasOlfativas', modulo: 'Familias', nombre: 'Familia olfativa', campos: ['nombre'] },
+];
+const P27_CONFIG = [
+  ['margenVentaPct', 'margen de venta'], ['costoVinetaUnitario', 'costo de viñeta'], ['vitrinaAppsScriptUrl', 'URL de la Vitrina'],
+  ['vitrinaWhatsappNumero', 'WhatsApp de la Vitrina'], ['vitrinaEmailContacto', 'correo de la Vitrina'],
+  ['vitrinaPreciosExtras', 'precios extra de la Vitrina'], ['formulaBase', 'fórmula base'],
+];
+const P27_CLAVES_AMIGABLES = { estado: 'estado', precioVenta: 'precio', precio: 'precio', stock: 'stock', nombre: 'nombre', estados: 'etapas', estadoActual: 'etapa', botes: 'botes', activo: 'visible', foto: 'foto', imagen: 'imagen', cantidad: 'cantidad', costoUnitario: 'costo', proveedor: 'proveedor', clienteNombre: 'cliente', lugarEntrega: 'entrega', contactoValor: 'contacto', notas: 'notas', nota: 'notas', loteId: 'lote', agotado: 'agotado', prioridad: 'prioridad', fechaEntregaMin: 'fechas', fechaEntregaMax: 'fechas' };
+
+function _p27Reemplazo(k, v) { return (typeof v === 'string' && v.length > 200) ? ('#' + v.length + v.slice(0, 16) + v.slice(-16)) : v; }
+function _p27Hash(v) {
+  let s;
+  try { s = JSON.stringify(v, _p27Reemplazo); } catch (e) { s = String(v); }
+  if (s === undefined) s = 'u';
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+function _p27Etiqueta(it, campos) {
+  for (const c of (campos || [])) { const v = it && it[c]; if (typeof v === 'string' && v.trim()) return v.trim().slice(0, 60); }
+  return '#' + String(it && it.id).slice(-6);
+}
+function _p27Colecciones() {
+  const out = P27_TRACK.map(t => ({ ...t, items: Array.isArray(db[t.key]) ? db[t.key] : [] }));
+  const compras = [], aditDef = [], aditCompras = [];
+  Object.keys(db.insumos || {}).forEach(n => ((db.insumos[n] && db.insumos[n].grupos) || []).forEach(g => compras.push({ ...g, id: n + '|' + g.id, nombre: n })));
+  Object.keys(db.insumosAditivos || {}).forEach(n => {
+    const a = db.insumosAditivos[n] || {};
+    const { grupos, ...resto } = a;
+    aditDef.push({ ...resto, id: n, nombre: n });
+    (grupos || []).forEach(g => aditCompras.push({ ...g, id: n + '|' + g.id, nombre: n }));
+  });
+  out.push({ key: 'insumosCompras', modulo: 'Insumos', nombre: 'Compra de insumo', campos: ['nombre'], ruido: ['stock', 'agotado', 'pesoOriginal'], items: compras });
+  out.push({ key: 'aditivosDef', modulo: 'Insumos', nombre: 'Insumo aditivo', campos: ['nombre'], ruido: ['stock', 'costoPorGramo'], items: aditDef });
+  out.push({ key: 'aditivosCompras', modulo: 'Insumos', nombre: 'Compra de insumo aditivo', campos: ['nombre'], ruido: ['stock', 'agotado', 'pesoOriginal'], items: aditCompras });
+  [['proveedoresExtra', 'Proveedor agregado'], ['disenadoresExtra', 'Diseñador agregado'], ['nombresEsenciaExtra', 'Nombre de esencia agregado'], ['familiasExtra', 'Familia agregada'], ['categoriasEquipoExtra', 'Categoría de equipo agregada']]
+    .forEach(([k, nombre]) => out.push({ key: k, modulo: 'Listas', nombre, campos: ['nombre'], items: (Array.isArray(db[k]) ? db[k] : []).map(s => ({ id: String(s), nombre: String(s) })) }));
+  return out;
+}
+function p27TomarSnapshot() {
+  const snap = { col: {}, meta: {}, cfg: {} };
+  _p27Colecciones().forEach(c => {
+    const m = {};
+    c.items.forEach(it => {
+      if (!it || it.id === undefined || it.id === null) return;
+      const h = {};
+      Object.keys(it).forEach(k => { h[k] = _p27Hash(it[k]); });
+      m[String(it.id)] = { l: _p27Etiqueta(it, c.campos), h };
+    });
+    snap.col[c.key] = m;
+    snap.meta[c.key] = { modulo: c.modulo, nombre: c.nombre, ruido: c.ruido || [] };
+  });
+  P27_CONFIG.forEach(([k]) => { snap.cfg[k] = _p27Hash(db[k]); });
+  return snap;
+}
+function p27CalcularCambios(a, b) {
+  const cambios = [];
+  Object.keys(b.col).forEach(key => {
+    const A = a.col[key] || {}, B = b.col[key], meta = b.meta[key];
+    Object.keys(B).forEach(id => {
+      if (!A[id]) { cambios.push({ t: '+', m: meta.modulo, tx: `${meta.nombre}: ${B[id].l}` }); return; }
+      const dif = Object.keys(B[id].h).filter(k => A[id].h[k] !== B[id].h[k]);
+      Object.keys(A[id].h).forEach(k => { if (!(k in B[id].h)) dif.push(k); });
+      const reales = dif.filter(k => !meta.ruido.includes(k));
+      if (!reales.length) return;
+      const amig = [...new Set(reales.map(k => P27_CLAVES_AMIGABLES[k]).filter(Boolean))].slice(0, 3);
+      cambios.push({ t: '~', m: meta.modulo, tx: `${meta.nombre}: ${B[id].l} editado${amig.length ? ' (' + amig.join(', ') + ')' : ''}` });
+    });
+    Object.keys(A).forEach(id => { if (!B[id]) cambios.push({ t: '-', m: meta.modulo, tx: `${meta.nombre}: ${A[id].l}` }); });
+  });
+  const vistos = new Set();
+  P27_CONFIG.forEach(([k, nombre]) => {
+    if (a.cfg[k] !== undefined && a.cfg[k] !== b.cfg[k] && !vistos.has(nombre)) { vistos.add(nombre); cambios.push({ t: '~', m: 'Configuración', tx: `Configuración: ${nombre} modificada`, cfg: true }); }
+  });
+  return cambios;
+}
+function p27AgregarActividad(texto, modulo) {
+  if (!Array.isArray(db.actividad)) db.actividad = [];
+  db.actividad.push({ t: new Date().toISOString(), m: modulo || 'Sistema', tx: texto });
+  if (db.actividad.length > P27_ACT_MAX) db.actividad.splice(0, db.actividad.length - P27_ACT_MAX);
+}
+// El próximo guardado escribirá SOLO esta línea (en vez del detalle de cambios automático).
+function p27RegistrarEspecial(texto, modulo) { _actividadEspecial = { texto, modulo: modulo || 'Sistema' }; }
+// Se ejecuta justo antes de cada guardado en Drive: anota lo que cambió y actualiza la marca de último guardado.
+function p27RegistrarActividad() {
+  if (!Array.isArray(db.actividad)) db.actividad = [];
+  const nueva = p27TomarSnapshot();
+  let entradas = [];
+  if (_actividadEspecial) {
+    entradas = [{ m: _actividadEspecial.modulo, tx: _actividadEspecial.texto }];
+  } else if (_snapActividad) {
+    const cambios = p27CalcularCambios(_snapActividad, nueva);
+    const icono = { '+': '➕', '-': '🗑️', '~': '✏️' };
+    if (cambios.length > 8) {
+      const g = {};
+      cambios.forEach(c => { const k = c.t + '|' + c.m; g[k] = (g[k] || 0) + 1; });
+      const partes = Object.keys(g).map(k => { const [t, m] = k.split('|'); return `${icono[t]}${g[k]} ${m}`; });
+      entradas = [{ m: 'Varios', tx: 'Cambios múltiples: ' + partes.slice(0, 6).join(' · ') + (partes.length > 6 ? ' …' : '') }];
+    } else {
+      entradas = cambios.map(c => ({ m: c.m, tx: `${c.cfg ? '⚙️' : icono[c.t]} ${c.tx}` }));
+    }
+  }
+  _actividadEspecial = null;
+  const ahora = new Date().toISOString();
+  entradas.forEach(e => db.actividad.push({ t: ahora, m: e.m, tx: e.tx }));
+  if (db.actividad.length > P27_ACT_MAX) db.actividad.splice(0, db.actividad.length - P27_ACT_MAX);
+  _snapActividad = nueva;
+  db.ultimoGuardado = ahora;
+  return entradas.length;
+}
+
+let _actLimite = 50;
+function abrirActividad() {
+  _actLimite = 50;
+  const mods = [...new Set((db.actividad || []).map(e => e.m))].sort();
+  const sel = document.getElementById('act-filtro');
+  sel.innerHTML = '<option value="">Todos los módulos</option>' + mods.map(m => `<option value="${_p27Esc(m)}">${_p27Esc(m)}</option>`).join('');
+  renderActividad();
+  openModal('modal-actividad');
+}
+function renderActividad(reiniciar) {
+  if (reiniciar === true) _actLimite = 50;
+  const filtro = document.getElementById('act-filtro').value;
+  const todas = (db.actividad || []).filter(e => !filtro || e.m === filtro).slice().reverse();
+  const lista = todas.slice(0, _actLimite);
+  document.getElementById('act-lista').innerHTML = lista.length ? lista.map(e => `
+    <div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;">
+      <span style="flex:0 0 112px;font-size:11px;opacity:.7;">${_p27Esc(p27FormatoFecha(e.t))}</span>
+      <span style="flex:1;">${_p27Esc(e.tx)}</span>
+    </div>`).join('') : '<div style="opacity:.7;font-size:13px;padding:8px 0;">Todavía no hay actividad registrada. Aparecerá aquí a medida que guardes cambios.</div>';
+  document.getElementById('act-mas').style.display = todas.length > _actLimite ? 'inline-block' : 'none';
+  document.getElementById('act-total').textContent = `Mostrando ${lista.length} de ${todas.length} (se guardan los últimos ${P27_ACT_MAX}).`;
+}
+function actividadMas() { _actLimite += 50; renderActividad(); }
 
 // Un intento de guardado. Devuelve 'ok' | 'auth' (token vencido y no se pudo renovar) | 'red' (otro fallo).
 async function guardarEnDriveUnaVez() {
@@ -3737,28 +4053,33 @@ async function guardarEnDriveUnaVez() {
 async function saveToDrive() {
   if (!accessToken) return;
   guardadoPendiente = true;
-  if (guardandoEnCurso) { guardarOtraVez = true; return; }
+  if (guardandoEnCurso) { guardarOtraVez = true; return _guardadoPromesa; } // V93: quien llama espera a que termine el guardado en curso
   guardandoEnCurso = true;
-  updateSyncStatus('saving');
-  try {
-    let resultado;
-    do {
-      guardarOtraVez = false;
-      resultado = await guardarEnDriveUnaVez();
-      if (resultado !== 'ok') break;
-    } while (guardarOtraVez);
-    if (resultado === 'ok') {
-      guardadoPendiente = false;
-      if (_timerReintentoRed) { clearTimeout(_timerReintentoRed); _timerReintentoRed = null; }
-      updateSyncStatus('ok');
-    } else if (resultado === 'auth') {
-      mostrarBannerSesion();
-    } else {
-      updateSyncStatus('error');
-      if (!_timerReintentoRed) _timerReintentoRed = setTimeout(() => { _timerReintentoRed = null; saveToDrive(); }, 20000);
-    }
-  } catch (e) { updateSyncStatus('error'); }
-  finally { guardandoEnCurso = false; }
+  _guardadoPromesa = (async () => {
+    updateSyncStatus('saving');
+    try {
+      let resultado;
+      do {
+        guardarOtraVez = false;
+        try { p27RegistrarActividad(); } catch (e) { console.error('Registro de actividad:', e); }
+        resultado = await guardarEnDriveUnaVez();
+        if (resultado !== 'ok') break;
+      } while (guardarOtraVez);
+      if (resultado === 'ok') {
+        guardadoPendiente = false;
+        _ultimoGuardadoMostrado = db.ultimoGuardado || '';
+        if (_timerReintentoRed) { clearTimeout(_timerReintentoRed); _timerReintentoRed = null; }
+        updateSyncStatus('ok');
+      } else if (resultado === 'auth') {
+        mostrarBannerSesion();
+      } else {
+        updateSyncStatus('error');
+        if (!_timerReintentoRed) _timerReintentoRed = setTimeout(() => { _timerReintentoRed = null; saveToDrive(); }, 20000);
+      }
+    } catch (e) { updateSyncStatus('error'); }
+    finally { guardandoEnCurso = false; }
+  })();
+  return _guardadoPromesa;
 }
 window.addEventListener('online', () => { if (guardadoPendiente && accessToken) saveToDrive(); });
 
@@ -7763,7 +8084,9 @@ async function importarSolicitudesVitrina() {
       creadas++;
     }
 
-    if (creadas > 0 || guardadoPendiente) {
+    if (creadas > 0) p27RegistrarEspecial(`📥 Importadas ${creadas} solicitud(es) de la Vitrina${repetidas ? ` (${repetidas} repetida(s) omitida(s))` : ''}`, 'Pedidos');
+    else if (repetidas > 0) p27RegistrarEspecial(`📥 Vitrina: ${repetidas} solicitud(es) repetida(s) omitida(s)`, 'Pedidos');
+    if (creadas > 0 || repetidas > 0 || guardadoPendiente) {
       renderAll();
       // Primero se GUARDA en Drive; solo si Drive confirma se marcan como importadas en la Vitrina.
       // Así, si algo falla en medio, la solicitud nunca se pierde ni se duplica.
@@ -11901,9 +12224,19 @@ renderAll();
   <div class="modal modal-wide">
     <button type="button" class="modal-close-x" onclick="closeModal('modal-datos')" aria-label="Cerrar">✕</button>
     <div class="modal-body">
-      <div class="modal-title">💾 Respaldo, restauración y limpieza</div>
+      <div class="modal-title">💾 Datos de la app</div>
 
-      <div class="card-title" style="font-size:14px;margin:6px 0 8px;">1. Respaldar</div>
+      <div id="datos-estado" style="font-size:13px;margin-bottom:6px;"></div>
+
+      <div class="card-title" style="font-size:14px;margin:16px 0 4px;">Qué hay guardado</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;">Cantidad de registros por módulo. Resaltado en dorado = hay algo guardado.</div>
+      <div id="datos-inventario"></div>
+
+      <div class="card-title" style="font-size:14px;margin:22px 0 8px;">🕘 Registro de actividad</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Qué se agregó, editó, importó o borró, con fecha y hora. Se anota solo.</div>
+      <button type="button" class="btn btn-outline" onclick="abrirActividad()">🕘 Ver registro de actividad</button>
+
+      <div class="card-title" style="font-size:14px;margin:22px 0 8px;">1. Respaldar</div>
       <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Descarga a tu equipo una copia de todos tus datos (archivo .json). Hazlo antes de empezar pruebas o cambios grandes.</div>
       <button type="button" class="btn btn-primary" onclick="descargarBackup()">📥 Descargar respaldo ahora</button>
 
@@ -11919,13 +12252,28 @@ renderAll();
       </div>
 
       <div class="card-title" style="font-size:14px;margin:22px 0 8px;">3. Limpieza selectiva</div>
-      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:6px;">Marca lo que quieres vaciar. Lo demás (catálogo, esencias, insumos, envases, configuración) no se toca. <strong>No devuelve stock</strong>: lo que los lotes de prueba gastaron se queda gastado. Para volver exactamente al inicio, usa la opción 2.</div>
-      <div id="datos-lim-lista"></div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:6px;">Marca lo que quieres vaciar. El Catálogo de la Vitrina, las familias olfativas y lo demás que viene con la app no se tocan. <strong>No devuelve stock</strong>. Para volver exactamente al inicio, usa la opción 2.</div>
+      <div id="datos-lim-lista" onchange="p27AvisosLimpieza()"></div>
+      <div id="datos-lim-avisos" style="font-size:12px;color:#FFB020;"></div>
       <div class="field" style="margin-top:12px;"><label>Para confirmar, escribe BORRAR</label><input id="datos-lim-palabra" type="text" autocomplete="off" placeholder="BORRAR"></div>
       <button type="button" class="btn btn-danger" onclick="p27EjecutarLimpieza()">🧹 Limpiar lo marcado</button>
       <div style="color:#56CCF2;font-size:11px;opacity:.8;margin-top:6px;">También descarga una copia automática antes de borrar. Tu navegador puede preguntar si permites varias descargas: acepta.</div>
 
       <div class="modal-actions"><button type="button" class="btn btn-outline" onclick="closeModal('modal-datos')">Cerrar</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-actividad">
+  <div class="modal modal-wide">
+    <button type="button" class="modal-close-x" onclick="closeModal('modal-actividad')" aria-label="Cerrar">✕</button>
+    <div class="modal-body">
+      <div class="modal-title">🕘 Registro de actividad</div>
+      <div class="field"><label>Filtrar por módulo</label><select id="act-filtro" onchange="renderActividad(true)"><option value="">Todos los módulos</option></select></div>
+      <div id="act-lista"></div>
+      <div id="act-total" style="font-size:11px;opacity:.7;margin-top:8px;"></div>
+      <button type="button" class="btn btn-outline btn-sm" id="act-mas" style="display:none;margin-top:8px;" onclick="actividadMas()">Mostrar 50 más</button>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" onclick="closeModal('modal-actividad')">Cerrar</button></div>
     </div>
   </div>
 </div>
