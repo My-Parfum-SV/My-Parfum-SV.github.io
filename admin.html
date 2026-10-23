@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Parfum27_V94 -->
+<!-- Admin V97 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
-<title>Parfum 27 — Sistema de Gestión</title>
+<title>Administrador — My Parfum SV</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -78,13 +78,20 @@
   #login-gate .login-box {
     text-align: center; padding: 40px 32px; max-width: 380px;
   }
-  #login-gate .login-logo {
-    font-size: 32px; font-weight: 700; margin-bottom: 8px; color: #fff;
+  #login-gate .login-titulo {
+    color: rgba(255,255,255,0.75); font-size: 17px; font-weight: 500; letter-spacing: 0.5px; margin-bottom: 14px;
   }
-  #login-gate .login-logo span { color: #C9A24B; }
-  #login-gate .login-sub {
-    color: rgba(255,255,255,0.55); font-size: 14px; margin-bottom: 32px;
+  #login-gate .login-logo-img {
+    display: block; margin: 0 auto 32px; width: 230px; max-width: 70%; height: auto; border-radius: 6px;
   }
+  #login-gate .login-aviso {
+    margin-top: 26px; font-size: 12px; line-height: 1.55; color: rgba(255,255,255,0.5);
+  }
+  #login-gate .btn-salir {
+    display: inline-block; margin-top: 14px; padding: 9px 20px; border: 1px solid rgba(255,255,255,0.28);
+    border-radius: 8px; color: rgba(255,255,255,0.78); text-decoration: none; font-size: 13px;
+  }
+  #login-gate .btn-salir:hover { background: rgba(255,255,255,0.08); }
   #login-gate .btn-google {
     display: inline-flex; align-items: center; gap: 10px;
     background: #fff; color: #1f1f1f; border: none; border-radius: 8px;
@@ -694,6 +701,18 @@
 .p27-sug-x{flex:0 0 auto;border:1px solid transparent;background:transparent;color:#FF6B6B;font-size:18px;line-height:1;width:30px;height:30px;border-radius:6px;cursor:pointer;}
 .p27-sug-x:hover{border-color:#FF2D2D;background:rgba(255,45,45,.14);}
 .p27-lista-fila{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;}
+
+/* V96: asistente del catálogo */
+.p27-sug-item.cat .p27-sug-txt{opacity:.92;}
+.p27-sug-sub{font-size:11px;opacity:.65;}
+.p27-sug-badge{flex:0 0 auto;font-size:13px;opacity:.8;padding-right:6px;}
+.p27-catmatch{margin:8px 0 12px;padding:10px 12px;border:1px solid #56CCF2;border-radius:10px;background:rgba(86,204,242,.07);font-size:13px;}
+.p27-catmatch-t{font-size:12px;color:#56CCF2;margin-bottom:6px;}
+.p27-catrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--border);}
+.p27-catrow-txt{flex:1;}
+.p27-catmatch-f{margin-top:6px;font-size:11px;}
+.p27-catmatch-f a{color:#56CCF2;}
+.p27-catmatch-ok{color:#9be3a6;line-height:1.5;}
 </style>
 </head>
 <body class="app-locked">
@@ -701,13 +720,15 @@
 <!-- LOGIN GATE: pantalla previa que se muestra antes de dar acceso a la app -->
 <div id="login-gate">
   <div class="login-box">
-    <div class="login-logo">Parfum<span>27</span></div>
-    <div class="login-sub">Acceso exclusivo — inicia sesión con la cuenta autorizada</div>
+    <div class="login-titulo">Administrador de:</div>
+    <img class="login-logo-img" alt="My Parfum SV" src="data:image/jpeg;base64,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">
     <button class="btn-google" id="btn-login-gate" onclick="handleAuth()">
       <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.87-3.04.87-2.34 0-4.32-1.58-5.03-3.71H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.69 9c0-.6.1-1.18.28-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
       Iniciar sesión con Google
     </button>
-    <div class="login-msg info" id="login-gate-msg">Solo la cuenta autorizada de Parfum27 puede ingresar.</div>
+    <div class="login-msg info" id="login-gate-msg">Solo la cuenta autorizada puede ingresar.</div>
+    <div class="login-aviso">Esta página es de carácter privado y solo la utiliza el equipo autorizado. Si llegaste aquí por error, no pasa nada: gracias por tu comprensión. 🙏</div>
+    <a class="btn-salir" href="https://www.google.com" rel="noopener noreferrer">Salir a Google</a>
   </div>
 </div>
 
@@ -1199,6 +1220,7 @@
         <datalist id="lista-disenadores"></datalist>
       </div>
     </div>
+    <div id="cat-match" class="p27-catmatch" style="display:none;"></div>
     <div class="field">
       <label>Género</label>
       <select id="e-genero">
@@ -1241,8 +1263,11 @@
     </div>
     <div class="field">
       <label>Referencia Olfativa (opcional)</label>
-      <input id="e-referencia-olfativa" placeholder="ej. Vainilla, almizcle y flores blancas" autocomplete="off">
+      <input id="e-referencia-olfativa" placeholder="Acordes de más a menos dominante. Ej: Amaderado, Aromático, Cítrico" autocomplete="off">
+      <div style="margin-top:4px;font-size:11px;"><a href="#" id="ref-chips-toggle" style="color:#56CCF2;">＋ Elegir acordes del catálogo</a></div>
+      <div id="ref-chips" style="display:none;margin-top:6px;"></div>
     </div>
+    <div id="sim-match" class="p27-catmatch" style="display:none;"></div>
 
     <hr class="divider">
 
@@ -3158,7 +3183,7 @@ function nombreCortoProveedor(proveedor) {
 // db.envases es ahora una LISTA de variantes (cada una con su categoría base, nombre, foto, stock, costo, precio)
 // db.vinetas es lista de variantes: { id, esenciaId, tipo: 'ilustrativa'|'marca', foto, stock, costoUnitario }
 // db.contadorLote es el número ascendente para generar códigos de lote (LOT-0001, LOT-0002...)
-let db = { esencias: [], insumos: {}, envases: [], lotes: [], ventas: [], familiasExtra: [], vinetas: [], vinetasLote: [], contadorLote: 0, contadorPedido: 0, proveedoresExtra: [], proveedoresAbreviados: {}, margenVentaPct: 70, costoVinetaUnitario: 0, disenadoresExtra: [], nombresEsenciaExtra: [], clientes: [], materialUsado: [], equipos: [], categoriasEquipoExtra: [], articulosExtra: [], ventasArticulosExtra: [], cajas: [], pedidos: [], formatoVinetaLoteImg: '', formatoVinetaLotePosLote: 18, formatoVinetaLotePosVolumen: 88, bajasInventario: [], envaseConjuntos: [], cajaConjuntos: [], familiasOlfativas: [], formulaBase: null, notasOlfativasTaxonomia: [], insumosAditivos: {}, catalogoVitrina: [], vitrinaAppsScriptUrl: '', vitrinaWhatsappNumero: '', vitrinaEmailContacto: 'myparfum.sv@gmail.com', vitrinaPreciosExtras: { colorante: 0, feromonas: 0, atomizadorPortatil5ml: 0 }, ultimoGuardado: '', ultimoRespaldo: '', actividad: [], sugerenciasOcultas: { nombres: [], disenadores: [] } };
+let db = { esencias: [], insumos: {}, envases: [], lotes: [], ventas: [], familiasExtra: [], vinetas: [], vinetasLote: [], contadorLote: 0, contadorPedido: 0, proveedoresExtra: [], proveedoresAbreviados: {}, margenVentaPct: 70, costoVinetaUnitario: 0, disenadoresExtra: [], nombresEsenciaExtra: [], clientes: [], materialUsado: [], equipos: [], categoriasEquipoExtra: [], articulosExtra: [], ventasArticulosExtra: [], cajas: [], pedidos: [], formatoVinetaLoteImg: '', formatoVinetaLotePosLote: 18, formatoVinetaLotePosVolumen: 88, bajasInventario: [], envaseConjuntos: [], cajaConjuntos: [], familiasOlfativas: [], formulaBase: null, notasOlfativasTaxonomia: [], insumosAditivos: {}, catalogoVitrina: [], vitrinaAppsScriptUrl: '', vitrinaWhatsappNumero: '', vitrinaEmailContacto: 'myparfum.sv@gmail.com', vitrinaPreciosExtras: { colorante: 0, feromonas: 0, atomizadorPortatil5ml: 0 }, ultimoGuardado: '', ultimoRespaldo: '', actividad: [], sugerenciasOcultas: { nombres: [], disenadores: [] }, proveedoresDefaultOcultos: [], equivalenciasFamilia: {} };
 const P27_DB_DEFAULT = JSON.parse(JSON.stringify(db)); // V90: estructura vacía de referencia para Restaurar
 
 const NIVELES_MACERACION = {
@@ -3638,6 +3663,9 @@ function descargarBackup(etiqueta) {
 
 // ═══════════════ V93: "QUÉ HAY GUARDADO" ═══════════════
 const _p27Len = (k, d) => { const o = d || db; return Array.isArray(o[k]) ? o[k].length : 0; };
+// V95: la viñeta de Marca (logo) y la de QR las crea la app sola; no son registros del usuario
+const _p27EsVinetaBase = (v) => !!v && (v.tipo === 'marca' || v.tipo === 'qr');
+const _p27VinetasUsuario = (d) => ((d || db).vinetas || []).filter(v => !_p27EsVinetaBase(v));
 const _p27Grupos = (obj) => Object.keys(obj || {}).reduce((s, k) => s + (((obj[k] || {}).grupos || []).length), 0);
 const P27_INVENTARIO = [
   { grupo: 'Operación', items: [
@@ -3656,7 +3684,7 @@ const P27_INVENTARIO = [
     { l: 'Insumos aditivos', n: (d) => Object.keys((d || db).insumosAditivos || {}).length, extra: (d) => { const c = _p27Grupos((d || db).insumosAditivos); return c ? `${c} compra${c === 1 ? '' : 's'}` : ''; } },
     { l: 'Envases', n: (d) => _p27Len('envases', d) },
     { l: 'Cajas', n: (d) => _p27Len('cajas', d) },
-    { l: 'Viñetas', n: (d) => _p27Len('vinetas', d) },
+    { l: 'Viñetas de esencias', n: (d) => _p27VinetasUsuario(d).length },
     { l: 'Equipos', n: (d) => _p27Len('equipos', d) },
     { l: 'Artículos extra', n: (d) => _p27Len('articulosExtra', d) },
   ] },
@@ -3736,7 +3764,8 @@ const P27_LIMPIEZA = [
     nota: 'Borra los aditivos que creaste y sus compras.' },
   { key: 'envases',  label: 'Envases (y sus conjuntos)', n: () => _p27Len('envases'), dep: ['lotes', 'ventas'] },
   { key: 'cajas',    label: 'Cajas (y sus conjuntos)', n: () => _p27Len('cajas'), dep: ['lotes', 'ventas'] },
-  { key: 'vinetas',  label: 'Viñetas (marca / ilustrativas)', n: () => _p27Len('vinetas'), dep: ['lotes'] },
+  { key: 'vinetas',  label: 'Viñetas de esencias (ilustrativas)', n: () => _p27VinetasUsuario().length, dep: ['lotes'],
+    nota: 'La viñeta de Marca y la de QR vienen con la app: no se cuentan ni se borran.' },
   { key: 'equipos',  label: 'Equipos', n: () => _p27Len('equipos') },
   { key: 'articulos', label: 'Artículos extra', n: () => _p27Len('articulosExtra'), dep: ['ventas'] },
   { grupo: 'Listas personalizadas', key: 'listas', label: 'Proveedores, diseñadores, nombres, familias y categorías que agregaste', n: () => _p27ConfirmarListas(),
@@ -3865,10 +3894,10 @@ async function p27EjecutarLimpieza() {
   if (tiene('aditivos')) db.insumosAditivos = {};
   if (tiene('envases')) { db.envases = []; db.envaseConjuntos = []; }
   if (tiene('cajas')) { db.cajas = []; db.cajaConjuntos = []; }
-  if (tiene('vinetas')) db.vinetas = [];
+  if (tiene('vinetas')) db.vinetas = (db.vinetas || []).filter(_p27EsVinetaBase);
   if (tiene('equipos')) db.equipos = [];
   if (tiene('articulos')) db.articulosExtra = [];
-  if (tiene('listas')) { db.proveedoresExtra = []; db.disenadoresExtra = []; db.nombresEsenciaExtra = []; db.familiasExtra = []; db.categoriasEquipoExtra = []; db.sugerenciasOcultas = { nombres: [], disenadores: [] }; }
+  if (tiene('listas')) { db.proveedoresExtra = []; db.disenadoresExtra = []; db.nombresEsenciaExtra = []; db.familiasExtra = []; db.categoriasEquipoExtra = []; db.sugerenciasOcultas = { nombres: [], disenadores: [] }; db.proveedoresDefaultOcultos = []; }
   p27RegistrarEspecial('🧹 Limpiado: ' + sel.map(x => P27_LIMPIEZA_NOMBRES[x.key]).join(', '), 'Sistema');
   closeModal('modal-datos');
   renderAll();
@@ -3901,7 +3930,7 @@ const P27_TRACK = [
 const P27_CONFIG = [
   ['margenVentaPct', 'margen de venta'], ['costoVinetaUnitario', 'costo de viñeta'], ['vitrinaAppsScriptUrl', 'URL de la Vitrina'],
   ['vitrinaWhatsappNumero', 'WhatsApp de la Vitrina'], ['vitrinaEmailContacto', 'correo de la Vitrina'],
-  ['vitrinaPreciosExtras', 'precios extra de la Vitrina'], ['formulaBase', 'fórmula base'],
+  ['vitrinaPreciosExtras', 'precios extra de la Vitrina'], ['formulaBase', 'fórmula base'], ['equivalenciasFamilia', 'equivalencias de familias del catálogo'],
 ];
 const P27_CLAVES_AMIGABLES = { estado: 'estado', precioVenta: 'precio', precio: 'precio', stock: 'stock', nombre: 'nombre', estados: 'etapas', estadoActual: 'etapa', botes: 'botes', activo: 'visible', foto: 'foto', imagen: 'imagen', cantidad: 'cantidad', costoUnitario: 'costo', proveedor: 'proveedor', clienteNombre: 'cliente', lugarEntrega: 'entrega', contactoValor: 'contacto', notas: 'notas', nota: 'notas', loteId: 'lote', agotado: 'agotado', prioridad: 'prioridad', fechaEntregaMin: 'fechas', fechaEntregaMax: 'fechas' };
 
@@ -3919,7 +3948,7 @@ function _p27Etiqueta(it, campos) {
   return '#' + String(it && it.id).slice(-6);
 }
 function _p27Colecciones() {
-  const out = P27_TRACK.map(t => ({ ...t, items: Array.isArray(db[t.key]) ? db[t.key] : [] }));
+  const out = P27_TRACK.map(t => ({ ...t, items: (Array.isArray(db[t.key]) ? db[t.key] : []).filter(it => t.key !== 'vinetas' || !_p27EsVinetaBase(it)) }));
   const compras = [], aditDef = [], aditCompras = [];
   Object.keys(db.insumos || {}).forEach(n => ((db.insumos[n] && db.insumos[n].grupos) || []).forEach(g => compras.push({ ...g, id: n + '|' + g.id, nombre: n })));
   Object.keys(db.insumosAditivos || {}).forEach(n => {
@@ -4052,9 +4081,16 @@ function p27MostrarSug(tipo) {
   if (!inp || !panel) return;
   if (inp.disabled || inp.readOnly) { panel.style.display = 'none'; return; }
   const q = _p27Norm(inp.value.trim());
-  const items = p27CandidatosSug(tipo).filter(x => !q || _p27Norm(x).includes(q)).slice(0, 40);
+  const propios = p27CandidatosSug(tipo).filter(x => !q || _p27Norm(x).includes(q));
+  const vistos = new Set(propios.map(_p27Norm));
+  // V96: también se sugiere lo que ya trae el catálogo (marcado 📚, sin ×: no se puede "quitar" de aquí)
+  const dis = tipo === 'nombres' ? document.getElementById('e-disenador').value : '';
+  const delCatalogo = p27CandidatosCatalogo(tipo, dis).filter(c => (!q || _p27Norm(c.v).includes(q)) && !vistos.has(_p27Norm(c.v)));
+  const items = [...propios.map(v => ({ v })), ...delCatalogo].slice(0, 40);
   if (!items.length) { panel.style.display = 'none'; return; }
-  panel.innerHTML = items.map(v => `<div class="p27-sug-item" data-v="${_p27Esc(v)}"><span class="p27-sug-txt">${_p27Esc(v)}</span><button type="button" class="p27-sug-x" title="Quitar de la lista" aria-label="Quitar ${_p27Esc(v)} de la lista">×</button></div>`).join('');
+  panel.innerHTML = items.map(it => it.cat
+    ? `<div class="p27-sug-item cat" data-v="${_p27Esc(it.v)}" data-cat="1" data-dis="${_p27Esc(it.dis || '')}"><span class="p27-sug-txt">${_p27Esc(it.v)}${it.dis ? ` <span class="p27-sug-sub">· ${_p27Esc(it.dis)}</span>` : ''}</span><span class="p27-sug-badge" title="Viene de tu catálogo">📚</span></div>`
+    : `<div class="p27-sug-item" data-v="${_p27Esc(it.v)}"><span class="p27-sug-txt">${_p27Esc(it.v)}</span><button type="button" class="p27-sug-x" title="Quitar de la lista" aria-label="Quitar ${_p27Esc(it.v)} de la lista">×</button></div>`).join('');
   _sugEstado[tipo] = { idx: -1 };
   panel.style.display = 'block';
 }
@@ -4089,6 +4125,10 @@ function p27IniciarSugerencias() {
       const valor = item.dataset.v;
       if (e.target.closest('.p27-sug-x')) { e.stopPropagation(); p27PedirQuitar(tipo, valor); return; }
       inp.value = valor;
+      if (tipo === 'nombres' && item.dataset.cat && item.dataset.dis) {
+        const d = document.getElementById('e-disenador');
+        if (d && !d.value.trim()) { d.value = item.dataset.dis; d.dispatchEvent(new Event('input', { bubbles: true })); }
+      }
       p27OcultarSug(tipo);
       _sugSilencio = true;
       inp.dispatchEvent(new Event('input', { bubbles: true }));
@@ -4126,7 +4166,13 @@ function p27ConfirmarQuitar() {
   const c = P27_SUG[tipo];
   db[c.extra] = (db[c.extra] || []).filter(x => x !== valor);
   if (tipo === 'proveedores') {
-    if (db.proveedoresAbreviados && !(typeof PROVEEDOR_ABREVIADO_DEFAULT !== 'undefined' && PROVEEDOR_ABREVIADO_DEFAULT[valor])) delete db.proveedoresAbreviados[valor];
+    if (PROVEEDORES_DEFAULT.includes(valor)) {
+      // Proveedor de fábrica: se oculta (se puede volver a mostrar desde esta misma pantalla)
+      if (!Array.isArray(db.proveedoresDefaultOcultos)) db.proveedoresDefaultOcultos = [];
+      if (!db.proveedoresDefaultOcultos.includes(valor)) db.proveedoresDefaultOcultos.push(valor);
+    } else if (db.proveedoresAbreviados) {
+      delete db.proveedoresAbreviados[valor];
+    }
   } else if (p27UsoSug(tipo, valor) > 0) {
     // Hay esencias registradas con ese nombre/diseñador: se conservan, pero deja de sugerirse
     if (!db.sugerenciasOcultas) db.sugerenciasOcultas = { nombres: [], disenadores: [] };
@@ -4149,16 +4195,20 @@ function abrirListasGuardadas() { renderListasGuardadas(); openModal('modal-list
 function renderListasGuardadas() {
   const seccion = (tipo, titulo) => {
     const c = P27_SUG[tipo];
-    const items = (db[c.extra] || []).slice().sort((a, b) => a.localeCompare(b, 'es'));
+    let items = (db[c.extra] || []).slice();
+    if (tipo === 'proveedores') items = items.concat(PROVEEDORES_DEFAULT.filter(p => !(db.proveedoresDefaultOcultos || []).includes(p)));
+    items = [...new Set(items)].sort((a, b) => a.localeCompare(b, 'es'));
     return `<div class="card-title" style="font-size:14px;margin:16px 0 4px;">${titulo} <span style="opacity:.6;font-weight:400;">(${items.length})</span></div>` +
       (items.length ? items.map(v => {
         const uso = tipo === 'proveedores' ? p27ContarProveedor(v) : p27UsoSug(tipo, v);
-        return `<div class="p27-lista-fila"><span>${_p27Esc(v)}${uso ? ` <span style="opacity:.6;font-size:11px;">· en uso: ${uso}</span>` : ''}</span><button type="button" class="p27-sug-x" data-tipo="${tipo}" data-v="${_p27Esc(v)}" title="Quitar de la lista" aria-label="Quitar ${_p27Esc(v)}">×</button></div>`;
+        const fab = tipo === 'proveedores' && PROVEEDORES_DEFAULT.includes(v);
+        return `<div class="p27-lista-fila"><span>${_p27Esc(v)}${fab ? ' <span style="opacity:.6;font-size:11px;">· de fábrica</span>' : ''}${uso ? ` <span style="opacity:.6;font-size:11px;">· en uso: ${uso}</span>` : ''}</span><button type="button" class="p27-sug-x" data-tipo="${tipo}" data-v="${_p27Esc(v)}" title="Quitar de la lista" aria-label="Quitar ${_p27Esc(v)}">×</button></div>`;
       }).join('') : '<div style="opacity:.6;font-size:12px;">Nada agregado.</div>');
   };
-  const ocultas = ['nombres', 'disenadores'].flatMap(tipo => p27Ocultas(tipo).map(v => ({ tipo, v })));
+  const ocultas = ['nombres', 'disenadores'].flatMap(tipo => p27Ocultas(tipo).map(v => ({ tipo, v })))
+    .concat((db.proveedoresDefaultOcultos || []).map(v => ({ tipo: 'proveedores', v })));
   document.getElementById('listas-contenido').innerHTML =
-    seccion('proveedores', 'Proveedores que agregaste') +
+    seccion('proveedores', 'Proveedores') +
     seccion('disenadores', 'Diseñadores guardados') +
     seccion('nombres', 'Nombres de esencia guardados') +
     (ocultas.length ? `<div class="card-title" style="font-size:14px;margin:16px 0 4px;">Quitadas de las sugerencias <span style="opacity:.6;font-weight:400;">(${ocultas.length})</span></div>` +
@@ -4171,12 +4221,457 @@ document.addEventListener('click', (e) => {
   if (x) { p27PedirQuitar(x.dataset.tipo, x.dataset.v); return; }
   const r = e.target.closest('[data-restaurar]');
   if (r) {
-    p27DesocultarSug(r.dataset.restaurar, r.dataset.v);
+    if (r.dataset.restaurar === 'proveedores') { db.proveedoresDefaultOcultos = (db.proveedoresDefaultOcultos || []).filter(p => p !== r.dataset.v); try { poblarSelectoresProveedor(); } catch (err) {} }
+    else p27DesocultarSug(r.dataset.restaurar, r.dataset.v);
     p27RegistrarEspecial(`↩ Vuelve a sugerirse (${P27_SUG[r.dataset.restaurar].singular}): ${r.dataset.v}`, 'Listas');
     renderListasGuardadas();
     saveToDrive();
   }
 });
+
+
+// ═══════════════ V96: ASISTENTE DEL CATÁLOGO AL REGISTRAR UNA ESENCIA ═══════════════
+// Al escribir el nombre de una esencia nueva se busca en el Catálogo (los perfumes que ya tienes cargados
+// con su familia, acordes y diseñador) y se ofrece rellenar género, familia, referencia olfativa y notas
+// dominantes. SIEMPRE es una sugerencia: no se aplica nada sin tocar "Usar datos", y se puede deshacer.
+
+// Propuesta de equivalencias: etiqueta de familia del catálogo → una de tus 6 familias de referencia.
+// Se puede cambiar en 💾 Datos → "Equivalencias de familias del catálogo". '@' = usar la misma etiqueta del catálogo.
+const P27_EQUIV_FAMILIA_DEFAULT = {
+  'Cítrica': 'Fresco / Cítrico', 'Acuática': 'Fresco / Cítrico', 'Acuático': 'Fresco / Cítrico', 'Fresca': 'Fresco / Cítrico', 'Verde': 'Fresco / Cítrico',
+  'Fresca Especiada': 'Maderoso / Aromático', 'Aromática': 'Maderoso / Aromático', 'Amaderada': 'Maderoso / Aromático',
+  'Floral': 'Floral / Floral Frutal', 'Floral Blanco': 'Floral / Floral Frutal', 'Floral Rosa': 'Floral / Floral Frutal', 'Floral Amarillo': 'Floral / Floral Frutal',
+  'Frutal': 'Floral / Floral Frutal', 'Afrutados': 'Floral / Floral Frutal',
+  'Almizclada': 'Floral Maderoso / Chypre', 'Almizclado': 'Floral Maderoso / Chypre',
+  'Especiada': 'Oriental / Maderoso Oriental', 'Ambarada': 'Oriental / Maderoso Oriental',
+  'Gourmand': 'Gourmand / Oriental Dulce', 'Amielada': 'Gourmand / Oriental Dulce',
+};
+// Acorde del catálogo → nota de tu taxonomía (se busca por el inicio del nombre de la nota)
+const P27_ACORDE_NOTA = {
+  'Cítrico': 'Cítricas', 'Fresco': 'Cítricas',
+  'Acuático': 'Acuáticas', 'Marino': 'Acuáticas', 'Ozónico': 'Acuáticas', 'Salado': 'Acuáticas', 'Mineral': 'Acuáticas',
+  'Verde': 'Verdes', 'Herbal': 'Verdes',
+  'Aromático': 'Especiadas frescas', 'Lavanda': 'Especiadas frescas', 'Fresco especiado': 'Especiadas frescas', 'Especiado suave': 'Especiadas frescas', 'Anís': 'Especiadas frescas',
+  'Cálido especiado': 'Especiadas cálidas', 'Canela': 'Especiadas cálidas',
+  'Amaderado': 'Amaderadas secas', 'Pachulí': 'Amaderadas secas', 'Terrosos': 'Amaderadas secas', 'Conífera': 'Amaderadas secas',
+  'Musgoso': 'Chipre',
+  'Ámbar': 'Ambaradas', 'Balsámico': 'Ambaradas', 'Oud': 'Ambaradas',
+  'Dulce': 'Gourmand', 'Avainillado': 'Gourmand', 'Caramelo': 'Gourmand', 'Cacao': 'Gourmand', 'Chocolate': 'Gourmand', 'Café': 'Gourmand', 'Coco': 'Gourmand',
+  'Lactónico': 'Gourmand', 'Nueces': 'Gourmand', 'Almendrado': 'Gourmand', 'Amielado': 'Gourmand', 'Ron': 'Gourmand', 'Whisky': 'Gourmand', 'Champán': 'Gourmand',
+  'Afrutados': 'Frutales', 'Tropical': 'Frutales', 'Acerezado': 'Frutales',
+  'Florales': 'Florales rosa', 'Rosas': 'Florales rosa', 'Iris': 'Florales rosa', 'Violeta': 'Florales rosa',
+  'Floral blanco': 'Florales blancos', 'Floral amarillo': 'Florales blancos', 'Nardos': 'Florales blancos',
+  'Atalcado': 'Almizcladas', 'Almizclado': 'Almizcladas',
+  'Cuero': 'Cueros', 'Ahumado': 'Cueros', 'Tabaco': 'Cueros', 'Animálico': 'Cueros',
+};
+
+let _catIdx = null, _catIdxLen = -1, _catAplicado = null, _catTimer = null;
+
+// "Hugo Man Hugo Boss" → "Hugo Man" (el catálogo trae el diseñador pegado al final del nombre)
+function p27NombreCortoCatalogo(p) {
+  let n = String(p.nombre || ''); const d = String(p.disenador || '');
+  if (d) for (const suf of [' ' + d + ' Fragrances', ' ' + d]) { if (n.endsWith(suf)) { n = n.slice(0, -suf.length); break; } }
+  return n.trim();
+}
+const _P27_STOP = ['de', 'the', 'la', 'el', 'by', 'eau', 'toilette', 'parfum', 'edt', 'edp'];
+function _p27Tokens(s) { return _p27Norm(s).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(t => t && !_P27_STOP.includes(t)); }
+function p27IndiceCatalogo() {
+  const cat = db.catalogoVitrina || [];
+  if (_catIdx && _catIdxLen === cat.length) return _catIdx;
+  _catIdx = cat.map(p => {
+    const corto = p27NombreCortoCatalogo(p);
+    return { p, corto, tCorto: _p27Tokens(corto), tDis: _p27Tokens(p.disenador), disN: _p27Norm(p.disenador).trim(), cortoN: _p27Norm(corto).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim() };
+  });
+  _catIdxLen = cat.length;
+  return _catIdx;
+}
+// Candidatos para el menú desplegable: nombres (filtrados por el diseñador si ya lo escribiste) o diseñadores
+function p27CandidatosCatalogo(tipo, disTexto) {
+  const idx = p27IndiceCatalogo();
+  if (tipo === 'disenadores') {
+    const m = new Map();
+    idx.forEach(e => { if (e.p.disenador && !m.has(e.p.disenador)) m.set(e.p.disenador, true); });
+    return [...m.keys()].sort((a, b) => a.localeCompare(b, 'es')).map(v => ({ v, cat: true }));
+  }
+  const d = _p27Norm(disTexto || '').trim();
+  let lista = idx;
+  if (d && idx.some(e => e.disN.includes(d) || d.includes(e.disN))) lista = idx.filter(e => e.disN.includes(d) || d.includes(e.disN));
+  const porNombre = new Map();
+  lista.forEach(e => {
+    const k = _p27Norm(e.corto);
+    if (!porNombre.has(k)) porNombre.set(k, { v: e.corto, cat: true, dis: e.p.disenador, n: 1 });
+    else { const o = porNombre.get(k); o.n++; if (o.dis !== e.p.disenador) o.dis = ''; }
+  });
+  return [...porNombre.values()].sort((a, b) => a.v.localeCompare(b.v, 'es'));
+}
+// Busca perfumes del catálogo parecidos a lo escrito. Devuelve hasta 3, de mayor a menor parecido.
+function p27BuscarCatalogo(nombre, disenador) {
+  const T = _p27Tokens(nombre);
+  if (!T.length || _p27Norm(nombre).trim().length < 3) return [];
+  const D = _p27Norm(disenador).trim();
+  const typedN = _p27Norm(nombre).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const out = [];
+  p27IndiceCatalogo().forEach(e => {
+    const full = new Set([...e.tCorto, ...e.tDis]);
+    const inter = T.filter(t => full.has(t)).length;
+    const cobertura = inter / T.length;
+    if (cobertura < 0.6) return;
+    const interCorto = T.filter(t => e.tCorto.includes(t)).length;
+    const precision = e.tCorto.length ? interCorto / e.tCorto.length : 0;
+    let score = 0.55 * cobertura + 0.45 * precision;
+    if (typedN === e.cortoN) score += 0.2;
+    let desigual = false;
+    if (D) { if (e.disN.includes(D) || D.includes(e.disN)) score += 0.25; else { score -= 0.35; desigual = true; } }
+    if (score >= 0.6) out.push({ e, score, desigual });
+  });
+  return out.sort((a, b) => b.score - a.score).slice(0, 3).map(o => Object.assign({}, o.e, { desigual: o.desigual }));
+}
+function p27FamiliaParaCatalogo(p) {
+  const lab = p.familiaOlfativa || '';
+  if (!lab) return '';
+  const user = db.equivalenciasFamilia || {};
+  const eq = user[lab] !== undefined ? user[lab] : (P27_EQUIV_FAMILIA_DEFAULT[lab] || '@');
+  const nombres = (db.familiasOlfativas || []).map(f => f.nombre);
+  if (eq && eq !== '@' && nombres.includes(eq)) return eq;
+  return nombres.includes(lab) ? lab : '';
+}
+function p27NotasDeAcordes(p) {
+  const tax = db.notasOlfativasTaxonomia || [];
+  const out = [];
+  (p.acordes || []).forEach(a => {
+    const pref = P27_ACORDE_NOTA[a];
+    if (!pref) return;
+    const nota = tax.find(n => n.nombre.startsWith(pref));
+    if (nota && !out.includes(nota.nombre)) out.push(nota.nombre);
+  });
+  return out.slice(0, 3);
+}
+const p27Referencia = (p) => (p.acordes || []).slice(0, 3).join(', ');
+function _p27EsNuevaEsencia() { return typeof editandoEsenciaId !== 'undefined' && editandoEsenciaId === null && !modoAgregarConjuntoEsencia; }
+
+function p27ResetCatMatch() {
+  _catAplicado = null;
+  const b = document.getElementById('cat-match');
+  if (b) { b.style.display = 'none'; b.innerHTML = ''; }
+  const s = document.getElementById('sim-match');
+  if (s) { s.style.display = 'none'; s.innerHTML = ''; }
+  const c = document.getElementById('ref-chips');
+  if (c) c.style.display = 'none';
+}
+function p27RenderCatMatch() {
+  const box = document.getElementById('cat-match');
+  if (!box) return;
+  const ov = document.getElementById('modal-esencia');
+  if (!_p27EsNuevaEsencia() || !ov || !ov.classList.contains('open')) { box.style.display = 'none'; return; }
+  if (_catAplicado) {
+    const p = _catAplicado.p;
+    box.innerHTML = `<div class="p27-catmatch-ok">✔ Datos aplicados desde el catálogo: <strong>${_p27Esc(p27NombreCortoCatalogo(p))}</strong> — ${_p27Esc(p.disenador)}. Revísalos y ajusta lo que quieras. <button type="button" class="btn btn-outline btn-sm" data-cat-accion="deshacer">↩ Deshacer</button></div>`;
+    box.style.display = 'block';
+    return;
+  }
+  const c = p27BuscarCatalogo(document.getElementById('e-nombre').value, document.getElementById('e-disenador').value);
+  if (!c.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="p27-catmatch-t">📚 Encontrado en tu catálogo — toca el que corresponda:</div>` + c.map(e => {
+    const fam = p27FamiliaParaCatalogo(e.p), lab = e.p.familiaOlfativa || '';
+    return `<div class="p27-catrow"><div class="p27-catrow-txt"><strong>${_p27Esc(e.corto)}</strong> — ${_p27Esc(e.p.disenador)} · ${_p27Esc(e.p.genero)}<br><span class="p27-sug-sub">${e.desigual ? '⚠️ El diseñador es distinto al que escribiste · ' : ''}Familia: ${fam ? `<b>${_p27Esc(fam)}</b>` : 'sin sugerencia'}${lab && lab !== fam ? ` (catálogo: ${_p27Esc(lab)})` : ''} · Acordes: ${_p27Esc(p27Referencia(e.p)) || '—'}</span></div><button type="button" class="btn btn-primary btn-sm" data-cat-id="${_p27Esc(e.p.id)}">Usar datos</button></div>`;
+  }).join('') + `<div class="p27-catmatch-f"><a href="#" data-cat-accion="equiv">⚙️ Ajustar las equivalencias de familias</a></div>`;
+  box.style.display = 'block';
+}
+function p27AplicarCatalogo(id) {
+  const e = p27IndiceCatalogo().find(x => String(x.p.id) === String(id));
+  if (!e) return;
+  const $ = (i) => document.getElementById(i);
+  _catAplicado = { p: e.p, antes: { nombre: $('e-nombre').value, disenador: $('e-disenador').value, genero: $('e-genero').value, familia: $('e-familia').value, ref: $('e-referencia-olfativa').value, notas: notasDominantesSeleccionadas() } };
+  const fire = (el) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+  _sugSilencio = true;   // los eventos que se disparan aquí son nuestros: no deben reiniciar la búsqueda
+  try {
+  $('e-nombre').value = e.corto; fire($('e-nombre'));
+  $('e-disenador').value = e.p.disenador || ''; fire($('e-disenador'));
+  if ([...$('e-genero').options].some(o => o.value === e.p.genero)) { $('e-genero').value = e.p.genero; fire($('e-genero')); }
+  $('e-referencia-olfativa').value = p27Referencia(e.p); fire($('e-referencia-olfativa'));
+  renderNotasDominantesEsencia(p27NotasDeAcordes(e.p));
+  ['e-nota1', 'e-nota2', 'e-nota3'].forEach(i => fire($(i)));
+  const fam = p27FamiliaParaCatalogo(e.p);
+  if (fam && [...$('e-familia').options].some(o => o.value === fam)) { $('e-familia').value = fam; try { onFamiliaChange(); } catch (err) {} fire($('e-familia')); }
+  } finally { _sugSilencio = false; }
+  ['nombres', 'disenadores'].forEach(p27OcultarSug);
+  p27RenderCatMatch();
+  try { p27RenderSim(); } catch (err) {}
+}
+function p27DeshacerCatalogo() {
+  if (!_catAplicado) return;
+  const a = _catAplicado.antes, $ = (i) => document.getElementById(i);
+  _catAplicado = null;
+  const fire = (el) => { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+  _sugSilencio = true;
+  try {
+    $('e-nombre').value = a.nombre; $('e-disenador').value = a.disenador; $('e-genero').value = a.genero; $('e-referencia-olfativa').value = a.ref;
+    renderNotasDominantesEsencia(a.notas);
+    $('e-familia').value = a.familia; try { onFamiliaChange(); } catch (err) {}
+    ['e-nombre', 'e-disenador', 'e-genero', 'e-referencia-olfativa', 'e-familia'].forEach(i => fire($(i)));
+  } finally { _sugSilencio = false; }
+  p27RenderCatMatch();
+  try { p27RenderSim(); } catch (err) {}
+}
+function p27IniciarCatalogoAsistente() {
+  const box = document.getElementById('cat-match');
+  if (!box || box.dataset.listo) return;
+  box.dataset.listo = '1';
+  box.addEventListener('mousedown', (e) => { if (e.target.closest('a')) e.preventDefault(); });
+  box.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cat-id]');
+    if (b) { p27AplicarCatalogo(b.dataset.catId); return; }
+    const a = e.target.closest('[data-cat-accion]');
+    if (!a) return;
+    e.preventDefault();
+    if (a.dataset.catAccion === 'deshacer') p27DeshacerCatalogo();
+    else if (a.dataset.catAccion === 'equiv') abrirEquivFamilias();
+  });
+  ['e-nombre', 'e-disenador'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', () => {
+      if (_sugSilencio) return;
+      if (_catAplicado) _catAplicado = null;   // si vuelves a escribir, se buscan coincidencias de nuevo
+      clearTimeout(_catTimer); _catTimer = setTimeout(p27RenderCatMatch, 220);
+    });
+  });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', p27IniciarCatalogoAsistente); else p27IniciarCatalogoAsistente();
+
+// ── Tabla de equivalencias de familias (etiqueta del catálogo → tu familia) ──
+function abrirEquivFamilias() { renderEquivFamilias(); openModal('modal-equiv-familias'); }
+function renderEquivFamilias() {
+  const cuenta = {};
+  (db.catalogoVitrina || []).forEach(p => { const l = p.familiaOlfativa || ''; if (l) cuenta[l] = (cuenta[l] || 0) + 1; });
+  const etiquetas = Object.keys(cuenta).sort((a, b) => cuenta[b] - cuenta[a] || a.localeCompare(b, 'es'));
+  const fams = (db.familiasOlfativas || []).map(f => f.nombre);
+  const user = db.equivalenciasFamilia || {};
+  document.getElementById('equiv-filas').innerHTML = etiquetas.map(l => {
+    const actual = user[l] !== undefined ? user[l] : (P27_EQUIV_FAMILIA_DEFAULT[l] || '@');
+    const valor = (actual === '@' || fams.includes(actual)) ? actual : '@';
+    return `<div class="p27-lista-fila"><span style="flex:1;"><strong>${_p27Esc(l)}</strong> <span style="opacity:.6;font-size:11px;">· ${cuenta[l]} perfume${cuenta[l] === 1 ? '' : 's'}</span></span>
+      <select data-equiv="${_p27Esc(l)}" style="flex:1;max-width:260px;"><option value="@"${valor === '@' ? ' selected' : ''}>La misma del catálogo</option>${fams.map(f => `<option value="${_p27Esc(f)}"${valor === f ? ' selected' : ''}>${_p27Esc(f)}</option>`).join('')}</select></div>`;
+  }).join('');
+}
+document.addEventListener('change', (e) => {
+  const s = e.target.closest && e.target.closest('select[data-equiv]');
+  if (!s) return;
+  if (!db.equivalenciasFamilia) db.equivalenciasFamilia = {};
+  db.equivalenciasFamilia[s.dataset.equiv] = s.value;
+  saveToDrive();
+});
+function restablecerEquivFamilias() {
+  db.equivalenciasFamilia = {};
+  renderEquivFamilias();
+  saveToDrive();
+}
+
+
+// ═══════════════ V97: PARECIDOS POR ACORDES (para perfumes que NO están en el catálogo) ═══════════════
+// Escribes los acordes que conozcas en "Referencia Olfativa" (de más a menos dominante, como los lista
+// Fragrantica) y la app los compara con los perfumes del catálogo. Con los más parecidos "vota" la familia.
+// Es una sugerencia por parecido, no una verdad: la decisión final siempre es tuya.
+const P27_ACORDE_ALIAS = {
+  'woody': 'Amaderado', 'citrus': 'Cítrico', 'fresh': 'Fresco', 'fresh spicy': 'Fresco especiado', 'warm spicy': 'Cálido especiado',
+  'aromatic': 'Aromático', 'powdery': 'Atalcado', 'sweet': 'Dulce', 'vanilla': 'Avainillado', 'amber': 'Ámbar', 'musky': 'Almizclado',
+  'green': 'Verde', 'fruity': 'Afrutados', 'floral': 'Florales', 'white floral': 'Floral blanco', 'yellow floral': 'Floral amarillo',
+  'aquatic': 'Acuático', 'leather': 'Cuero', 'tobacco': 'Tabaco', 'patchouli': 'Pachulí', 'lavender': 'Lavanda', 'earthy': 'Terrosos',
+  'balsamic': 'Balsámico', 'smoky': 'Ahumado', 'rose': 'Rosas', 'oud': 'Oud', 'coconut': 'Coco', 'tropical': 'Tropical', 'animalic': 'Animálico',
+  'honey': 'Amielado', 'caramel': 'Caramelo', 'chocolate': 'Chocolate', 'coffee': 'Café', 'mineral': 'Mineral', 'soft spicy': 'Especiado suave',
+  'herbal': 'Herbal', 'marine': 'Marino', 'ozonic': 'Ozónico', 'salty': 'Salado', 'cinnamon': 'Canela', 'mossy': 'Musgoso', 'iris': 'Iris',
+  'violet': 'Violeta', 'tuberose': 'Nardos', 'almond': 'Almendrado', 'nutty': 'Nueces', 'cacao': 'Cacao', 'coniferous': 'Conífera',
+  'aldehydic': 'Aldehídico', 'lactonic': 'Lactónico', 'rum': 'Ron', 'whiskey': 'Whisky', 'champagne': 'Champán', 'soapy': 'Jabonoso',
+  'metallic': 'Metálico', 'cherry': 'Acerezado', 'anis': 'Anís',
+  // español frecuente
+  'frutal': 'Afrutados', 'frutales': 'Afrutados', 'frutas': 'Afrutados', 'afrutado': 'Afrutados', 'vainilla': 'Avainillado', 'madera': 'Amaderado', 'maderas': 'Amaderado',
+  'amaderada': 'Amaderado', 'almizcle': 'Almizclado', 'musk': 'Almizclado', 'citricos': 'Cítrico', 'citrico': 'Cítrico', 'citrica': 'Cítrico', 'acuatica': 'Acuático',
+  'aromatica': 'Aromático', 'verdes': 'Verde', 'ambar': 'Ámbar', 'ambarado': 'Ámbar', 'ambarada': 'Ámbar', 'cueros': 'Cuero', 'rosa': 'Rosas', 'jazmin': 'Floral blanco',
+  'miel': 'Amielado', 'talco': 'Atalcado', 'polvoso': 'Atalcado', 'floral blanca': 'Floral blanco', 'flores blancas': 'Floral blanco', 'flores': 'Florales',
+};
+let _aliasN = null, _vocab = null, _vocabLen = -1, _vecCat = null, _vecCatLen = -1, _simTimer = null;
+const _p27NormAc = (s) => _p27Norm(s).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+function p27Vocab() {
+  const cat = db.catalogoVitrina || [];
+  if (_vocab && _vocabLen === cat.length) return _vocab;
+  _vocab = new Map();
+  cat.forEach(p => (p.acordes || []).forEach(a => { const k = _p27NormAc(a); if (k && !_vocab.has(k)) _vocab.set(k, a); }));
+  _vocabLen = cat.length;
+  return _vocab;
+}
+function p27ResolverAcorde(term) {
+  const n = _p27NormAc(term);
+  if (!n || n.length < 2) return null;
+  const voc = p27Vocab();
+  if (voc.has(n)) return voc.get(n);
+  if (!_aliasN) { _aliasN = {}; Object.keys(P27_ACORDE_ALIAS).forEach(k => { _aliasN[_p27NormAc(k)] = P27_ACORDE_ALIAS[k]; }); }
+  const al = _aliasN[n];
+  if (al && [...voc.values()].includes(al)) return al;
+  if (n.length >= 4) {   // coincidencia por inicio: "floral" → "Florales"
+    let mejor = null;
+    voc.forEach((canon, k) => { if ((k.startsWith(n) || (k.length >= 4 && n.startsWith(k))) && (!mejor || k.length < mejor.k.length)) mejor = { k, canon }; });
+    if (mejor) return mejor.canon;
+  }
+  return null;
+}
+function p27ParsearAcordes(texto) {
+  const partes = String(texto || '').split(/[,;\n\/|·•]+|\s+y\s+|\s+and\s+/i).map(s => s.replace(/[0-9%.]+/g, ' ').trim()).filter(Boolean);
+  const ok = [], no = [];
+  partes.forEach(t => { const c = p27ResolverAcorde(t); if (c) { if (!ok.includes(c)) ok.push(c); } else if (!no.includes(t)) no.push(t); });
+  return { ok, no };
+}
+function p27VecCatalogo() {
+  const cat = db.catalogoVitrina || [];
+  if (_vecCat && _vecCatLen === cat.length) return _vecCat;
+  _vecCat = cat.map(p => {
+    const v = {};
+    (p.acordes || []).slice(0, 6).forEach((a, i) => { v[a] = ((p.acordesPct && p.acordesPct[i] != null) ? p.acordesPct[i] : 100 - i * 10) / 100; });
+    return { p, v, norm: Math.sqrt(Object.values(v).reduce((s, x) => s + x * x, 0)) };
+  });
+  _vecCatLen = cat.length;
+  return _vecCat;
+}
+const P27_PESOS_ACORDE = [1, 0.6, 0.35, 0.2, 0.1];
+// Vector del usuario: los acordes escritos pesan más cuanto antes aparecen. Si hay menos de 2 acordes reconocidos,
+// se usan las notas dominantes elegidas (cada nota aporta sus acordes equivalentes).
+function p27VectorUsuario(acordes, notas) {
+  const u = {};
+  if (acordes.length >= 2) { acordes.forEach((a, i) => { u[a] = P27_PESOS_ACORDE[i] !== undefined ? P27_PESOS_ACORDE[i] : 0.05; }); return u; }
+  (notas || []).forEach((n, i) => {
+    const pref = Object.keys(P27_ACORDE_NOTA).filter(a => n.startsWith(P27_ACORDE_NOTA[a]));
+    pref.forEach(a => { u[a] = Math.max(u[a] || 0, (P27_PESOS_ACORDE[i] || 0.1) / Math.sqrt(pref.length)); });
+  });
+  acordes.forEach(a => { u[a] = Math.max(u[a] || 0, 1); });
+  return u;
+}
+function p27Similares(u, opc) {
+  const nu = Math.sqrt(Object.values(u).reduce((s, x) => s + x * x, 0));
+  if (!nu) return [];
+  const ex = opc && opc.excluirId;
+  return p27VecCatalogo().filter(e => !(ex !== undefined && String(e.p.id) === String(ex))).map(e => {
+    let d = 0;
+    for (const a in u) if (e.v[a]) d += u[a] * e.v[a];
+    return { p: e.p, s: d / (nu * e.norm || 1) };
+  }).filter(x => x.s > 0).sort((a, b) => b.s - a.s);
+}
+// Con los K más parecidos se "vota" la familia (cada voto pesa según su parecido al cubo)
+function p27VotarFamilias(sim, K) {
+  const g = {};
+  sim.slice(0, K || 7).forEach(t => {
+    const f = p27FamiliaParaCatalogo(t.p);
+    if (!f) return;
+    g[f] = g[f] || { nombre: f, peso: 0, n: 0 };
+    g[f].peso += Math.pow(t.s, 3); g[f].n++;
+  });
+  const lista = Object.values(g).sort((a, b) => b.peso - a.peso);
+  const tot = lista.reduce((s, x) => s + x.peso, 0) || 1;
+  lista.forEach(x => { x.share = x.peso / tot; });
+  return lista;
+}
+function p27SugerirPorSimilitud(texto, notas) {
+  const { ok, no } = p27ParsearAcordes(texto);
+  const u = p27VectorUsuario(ok, notas);
+  if (Object.keys(u).length < 2) return { ok, no, insuficiente: true, similares: [], familias: [] };
+  const similares = p27Similares(u);
+  return { ok, no, usoNotas: ok.length < 2, similares, familias: p27VotarFamilias(similares, 7) };
+}
+
+function p27RenderSim() {
+  const box = document.getElementById('sim-match');
+  if (!box) return;
+  const ov = document.getElementById('modal-esencia');
+  const texto = document.getElementById('e-referencia-olfativa').value;
+  if (!_p27EsNuevaEsencia() || !ov || !ov.classList.contains('open') || _catAplicado) { box.style.display = 'none'; return; }
+  const notas = notasDominantesSeleccionadas();
+  const r = p27SugerirPorSimilitud(texto, notas);
+  if (r.insuficiente) {
+    if (!texto.trim()) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.innerHTML = `<div class="p27-catmatch-t">🔎 Parecidos en tu catálogo</div><div class="p27-sug-sub" style="font-size:12px;">Reconocí ${r.ok.length} acorde${r.ok.length === 1 ? '' : 's'}${r.ok.length ? ` (${_p27Esc(r.ok.join(', '))})` : ''}. Escribe <b>al menos 2</b>, de más a menos dominante (por ejemplo, como aparecen en Fragrantica).${r.no.length ? `<br>No reconocí: ${_p27Esc(r.no.join(', '))}.` : ''}</div>`;
+    box.style.display = 'block';
+    return;
+  }
+  const top = r.familias[0], seg = r.familias[1];
+  const confianza = !top ? '' : (top.share >= 0.7 && r.similares[0].s >= 0.55) ? 'alta' : (top.share >= 0.5 ? 'media' : 'baja');
+  const base = r.usoNotas ? `notas dominantes (${_p27Esc(notas.join(', '))})` : `acordes: ${_p27Esc(r.ok.join(', '))}`;
+  const fila = (t) => `<div class="p27-catrow" style="padding:4px 0;"><div class="p27-catrow-txt"><strong>${_p27Esc(p27NombreCortoCatalogo(t.p))}</strong> — ${_p27Esc(t.p.disenador)} <span class="p27-sug-sub">· ${Math.round(t.s * 100)}% · ${_p27Esc(t.p.familiaOlfativa || 'sin familia')}</span></div></div>`;
+  const notasSug = p27NotasDeAcordes({ acordes: r.ok });
+  const actuales = notasDominantesSeleccionadas();
+  const mostrarNotas = !r.usoNotas && notasSug.length && JSON.stringify(notasSug) !== JSON.stringify(actuales);
+  box.innerHTML = `<div class="p27-catmatch-t">🔎 Parecidos en tu catálogo (según ${base})</div>
+    ${top ? `<div style="margin:4px 0 6px;">Familia sugerida: <strong>${_p27Esc(top.nombre)}</strong> <span class="p27-sug-sub">· confianza ${confianza} (${top.n} de ${r.similares.slice(0, 7).length} parecidos)</span> <button type="button" class="btn btn-primary btn-sm" data-sim-fam="${_p27Esc(top.nombre)}">Usar esta familia</button>
+      ${seg && seg.share >= 0.2 ? `<br><span class="p27-sug-sub">También podría ser:</span> <strong>${_p27Esc(seg.nombre)}</strong> <button type="button" class="btn btn-outline btn-sm" data-sim-fam="${_p27Esc(seg.nombre)}">Usar esta</button>` : ''}</div>` : '<div class="p27-sug-sub" style="margin:4px 0;">Los perfumes parecidos no tienen una familia asignada en tu catálogo.</div>'}
+    ${r.similares.slice(0, 5).map(fila).join('')}
+    ${mostrarNotas ? `<div style="margin-top:6px;"><button type="button" class="btn btn-outline btn-sm" data-sim-accion="notas">Usar también como notas dominantes</button></div>` : ''}
+    ${r.no.length ? `<div class="p27-sug-sub" style="margin-top:4px;">No reconocí: ${_p27Esc(r.no.join(', '))}</div>` : ''}
+    <div class="p27-sug-sub" style="margin-top:6px;">Es una sugerencia por parecido de acordes, no una verdad: confírmala con tu criterio.</div>`;
+  box.style.display = 'block';
+}
+function p27AplicarFamiliaSim(nombre) {
+  const sel = document.getElementById('e-familia');
+  if (!sel || ![...sel.options].some(o => o.value === nombre)) return;
+  sel.value = nombre;
+  _sugSilencio = true;
+  try { try { onFamiliaChange(); } catch (e) {} sel.dispatchEvent(new Event('input', { bubbles: true })); sel.dispatchEvent(new Event('change', { bubbles: true })); }
+  finally { _sugSilencio = false; }
+}
+function p27AplicarNotasSim() {
+  const r = p27ParsearAcordes(document.getElementById('e-referencia-olfativa').value);
+  const notas = p27NotasDeAcordes({ acordes: r.ok });
+  if (!notas.length) return;
+  _sugSilencio = true;
+  try { renderNotasDominantesEsencia(notas); ['e-nota1', 'e-nota2', 'e-nota3'].forEach(i => { const el = document.getElementById(i); el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }); }
+  finally { _sugSilencio = false; }
+  p27RenderSim();
+}
+function p27AgendarSim() { clearTimeout(_simTimer); _simTimer = setTimeout(() => { try { p27RenderSim(); p27MarcarChips(); } catch (e) {} }, 250); }
+
+// Selector de acordes (los más frecuentes del catálogo): tocar uno lo agrega al campo; tocarlo de nuevo lo quita
+function p27RenderChips() {
+  const cont = document.getElementById('ref-chips');
+  if (!cont) return;
+  const frec = {};
+  (db.catalogoVitrina || []).forEach(p => (p.acordes || []).forEach(a => { frec[a] = (frec[a] || 0) + 1; }));
+  const lista = Object.keys(frec).sort((a, b) => frec[b] - frec[a] || a.localeCompare(b, 'es')).slice(0, 36);
+  cont.innerHTML = `<div class="p27-sug-sub" style="margin-bottom:4px;">Toca los acordes en orden, del más dominante al menos dominante:</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${lista.map(a => `<span class="p27-chip" data-acorde="${_p27Esc(a)}" style="cursor:pointer;">${_p27Esc(a)}</span>`).join('')}</div>`;
+  p27MarcarChips();
+}
+function p27MarcarChips() {
+  const cont = document.getElementById('ref-chips');
+  if (!cont || cont.style.display === 'none') return;
+  const sel = p27ParsearAcordes(document.getElementById('e-referencia-olfativa').value).ok;
+  cont.querySelectorAll('.p27-chip').forEach(c => c.classList.toggle('on', sel.includes(c.dataset.acorde)));
+}
+function p27ToggleAcorde(acorde) {
+  const inp = document.getElementById('e-referencia-olfativa');
+  const partes = inp.value.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+  const i = partes.findIndex(t => p27ResolverAcorde(t) === acorde);
+  if (i >= 0) partes.splice(i, 1); else partes.push(acorde);
+  inp.value = partes.join(', ');
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
+  inp.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function p27IniciarSim() {
+  const box = document.getElementById('sim-match');
+  if (!box || box.dataset.listo) return;
+  box.dataset.listo = '1';
+  box.addEventListener('click', (e) => {
+    const f = e.target.closest('[data-sim-fam]');
+    if (f) { p27AplicarFamiliaSim(f.dataset.simFam); return; }
+    if (e.target.closest('[data-sim-accion="notas"]')) p27AplicarNotasSim();
+  });
+  const tog = document.getElementById('ref-chips-toggle'), chips = document.getElementById('ref-chips');
+  tog.addEventListener('click', (e) => {
+    e.preventDefault();
+    const abrir = chips.style.display === 'none';
+    chips.style.display = abrir ? 'block' : 'none';
+    tog.textContent = abrir ? '− Ocultar acordes' : '＋ Elegir acordes del catálogo';
+    if (abrir) p27RenderChips();
+  });
+  chips.addEventListener('mousedown', (e) => e.preventDefault());
+  chips.addEventListener('click', (e) => { const c = e.target.closest('[data-acorde]'); if (c) p27ToggleAcorde(c.dataset.acorde); });
+  document.getElementById('e-referencia-olfativa').addEventListener('input', p27AgendarSim);
+  ['e-nota1', 'e-nota2', 'e-nota3'].forEach(i => { const el = document.getElementById(i); if (el) el.addEventListener('change', p27AgendarSim); });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', p27IniciarSim); else p27IniciarSim();
 
 let _actLimite = 50;
 function abrirActividad() {
@@ -5058,6 +5553,7 @@ function openModal(id) {
   const inner = overlay.querySelector('.modal-body');
   if (inner) inner.scrollTop = 0;
   if (id === 'modal-lote') { populateLoteSelect(); }
+  if (id === 'modal-esencia') setTimeout(() => { try { p27RenderCatMatch(); p27RenderSim(); } catch (e) {} }, 0);
 }
 function openNuevoEnvase() { resetEnvaseForm(); poblarSelectoresProveedor(); poblarDatalistsEnvases(); openModal('modal-envase'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); p27BorrarBorrador(id); }
@@ -5069,7 +5565,8 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 // ═══════════════ ESENCIAS ═══════════════
 // ═══════════════ PROVEEDORES (reutilizable en Esencias, Insumos, Envases) ═══════════════
 function listaProveedores() {
-  return [...PROVEEDORES_DEFAULT, ...(db.proveedoresExtra||[])];
+  const ocultos = db.proveedoresDefaultOcultos || [];
+  return [...PROVEEDORES_DEFAULT.filter(p => !ocultos.includes(p)), ...(db.proveedoresExtra||[])];
 }
 
 function poblarSelectoresProveedor() {
@@ -5142,6 +5639,8 @@ function onProveedorSelectChange(selectId, nuevoInputId) {
 function resolverProveedor(selectId, nuevoInputId) {
   const nuevo = document.getElementById(nuevoInputId).value.trim();
   if (nuevo) {
+    // V95: si escribes de nuevo un proveedor de fábrica que habías quitado, vuelve a mostrarse
+    if (PROVEEDORES_DEFAULT.includes(nuevo) && (db.proveedoresDefaultOcultos || []).includes(nuevo)) db.proveedoresDefaultOcultos = db.proveedoresDefaultOcultos.filter(p => p !== nuevo);
     if (!db.proveedoresExtra.includes(nuevo) && !PROVEEDORES_DEFAULT.includes(nuevo)) {
       db.proveedoresExtra.push(nuevo);
       if (!db.proveedoresAbreviados[nuevo]) {
@@ -5591,6 +6090,7 @@ function guardarEsencia() {
 }
 
 function clearEsenciaForm() {
+  try { p27ResetCatMatch(); } catch (e) {}
   editandoEsenciaId = null;
   botesTemporales = [];
   modoAgregarConjuntoEsencia = false;
@@ -12405,6 +12905,22 @@ renderAll();
 </div>
 <div id="p27-borradores"></div>
 
+<div class="modal-overlay" id="modal-equiv-familias">
+  <div class="modal modal-wide">
+    <button type="button" class="modal-close-x" onclick="closeModal('modal-equiv-familias')" aria-label="Cerrar">✕</button>
+    <div class="modal-body">
+      <div class="modal-title">📚 Equivalencias de familias del catálogo</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Cuando uses datos del catálogo al registrar una esencia, la app rellenará la familia según esta tabla. La propuesta inicial la armó la app: revísala y cámbiala cuando quieras. No modifica esencias ya registradas ni el catálogo.</div>
+      <div id="equiv-filas"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="restablecerEquivFamilias()">↩ Restablecer propuesta</button>
+        <button type="button" class="btn btn-primary" onclick="closeModal('modal-equiv-familias')">Listo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal-overlay" id="modal-listas">
   <div class="modal modal-wide">
     <button type="button" class="modal-close-x" onclick="closeModal('modal-listas')" aria-label="Cerrar">✕</button>
@@ -12448,8 +12964,12 @@ renderAll();
       <button type="button" class="btn btn-outline" onclick="abrirActividad()">🕘 Ver registro de actividad</button>
 
       <div class="card-title" style="font-size:14px;margin:22px 0 8px;">🗂️ Listas guardadas automáticamente</div>
-      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Proveedores, diseñadores y nombres de esencia que la app fue guardando al escribirlos. Aquí puedes quitar los que ya no quieras ver sugeridos.</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Proveedores (los de fábrica y los que agregaste), diseñadores y nombres de esencia que la app fue guardando al escribirlos. Aquí puedes quitar los que ya no quieras ver sugeridos.</div>
       <button type="button" class="btn btn-outline" onclick="abrirListasGuardadas()">🗂️ Administrar listas</button>
+
+      <div class="card-title" style="font-size:14px;margin:22px 0 8px;">📚 Equivalencias de familias del catálogo</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Define a cuál de tus familias corresponde cada etiqueta de familia del catálogo, para que "Usar datos del catálogo" rellene la familia correcta al registrar una esencia.</div>
+      <button type="button" class="btn btn-outline" onclick="abrirEquivFamilias()">📚 Ajustar equivalencias</button>
 
       <div class="card-title" style="font-size:14px;margin:22px 0 8px;">1. Respaldar</div>
       <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Descarga a tu equipo una copia de todos tus datos (archivo .json). Hazlo antes de empezar pruebas o cambios grandes.</div>
