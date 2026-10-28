@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V97 -->
+<!-- Admin V98 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -713,6 +713,15 @@
 .p27-catmatch-f{margin-top:6px;font-size:11px;}
 .p27-catmatch-f a{color:#56CCF2;}
 .p27-catmatch-ok{color:#9be3a6;line-height:1.5;}
+
+/* V98 */
+.p27-tabla{width:100%;border-collapse:collapse;font-size:12px;}
+.p27-tabla th{text-align:left;font-weight:600;opacity:.7;padding:4px 6px;border-bottom:1px solid var(--border);}
+.p27-tabla td{padding:3px 6px;border-bottom:1px solid var(--border);}
+.cat-ac-fila{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+.cat-ac-nombre{flex:2;min-width:140px;}
+.cat-ac-pct{width:74px;}
+.cat-ac-rango{flex:1;min-width:90px;}
 </style>
 </head>
 <body class="app-locked">
@@ -942,6 +951,7 @@
         <div class="section-sub">Seguimiento de maceración y proceso Parfum 27</div>
       </div>
       <button class="btn btn-outline" onclick="abrirTablaDetallada('lotes')">📋 Tabla detallada</button>
+      <button class="btn btn-outline" onclick="abrirExperiencia()">🧪 Experiencia de lotes</button>
       <button class="btn btn-primary" onclick="openModal('modal-lote')">+ Nuevo Lote</button>
     </div>
     <div style="display:flex;gap:10px;margin-bottom:20px;">
@@ -2805,10 +2815,14 @@
       </div>
     </div>
     <div class="field">
-      <label>Acordes principales (de mayor a menor proporción, separados por coma)</label>
-      <div style="font-size:11px;opacity:0.5;margin-bottom:6px;">Esto sí es solo descriptivo/informativo para el cliente — no afecta tiempos de producción.</div>
-      <input id="cat-acordes" placeholder="ej. Cítrico, Aromático, Amaderado, Fresco, Floral blanco" oninput="previsualizarAcordesCatalogo()">
-      <div id="cat-acordes-preview" style="margin-top:8px;"></div>
+      <label>Acordes y su proporción</label>
+      <div style="font-size:11px;opacity:0.6;margin-bottom:6px;line-height:1.5;">Agrega cada acorde con su porcentaje: la barra más larga vale 100 y las demás van en proporción (si la fuente no da números, estímalos por el largo de la barra). Se guardan de mayor a menor, igual que los perfumes que ya trae el catálogo. Sirven para mostrar la barra al cliente y para sugerir la familia; no cambian por sí solos los tiempos de producción.</div>
+      <input id="cat-acordes" type="text" style="display:none;" autocomplete="off">
+      <datalist id="lista-acordes-catalogo"></datalist>
+      <div id="cat-acordes-filas"></div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="catAgregarAcorde()">＋ Agregar acorde</button>
+      <div id="cat-acordes-preview" style="margin-top:10px;"></div>
+      <div id="cat-sugerencia-fam" class="p27-catmatch" style="display:none;margin-top:10px;"></div>
     </div>
     <div class="field"><label>Notas adicionales (opcional)</label><textarea id="cat-notas-extra" rows="2" placeholder="Cualquier detalle extra que quieras que veas tú o el cliente"></textarea></div>
     <div class="field" style="flex-direction:row;align-items:center;gap:8px;">
@@ -3671,6 +3685,7 @@ const P27_INVENTARIO = [
   { grupo: 'Operación', items: [
     { l: 'Pedidos', n: (d) => _p27Len('pedidos', d) },
     { l: 'Lotes', n: (d) => _p27Len('lotes', d) },
+    { l: 'Observaciones de lotes', n: (d) => ((d || db).lotes || []).reduce((s, l) => s + ((l.observaciones || []).length), 0) },
     { l: 'Viñetas de lote', n: (d) => _p27Len('vinetasLote', d) },
     { l: 'Ventas', n: (d) => _p27Len('ventas', d) },
     { l: 'Ventas de artículos extra', n: (d) => _p27Len('ventasArticulosExtra', d) },
@@ -3747,7 +3762,7 @@ const P27_LIMPIEZA = [
   { grupo: 'Operación', key: 'pedidos',  label: 'Pedidos y Solicitudes', n: () => _p27Len('pedidos'),
     nota: 'Reinicia la numeración de pedidos (ORD-0001).' },
   { key: 'lotes',    label: 'Lotes', n: () => _p27Len('lotes'),
-    nota: 'Incluye sus viñetas de lote y reinicia LOT-0001. Los pedidos que estaban vinculados vuelven a "Aprobado".' },
+    nota: 'Incluye sus viñetas de lote y sus observaciones, y reinicia LOT-0001. Los pedidos que estaban vinculados vuelven a "Aprobado".' },
   { key: 'ventas',   label: 'Ventas', n: () => _p27Len('ventas') + _p27Len('ventasArticulosExtra'),
     nota: 'Incluye las ventas de Artículos Extra.' },
   { key: 'clientes', label: 'Clientes', n: () => _p27Len('clientes'), dep: ['pedidos', 'lotes', 'ventas'],
@@ -3932,7 +3947,7 @@ const P27_CONFIG = [
   ['vitrinaWhatsappNumero', 'WhatsApp de la Vitrina'], ['vitrinaEmailContacto', 'correo de la Vitrina'],
   ['vitrinaPreciosExtras', 'precios extra de la Vitrina'], ['formulaBase', 'fórmula base'], ['equivalenciasFamilia', 'equivalencias de familias del catálogo'],
 ];
-const P27_CLAVES_AMIGABLES = { estado: 'estado', precioVenta: 'precio', precio: 'precio', stock: 'stock', nombre: 'nombre', estados: 'etapas', estadoActual: 'etapa', botes: 'botes', activo: 'visible', foto: 'foto', imagen: 'imagen', cantidad: 'cantidad', costoUnitario: 'costo', proveedor: 'proveedor', clienteNombre: 'cliente', lugarEntrega: 'entrega', contactoValor: 'contacto', notas: 'notas', nota: 'notas', loteId: 'lote', agotado: 'agotado', prioridad: 'prioridad', fechaEntregaMin: 'fechas', fechaEntregaMax: 'fechas' };
+const P27_CLAVES_AMIGABLES = { estado: 'estado', precioVenta: 'precio', precio: 'precio', stock: 'stock', nombre: 'nombre', estados: 'etapas', estadoActual: 'etapa', botes: 'botes', activo: 'visible', foto: 'foto', imagen: 'imagen', cantidad: 'cantidad', costoUnitario: 'costo', proveedor: 'proveedor', clienteNombre: 'cliente', lugarEntrega: 'entrega', contactoValor: 'contacto', notas: 'notas', nota: 'notas', observaciones: 'observaciones', loteId: 'lote', agotado: 'agotado', prioridad: 'prioridad', fechaEntregaMin: 'fechas', fechaEntregaMax: 'fechas' };
 
 function _p27Reemplazo(k, v) { return (typeof v === 'string' && v.length > 200) ? ('#' + v.length + v.slice(0, 16) + v.slice(-16)) : v; }
 function _p27Hash(v) {
@@ -4356,7 +4371,9 @@ function p27ResetCatMatch() {
   const s = document.getElementById('sim-match');
   if (s) { s.style.display = 'none'; s.innerHTML = ''; }
   const c = document.getElementById('ref-chips');
-  if (c) c.style.display = 'none';
+  if (c) { c.style.display = 'none'; }
+  const tg = document.getElementById('ref-chips-toggle');
+  if (tg) tg.textContent = '＋ Elegir acordes del catálogo';
 }
 function p27RenderCatMatch() {
   const box = document.getElementById('cat-match');
@@ -4365,15 +4382,17 @@ function p27RenderCatMatch() {
   if (!_p27EsNuevaEsencia() || !ov || !ov.classList.contains('open')) { box.style.display = 'none'; return; }
   if (_catAplicado) {
     const p = _catAplicado.p;
-    box.innerHTML = `<div class="p27-catmatch-ok">✔ Datos aplicados desde el catálogo: <strong>${_p27Esc(p27NombreCortoCatalogo(p))}</strong> — ${_p27Esc(p.disenador)}. Revísalos y ajusta lo que quieras. <button type="button" class="btn btn-outline btn-sm" data-cat-accion="deshacer">↩ Deshacer</button></div>`;
+    const fs = _catAplicado.fs;
+    const perfilLinea = (fs && fs.perfil) ? `<br><span class="p27-sug-sub">Perfil por porcentajes: ${p27PerfilTxt(fs.perfil)} → familia sugerida <b>${_p27Esc(fs.nombre)}</b>${fs.sug && fs.sug.cercana ? ` (muy cerca también: ${_p27Esc(fs.sug.segundo.nombre)})` : ''}. <a href="#" data-cat-accion="calculo">Ver cálculo</a></span>` : '';
+    box.innerHTML = `<div class="p27-catmatch-ok">✔ Datos aplicados desde el catálogo: <strong>${_p27Esc(p27NombreCortoCatalogo(p))}</strong> — ${_p27Esc(p.disenador)}. Revísalos y ajusta lo que quieras. <button type="button" class="btn btn-outline btn-sm" data-cat-accion="deshacer">↩ Deshacer</button>${perfilLinea}</div>`;
     box.style.display = 'block';
     return;
   }
   const c = p27BuscarCatalogo(document.getElementById('e-nombre').value, document.getElementById('e-disenador').value);
   if (!c.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
   box.innerHTML = `<div class="p27-catmatch-t">📚 Encontrado en tu catálogo — toca el que corresponda:</div>` + c.map(e => {
-    const fam = p27FamiliaParaCatalogo(e.p), lab = e.p.familiaOlfativa || '';
-    return `<div class="p27-catrow"><div class="p27-catrow-txt"><strong>${_p27Esc(e.corto)}</strong> — ${_p27Esc(e.p.disenador)} · ${_p27Esc(e.p.genero)}<br><span class="p27-sug-sub">${e.desigual ? '⚠️ El diseñador es distinto al que escribiste · ' : ''}Familia: ${fam ? `<b>${_p27Esc(fam)}</b>` : 'sin sugerencia'}${lab && lab !== fam ? ` (catálogo: ${_p27Esc(lab)})` : ''} · Acordes: ${_p27Esc(p27Referencia(e.p)) || '—'}</span></div><button type="button" class="btn btn-primary btn-sm" data-cat-id="${_p27Esc(e.p.id)}">Usar datos</button></div>`;
+    const fam = p27FamiliaSugerida(e.p).nombre, lab = e.p.familiaOlfativa || '';
+    return `<div class="p27-catrow"><div class="p27-catrow-txt"><strong>${_p27Esc(e.corto)}</strong> — ${_p27Esc(e.p.disenador)} · ${_p27Esc(e.p.genero)}<br><span class="p27-sug-sub">${e.desigual ? '⚠️ El diseñador es distinto al que escribiste · ' : ''}Familia: ${fam ? `<b>${_p27Esc(fam)}</b>` : 'sin sugerencia'}${lab && lab !== fam ? ` (etiqueta del proveedor: ${_p27Esc(lab)})` : ''} · Acordes: ${_p27Esc(p27Referencia(e.p)) || '—'}</span></div><button type="button" class="btn btn-primary btn-sm" data-cat-id="${_p27Esc(e.p.id)}">Usar datos</button></div>`;
   }).join('') + `<div class="p27-catmatch-f"><a href="#" data-cat-accion="equiv">⚙️ Ajustar las equivalencias de familias</a></div>`;
   box.style.display = 'block';
 }
@@ -4391,12 +4410,13 @@ function p27AplicarCatalogo(id) {
   $('e-referencia-olfativa').value = p27Referencia(e.p); fire($('e-referencia-olfativa'));
   renderNotasDominantesEsencia(p27NotasDeAcordes(e.p));
   ['e-nota1', 'e-nota2', 'e-nota3'].forEach(i => fire($(i)));
-  const fam = p27FamiliaParaCatalogo(e.p);
+  const fs = p27FamiliaSugerida(e.p); _catAplicado.fs = fs;
+  const fam = fs.nombre;
   if (fam && [...$('e-familia').options].some(o => o.value === fam)) { $('e-familia').value = fam; try { onFamiliaChange(); } catch (err) {} fire($('e-familia')); }
   } finally { _sugSilencio = false; }
   ['nombres', 'disenadores'].forEach(p27OcultarSug);
   p27RenderCatMatch();
-  try { p27RenderSim(); } catch (err) {}
+  try { p27RenderSim(); p27RenderChips(); } catch (err) {}
 }
 function p27DeshacerCatalogo() {
   if (!_catAplicado) return;
@@ -4411,7 +4431,7 @@ function p27DeshacerCatalogo() {
     ['e-nombre', 'e-disenador', 'e-genero', 'e-referencia-olfativa', 'e-familia'].forEach(i => fire($(i)));
   } finally { _sugSilencio = false; }
   p27RenderCatMatch();
-  try { p27RenderSim(); } catch (err) {}
+  try { p27RenderSim(); p27RenderChips(); } catch (err) {}
 }
 function p27IniciarCatalogoAsistente() {
   const box = document.getElementById('cat-match');
@@ -4426,6 +4446,7 @@ function p27IniciarCatalogoAsistente() {
     e.preventDefault();
     if (a.dataset.catAccion === 'deshacer') p27DeshacerCatalogo();
     else if (a.dataset.catAccion === 'equiv') abrirEquivFamilias();
+    else if (a.dataset.catAccion === 'calculo' && _catAplicado && _catAplicado.fs && _catAplicado.fs.perfil) p27AbrirCalculo({ titulo: `${p27NombreCortoCatalogo(_catAplicado.p)} — ${_catAplicado.p.disenador}`, pf: _catAplicado.fs.perfil, sug: _catAplicado.fs.sug, estimado: _catAplicado.fs.estimado });
   });
   ['e-nombre', 'e-disenador'].forEach(id => {
     const el = document.getElementById(id);
@@ -4575,6 +4596,7 @@ function p27SugerirPorSimilitud(texto, notas) {
   return { ok, no, usoNotas: ok.length < 2, similares, familias: p27VotarFamilias(similares, 7) };
 }
 
+let _simUltimo = null;
 function p27RenderSim() {
   const box = document.getElementById('sim-match');
   if (!box) return;
@@ -4589,20 +4611,25 @@ function p27RenderSim() {
     box.style.display = 'block';
     return;
   }
-  const top = r.familias[0], seg = r.familias[1];
-  const confianza = !top ? '' : (top.share >= 0.7 && r.similares[0].s >= 0.55) ? 'alta' : (top.share >= 0.5 ? 'media' : 'baja');
+  // Perfil por porcentajes: los acordes escritos llevan porcentajes ESTIMADOS por su orden (100, 88, 77…)
+  const u = p27VectorUsuario(r.ok, notas);
+  const filas = r.ok.length >= 2 ? r.ok.map((a, i) => ({ a, pct: Math.round(100 * Math.pow(0.88, i)) })) : Object.keys(u).map(a => ({ a, pct: Math.max(1, Math.round(u[a] * 100)) }));
+  const pf = p27PerfilDeFilas(filas), sug = pf ? p27SugerirFamiliaPerfil(pf) : null;
+  _simUltimo = pf && sug ? { titulo: 'Esencia nueva (acordes escritos)', pf, sug, estimado: true } : null;
   const base = r.usoNotas ? `notas dominantes (${_p27Esc(notas.join(', '))})` : `acordes: ${_p27Esc(r.ok.join(', '))}`;
-  const fila = (t) => `<div class="p27-catrow" style="padding:4px 0;"><div class="p27-catrow-txt"><strong>${_p27Esc(p27NombreCortoCatalogo(t.p))}</strong> — ${_p27Esc(t.p.disenador)} <span class="p27-sug-sub">· ${Math.round(t.s * 100)}% · ${_p27Esc(t.p.familiaOlfativa || 'sin familia')}</span></div></div>`;
+  const fila = (t) => `<div class="p27-catrow" style="padding:4px 0;"><div class="p27-catrow-txt"><strong>${_p27Esc(p27NombreCortoCatalogo(t.p))}</strong> — ${_p27Esc(t.p.disenador)} <span class="p27-sug-sub">· ${Math.round(t.s * 100)}% de parecido · ${_p27Esc(t.p.familiaOlfativa || 'sin etiqueta')}</span></div></div>`;
   const notasSug = p27NotasDeAcordes({ acordes: r.ok });
   const actuales = notasDominantesSeleccionadas();
   const mostrarNotas = !r.usoNotas && notasSug.length && JSON.stringify(notasSug) !== JSON.stringify(actuales);
   box.innerHTML = `<div class="p27-catmatch-t">🔎 Parecidos en tu catálogo (según ${base})</div>
-    ${top ? `<div style="margin:4px 0 6px;">Familia sugerida: <strong>${_p27Esc(top.nombre)}</strong> <span class="p27-sug-sub">· confianza ${confianza} (${top.n} de ${r.similares.slice(0, 7).length} parecidos)</span> <button type="button" class="btn btn-primary btn-sm" data-sim-fam="${_p27Esc(top.nombre)}">Usar esta familia</button>
-      ${seg && seg.share >= 0.2 ? `<br><span class="p27-sug-sub">También podría ser:</span> <strong>${_p27Esc(seg.nombre)}</strong> <button type="button" class="btn btn-outline btn-sm" data-sim-fam="${_p27Esc(seg.nombre)}">Usar esta</button>` : ''}</div>` : '<div class="p27-sug-sub" style="margin:4px 0;">Los perfumes parecidos no tienen una familia asignada en tu catálogo.</div>'}
+    ${sug ? `<div style="margin:4px 0 6px;">Familia sugerida (por perfil): <strong>${_p27Esc(sug.mejor.nombre)}</strong> <button type="button" class="btn btn-primary btn-sm" data-sim-fam="${_p27Esc(sug.mejor.nombre)}">Usar esta familia</button>
+      <br><span class="p27-sug-sub">Perfil: ${p27PerfilTxt(pf)} · <a href="#" data-sim-accion="calculo" style="color:#56CCF2;">Ver cálculo</a></span>
+      ${sug.cercana ? `<br><span class="p27-sug-sub">Muy cerca también:</span> <strong>${_p27Esc(sug.segundo.nombre)}</strong> <button type="button" class="btn btn-outline btn-sm" data-sim-fam="${_p27Esc(sug.segundo.nombre)}">Usar esta</button>` : ''}</div>` : '<div class="p27-sug-sub" style="margin:4px 0;">No se pudo calcular el perfil con esos acordes.</div>'}
+    <div class="p27-sug-sub" style="margin:6px 0 2px;">Perfumes de tu catálogo con acordes parecidos:</div>
     ${r.similares.slice(0, 5).map(fila).join('')}
     ${mostrarNotas ? `<div style="margin-top:6px;"><button type="button" class="btn btn-outline btn-sm" data-sim-accion="notas">Usar también como notas dominantes</button></div>` : ''}
     ${r.no.length ? `<div class="p27-sug-sub" style="margin-top:4px;">No reconocí: ${_p27Esc(r.no.join(', '))}</div>` : ''}
-    <div class="p27-sug-sub" style="margin-top:6px;">Es una sugerencia por parecido de acordes, no una verdad: confírmala con tu criterio.</div>`;
+    <div class="p27-sug-sub" style="margin-top:6px;">Los porcentajes de lo que escribiste se estiman por el orden, así que es una guía: confírmala con tu criterio y con un lote de prueba.</div>`;
   box.style.display = 'block';
 }
 function p27AplicarFamiliaSim(nombre) {
@@ -4628,10 +4655,18 @@ function p27AgendarSim() { clearTimeout(_simTimer); _simTimer = setTimeout(() =>
 function p27RenderChips() {
   const cont = document.getElementById('ref-chips');
   if (!cont) return;
-  const frec = {};
-  (db.catalogoVitrina || []).forEach(p => (p.acordes || []).forEach(a => { frec[a] = (frec[a] || 0) + 1; }));
-  const lista = Object.keys(frec).sort((a, b) => frec[b] - frec[a] || a.localeCompare(b, 'es')).slice(0, 36);
-  cont.innerHTML = `<div class="p27-sug-sub" style="margin-bottom:4px;">Toca los acordes en orden, del más dominante al menos dominante:</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${lista.map(a => `<span class="p27-chip" data-acorde="${_p27Esc(a)}" style="cursor:pointer;">${_p27Esc(a)}</span>`).join('')}</div>`;
+  let lista, titulo;
+  if (_catAplicado) {
+    const filas = p27FilasDePerfume(_catAplicado.p).slice().sort((a, b) => b.pct - a.pct);
+    lista = filas.map(f => ({ a: f.a, pct: f.pct }));
+    titulo = `Acordes de <b>${_p27Esc(p27NombreCortoCatalogo(_catAplicado.p))}</b>, de mayor a menor proporción. Toca los que quieras usar en la referencia:`;
+  } else {
+    const frec = {};
+    (db.catalogoVitrina || []).forEach(p => (p.acordes || []).forEach(a => { frec[a] = (frec[a] || 0) + 1; }));
+    lista = Object.keys(frec).sort((a, b) => frec[b] - frec[a] || a.localeCompare(b, 'es')).slice(0, 36).map(a => ({ a }));
+    titulo = 'Toca los acordes en orden, del más dominante al menos dominante:';
+  }
+  cont.innerHTML = `<div class="p27-sug-sub" style="margin-bottom:4px;">${titulo}</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${lista.map(x => `<span class="p27-chip" data-acorde="${_p27Esc(x.a)}" style="cursor:pointer;">${_p27Esc(x.a)}${x.pct != null ? ` <b>${x.pct}%</b>` : ''}</span>`).join('')}</div>`;
   p27MarcarChips();
 }
 function p27MarcarChips() {
@@ -4656,7 +4691,8 @@ function p27IniciarSim() {
   box.addEventListener('click', (e) => {
     const f = e.target.closest('[data-sim-fam]');
     if (f) { p27AplicarFamiliaSim(f.dataset.simFam); return; }
-    if (e.target.closest('[data-sim-accion="notas"]')) p27AplicarNotasSim();
+    if (e.target.closest('[data-sim-accion="notas"]')) { p27AplicarNotasSim(); return; }
+    if (e.target.closest('[data-sim-accion="calculo"]')) { e.preventDefault(); if (_simUltimo) p27AbrirCalculo(_simUltimo); }
   });
   const tog = document.getElementById('ref-chips-toggle'), chips = document.getElementById('ref-chips');
   tog.addEventListener('click', (e) => {
@@ -4673,6 +4709,279 @@ function p27IniciarSim() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', p27IniciarSim); else p27IniciarSim();
 
+
+// ═══════════════ V98: FAMILIA SUGERIDA POR PERFIL DE PORCENTAJES ═══════════════
+// Cada acorde del catálogo se asigna a un grupo: FRESCURA (cítrico, acuático, verde…), CORAZÓN (floral y frutal)
+// o CUERPO (amaderado, dulce, almizcle, ámbar, atalcado…). Se suman los porcentajes de las barras de cada grupo
+// y se obtiene el perfil del perfume (por ejemplo 26% / 33% / 41%). Ese perfil se compara con el perfil promedio
+// de los perfumes de cada una de tus familias y se sugiere la más cercana. Es una sugerencia, no una regla.
+const P27_G_FRESCURA = new Set(['Cítrico', 'Fresco', 'Acuático', 'Marino', 'Ozónico', 'Salado', 'Mineral', 'Verde', 'Herbal', 'Fresco especiado', 'Aromático', 'Lavanda']);
+const P27_G_CORAZON = new Set(['Afrutados', 'Tropical', 'Acerezado', 'Florales', 'Floral blanco', 'Floral amarillo', 'Rosas', 'Iris', 'Violeta', 'Nardos']);
+const P27_G_CUERPO = new Set(['Amaderado', 'Pachulí', 'Terrosos', 'Conífera', 'Musgoso', 'Ámbar', 'Balsámico', 'Oud', 'Dulce', 'Avainillado', 'Caramelo', 'Cacao', 'Chocolate', 'Café', 'Coco', 'Lactónico', 'Nueces', 'Almendrado', 'Amielado', 'Ron', 'Whisky', 'Champán', 'Atalcado', 'Almizclado', 'Cuero', 'Ahumado', 'Tabaco', 'Animálico', 'Cálido especiado', 'Canela']);
+const P27_G_NOMBRE = { frescura: 'Frescura', corazon: 'Corazón', cuerpo: 'Cuerpo' };
+function p27GrupoAcorde(a) { return P27_G_FRESCURA.has(a) ? 'frescura' : P27_G_CORAZON.has(a) ? 'corazon' : P27_G_CUERPO.has(a) ? 'cuerpo' : ''; }
+function p27PctsDe(p) { return (p.acordes || []).map((a, i) => (p.acordesPct && p.acordesPct[i] != null) ? p.acordesPct[i] : Math.round(100 * Math.pow(0.88, i))); }
+function p27FilasDePerfume(p) { const pc = p27PctsDe(p); return (p.acordes || []).map((a, i) => ({ a, pct: pc[i] })); }
+function p27PerfilDeFilas(filas) {
+  const s = { frescura: 0, corazon: 0, cuerpo: 0 };
+  const f2 = filas.map(x => { const g = p27GrupoAcorde(x.a); if (g) s[g] += x.pct; return { a: x.a, pct: x.pct, g }; });
+  const total = s.frescura + s.corazon + s.cuerpo;
+  if (total <= 0) return null;
+  return { f: 100 * s.frescura / total, m: 100 * s.corazon / total, b: 100 * s.cuerpo / total, sumas: s, total, filas: f2 };
+}
+let _perfFam = null, _perfFamKey = '';
+function p27PerfilesFamilias() {
+  const key = (db.catalogoVitrina || []).length + '|' + JSON.stringify(db.equivalenciasFamilia || {}) + '|' + (db.familiasOlfativas || []).length;
+  if (_perfFam && _perfFamKey === key) return _perfFam;
+  const acc = {};
+  (db.catalogoVitrina || []).forEach(p => {
+    const fam = p27FamiliaParaCatalogo(p);
+    if (!fam) return;
+    const pf = p27PerfilDeFilas(p27FilasDePerfume(p));
+    if (!pf) return;
+    const o = acc[fam] || (acc[fam] = { f: 0, m: 0, b: 0, n: 0 });
+    o.f += pf.f; o.m += pf.m; o.b += pf.b; o.n++;
+  });
+  const out = {};
+  Object.keys(acc).forEach(k => { const o = acc[k]; if (o.n >= 3) out[k] = { f: o.f / o.n, m: o.m / o.n, b: o.b / o.n, n: o.n }; });
+  _perfFam = out; _perfFamKey = key;
+  return out;
+}
+function p27SugerirFamiliaPerfil(pf) {
+  const fams = p27PerfilesFamilias();
+  const lista = Object.keys(fams).map(nombre => {
+    const x = fams[nombre];
+    return { nombre, f: x.f, m: x.m, b: x.b, n: x.n, d: Math.abs(pf.f - x.f) + Math.abs(pf.m - x.m) + Math.abs(pf.b - x.b) };
+  }).sort((a, b) => a.d - b.d);
+  if (!lista.length) return null;
+  return { lista, mejor: lista[0], segundo: lista[1] || null, cercana: !!(lista[1] && lista[1].d - lista[0].d < 8) };
+}
+// Familia sugerida para un perfume del catálogo (usa sus porcentajes; si no se pudiera, cae a la etiqueta del proveedor)
+function p27FamiliaSugerida(p) {
+  const filas = p27FilasDePerfume(p), pf = p27PerfilDeFilas(filas);
+  if (pf) { const sug = p27SugerirFamiliaPerfil(pf); if (sug) return { nombre: sug.mejor.nombre, perfil: pf, sug, via: 'perfil', estimado: !(p.acordesPct && p.acordesPct.length) }; }
+  return { nombre: p27FamiliaParaCatalogo(p), perfil: null, sug: null, via: 'etiqueta', estimado: false };
+}
+const p27PerfilTxt = (pf) => `frescura ${Math.round(pf.f)}% · corazón ${Math.round(pf.m)}% · cuerpo ${Math.round(pf.b)}%`;
+
+// Ventana "Ver cálculo": muestra TODO el procedimiento para que se pueda comprobar con una calculadora
+let _calcCtx = null;
+function p27AbrirCalculo(ctx) {
+  if (!ctx || !ctx.pf) return;
+  _calcCtx = ctx;
+  const pf = ctx.pf, sug = ctx.sug;
+  const tabla = pf.filas.map(x => `<tr><td>${_p27Esc(x.a)}</td><td style="text-align:right;">${x.pct}</td><td>${x.g ? P27_G_NOMBRE[x.g] : '<span style="opacity:.5">— (no cuenta)</span>'}</td></tr>`).join('');
+  const suma = (g) => { const v = pf.filas.filter(x => x.g === g).map(x => x.pct); return v.length ? `${v.join(' + ')} = <b>${pf.sumas[g]}</b>` : '<b>0</b>'; };
+  const fams = sug ? sug.lista.slice(0, 8).map((x, i) => `<tr${i === 0 ? ' style="background:rgba(201,162,39,.16);"' : ''}><td>${_p27Esc(x.nombre)}</td><td style="text-align:right;">${Math.round(x.f)}</td><td style="text-align:right;">${Math.round(x.m)}</td><td style="text-align:right;">${Math.round(x.b)}</td><td style="text-align:right;"><b>${x.d.toFixed(0)}</b></td><td style="text-align:right;opacity:.6;">${x.n}</td></tr>`).join('') : '';
+  document.getElementById('calculo-contenido').innerHTML = `
+    <div class="card-title" style="font-size:14px;margin:4px 0 6px;">${_p27Esc(ctx.titulo || 'Perfil')}</div>
+    ${ctx.estimado ? '<div class="p27-sug-sub" style="margin-bottom:6px;">⚠️ Los porcentajes de este perfume son estimados (por el orden de los acordes), no medidos de una barra.</div>' : ''}
+    <div class="card-title" style="font-size:13px;margin:10px 0 4px;">1. Cada acorde, con su porcentaje y su grupo</div>
+    <table class="p27-tabla"><thead><tr><th>Acorde</th><th>%</th><th>Grupo</th></tr></thead><tbody>${tabla}</tbody></table>
+    <div class="card-title" style="font-size:13px;margin:12px 0 4px;">2. Suma de cada grupo</div>
+    <div style="font-size:13px;line-height:1.7;">Frescura: ${suma('frescura')}<br>Corazón: ${suma('corazon')}<br>Cuerpo: ${suma('cuerpo')}<br>Total: ${pf.sumas.frescura} + ${pf.sumas.corazon} + ${pf.sumas.cuerpo} = <b>${pf.total}</b></div>
+    <div class="card-title" style="font-size:13px;margin:12px 0 4px;">3. Perfil del perfume (cada suma ÷ total × 100)</div>
+    <div style="font-size:13px;"><b>${p27PerfilTxt(pf)}</b></div>
+    ${sug ? `<div class="card-title" style="font-size:13px;margin:12px 0 4px;">4. Comparación con el perfil promedio de cada familia</div>
+    <div class="p27-sug-sub" style="margin-bottom:4px;">Diferencia = |frescura − frescura de la familia| + |corazón − …| + |cuerpo − …|. La menor es la más cercana.</div>
+    <table class="p27-tabla"><thead><tr><th>Familia</th><th>Fres.</th><th>Cor.</th><th>Cue.</th><th>Dif.</th><th>n</th></tr></thead><tbody>${fams}</tbody></table>
+    <div style="margin-top:8px;font-size:13px;">Sugerida: <b>${_p27Esc(sug.mejor.nombre)}</b>${sug.cercana ? ` · muy cerca también: <b>${_p27Esc(sug.segundo.nombre)}</b>` : ''}</div>` : ''}
+    <div class="p27-sug-sub" style="margin-top:12px;line-height:1.5;">Qué es criterio de la app y qué no: el grupo de cada acorde lo decidió la app (los de la lista "no cuenta" se ignoran). El perfil de cada familia es el promedio de los perfumes de tu catálogo que quedan en esa familia según tus equivalencias (n = cuántos perfumes). Es una hipótesis de partida: lo confirman tus lotes de prueba y tus observaciones.</div>`;
+  openModal('modal-calculo');
+}
+
+// ═══════════════ V98: OBSERVACIONES DEL LOTE (tu propia experiencia) ═══════════════
+// Cuando un lote ya está terminado (Envasado Final hecho, o ya vendido) se pueden dejar hasta 3 observaciones,
+// cada una clasificada como positiva, negativa o neutra. Se guardan dentro del lote y se pueden revisar en conjunto.
+const P27_OBS_TIPOS = { positivo: { icono: '👍', label: 'Positivo' }, negativo: { icono: '👎', label: 'Negativo' }, neutro: { icono: '➖', label: 'Neutro' } };
+const P27_OBS_MAX = 3;
+let _obsLoteId = null, _obsEditId = null;
+function p27LoteFinalizado(l) { return !!(l && ((l.estados && l.estados.enfrascado && l.estados.enfrascado.confirmado) || l.estadoActual === 'venta')); }
+function _obsLote() { return db.lotes.find(x => x.id === _obsLoteId); }
+function abrirObservaciones(id) {
+  _obsLoteId = id; _obsEditId = null;
+  const l = _obsLote(); if (!l) return;
+  document.getElementById('obs-titulo').textContent = `📝 Observaciones — ${l.codigo || ''} · ${l.esenciaNombre || ''}`;
+  renderObservaciones();
+  openModal('modal-observaciones');
+}
+function renderObservaciones() {
+  const l = _obsLote(); if (!l) return;
+  const obs = l.observaciones || [];
+  document.getElementById('obs-contexto').innerHTML = `Familia usada: <b>${_p27Esc(l.familia || '—')}</b>${l.estandar ? ` (estándar ${_p27Esc(l.estandar)})` : ''}${l.nivelMaceracion ? ` · maceración: ${_p27Esc((NIVELES_MACERACION[l.nivelMaceracion] || {}).label || l.nivelMaceracion)}` : ''}`;
+  document.getElementById('obs-lista').innerHTML = obs.length ? obs.map(o => `
+    <div class="p27-lista-fila" style="align-items:flex-start;">
+      <span style="flex:1;"><span title="${P27_OBS_TIPOS[o.tipo].label}">${P27_OBS_TIPOS[o.tipo].icono}</span> ${_p27Esc(o.texto)} <span class="p27-sug-sub">· ${_p27Esc(p27FormatoFecha(o.fecha))}</span></span>
+      <span style="display:flex;gap:6px;"><button type="button" class="btn btn-outline btn-sm" data-obs-edit="${o.id}">✏️</button><button type="button" class="btn btn-danger btn-sm" data-obs-del="${o.id}">✕</button></span>
+    </div>`).join('') : '<div style="opacity:.6;font-size:13px;padding:6px 0;">Todavía no hay observaciones de este lote.</div>';
+  const lleno = obs.length >= P27_OBS_MAX && !_obsEditId;
+  document.getElementById('obs-form').style.display = lleno ? 'none' : 'block';
+  document.getElementById('obs-lleno').style.display = lleno ? 'block' : 'none';
+  document.getElementById('obs-contador').textContent = `${obs.length} de ${P27_OBS_MAX}`;
+  document.getElementById('obs-btn-guardar').textContent = _obsEditId ? 'Guardar cambios' : 'Agregar observación';
+  document.getElementById('obs-btn-cancelar').style.display = _obsEditId ? 'inline-flex' : 'none';
+}
+function guardarObservacion() {
+  const l = _obsLote(); if (!l) return;
+  const texto = document.getElementById('obs-texto').value.trim();
+  const tipo = document.getElementById('obs-tipo').value;
+  if (!texto) { alert('Escribe la observación.'); return; }
+  if (!P27_OBS_TIPOS[tipo]) return;
+  l.observaciones = l.observaciones || [];
+  if (_obsEditId) {
+    const o = l.observaciones.find(x => String(x.id) === String(_obsEditId));
+    if (o) { o.texto = texto; o.tipo = tipo; }
+  } else {
+    if (l.observaciones.length >= P27_OBS_MAX) { alert(`Un lote admite hasta ${P27_OBS_MAX} observaciones.`); return; }
+    l.observaciones.push({ id: Date.now() + Math.random(), tipo, texto, fecha: new Date().toISOString() });
+  }
+  _obsEditId = null;
+  document.getElementById('obs-texto').value = '';
+  saveToDrive(); renderLotes(); renderObservaciones();
+}
+function cancelarEdicionObservacion() { _obsEditId = null; document.getElementById('obs-texto').value = ''; renderObservaciones(); }
+document.addEventListener('click', (e) => {
+  const cont = document.getElementById('modal-observaciones');
+  if (!cont || !cont.contains(e.target)) return;
+  const l = _obsLote(); if (!l) return;
+  const d = e.target.closest('[data-obs-del]');
+  if (d) {
+    const o = (l.observaciones || []).find(x => String(x.id) === d.dataset.obsDel);
+    if (o && confirm('¿Quitar esta observación?')) { l.observaciones = l.observaciones.filter(x => x !== o); saveToDrive(); renderLotes(); renderObservaciones(); }
+    return;
+  }
+  const ed = e.target.closest('[data-obs-edit]');
+  if (ed) {
+    const o = (l.observaciones || []).find(x => String(x.id) === ed.dataset.obsEdit);
+    if (o) { _obsEditId = o.id; document.getElementById('obs-tipo').value = o.tipo; document.getElementById('obs-texto').value = o.texto; renderObservaciones(); document.getElementById('obs-form').style.display = 'block'; }
+  }
+});
+
+// Vista general: todas las observaciones de todos los lotes, con filtros
+function abrirExperiencia() {
+  const lotes = db.lotes.filter(l => (l.observaciones || []).length);
+  const esencias = [...new Set(lotes.map(l => l.esenciaNombre))].sort((a, b) => a.localeCompare(b, 'es'));
+  const familias = [...new Set(lotes.map(l => l.familia).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  document.getElementById('exp-esencia').innerHTML = '<option value="">Todas las esencias</option>' + esencias.map(e => `<option value="${_p27Esc(e)}">${_p27Esc(e)}</option>`).join('');
+  document.getElementById('exp-familia').innerHTML = '<option value="">Todas las familias</option>' + familias.map(f => `<option value="${_p27Esc(f)}">${_p27Esc(f)}</option>`).join('');
+  document.getElementById('exp-tipo').value = '';
+  renderExperiencia();
+  openModal('modal-experiencia');
+}
+function renderExperiencia() {
+  const t = document.getElementById('exp-tipo').value, es = document.getElementById('exp-esencia').value, fa = document.getElementById('exp-familia').value;
+  const todas = db.lotes.flatMap(l => (l.observaciones || []).map(o => ({ l, o })))
+    .filter(x => (!es || x.l.esenciaNombre === es) && (!fa || x.l.familia === fa));
+  const cuenta = { positivo: 0, negativo: 0, neutro: 0 };
+  todas.forEach(x => { if (cuenta[x.o.tipo] !== undefined) cuenta[x.o.tipo]++; });
+  const lista = todas.filter(x => !t || x.o.tipo === t).sort((a, b) => String(b.o.fecha).localeCompare(String(a.o.fecha)));
+  document.getElementById('exp-resumen').innerHTML = `👍 ${cuenta.positivo} positivas · 👎 ${cuenta.negativo} negativas · ➖ ${cuenta.neutro} neutras`;
+  document.getElementById('exp-lista').innerHTML = lista.length ? lista.map(x => `
+    <div class="p27-lista-fila" style="align-items:flex-start;">
+      <span style="flex:1;">${P27_OBS_TIPOS[x.o.tipo].icono} ${_p27Esc(x.o.texto)}<br><span class="p27-sug-sub">${_p27Esc(x.l.esenciaNombre)} · ${_p27Esc(x.l.codigo || '')} · familia ${_p27Esc(x.l.familia || '—')} · ${_p27Esc(p27FormatoFecha(x.o.fecha))}</span></span>
+    </div>`).join('') : '<div style="opacity:.6;font-size:13px;padding:8px 0;">No hay observaciones con esos filtros. Se agregan desde cada lote terminado, con el botón 📝 Observaciones.</div>';
+}
+
+// ═══════════════ V98: EDITOR DE ACORDES CON PORCENTAJE (formulario del Catálogo) ═══════════════
+let _catFilas = [];
+let _catCalcCtx = null;
+const _catFila = (a, pct) => ({ a: a || '', pct: pct == null ? 100 : pct });
+function catSerializar() { return JSON.stringify(_catFilas.map(x => [x.a, x.pct])); }
+function catSincronizarOculto(notificar) {
+  const h = document.getElementById('cat-acordes'); if (!h) return;
+  h.value = catSerializar();
+  if (notificar) h.dispatchEvent(new Event('input', { bubbles: true }));
+}
+function catCargarFilas(acordes, pcts) {
+  _catFilas = (acordes || []).map((a, i) => _catFila(a, (pcts && pcts[i] != null) ? pcts[i] : Math.round(100 * Math.pow(0.88, i))));
+  catRenderFilas(); catSincronizarOculto(false);
+}
+function catFilasParaGuardar() {
+  const m = new Map();
+  _catFilas.forEach((x, i) => {
+    const a = String(x.a || '').trim(); const pct = Math.max(1, Math.min(100, Math.round(Number(x.pct) || 0)));
+    if (!a || !(Number(x.pct) > 0)) return;
+    const k = _p27NormAc(a);
+    if (!m.has(k) || m.get(k).pct < pct) m.set(k, { a: (p27Vocab().get(k) || a), pct, i });
+  });
+  const lista = [...m.values()].sort((x, y) => y.pct - x.pct || x.i - y.i);
+  return { acordes: lista.map(x => x.a), pcts: lista.map(x => x.pct) };
+}
+function catRenderFilas() {
+  const cont = document.getElementById('cat-acordes-filas'); if (!cont) return;
+  const dl = document.getElementById('lista-acordes-catalogo');
+  if (dl && !dl.dataset.listo) { dl.innerHTML = [...p27Vocab().values()].sort((a, b) => a.localeCompare(b, 'es')).map(a => `<option value="${_p27Esc(a)}"></option>`).join(''); dl.dataset.listo = '1'; }
+  cont.innerHTML = _catFilas.map((x, i) => `<div class="cat-ac-fila" data-i="${i}">
+    <input class="cat-ac-nombre" list="lista-acordes-catalogo" placeholder="Acorde (ej. Amaderado)" value="${_p27Esc(x.a)}" autocomplete="off">
+    <input class="cat-ac-pct" type="number" min="1" max="100" step="1" value="${x.pct}" title="Porcentaje (la barra más larga = 100)">
+    <input class="cat-ac-rango" type="range" min="1" max="100" step="1" value="${Math.max(1, Math.min(100, x.pct))}">
+    <button type="button" class="btn btn-danger btn-sm" data-cat-quitar="${i}" title="Quitar este acorde">✕</button>
+  </div>`).join('') || '<div style="opacity:.6;font-size:12px;margin-bottom:6px;">Aún no hay acordes. Toca "＋ Agregar acorde".</div>';
+  previsualizarAcordesCatalogo();
+}
+function catAgregarAcorde(a, pct) {
+  _catFilas.push(_catFila(a, pct != null ? pct : Math.round(100 * Math.pow(0.88, _catFilas.length))));
+  catRenderFilas(); catSincronizarOculto(true);
+  const inputs = document.querySelectorAll('#cat-acordes-filas .cat-ac-nombre');
+  if (inputs.length && !a) inputs[inputs.length - 1].focus();
+}
+function previsualizarAcordesCatalogo() {
+  const el = document.getElementById('cat-acordes-preview'); if (!el) return;
+  const g = catFilasParaGuardar();
+  const caja = document.getElementById('cat-sugerencia-fam');
+  _catCalcCtx = null;
+  if (!g.acordes.length) { el.innerHTML = ''; if (caja) { caja.style.display = 'none'; caja.innerHTML = ''; } return; }
+  el.innerHTML = g.acordes.map((a, i) => `<div style="width:${g.pcts[i]}%;background:${colorAcorde(a)};color:#1A1410;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_p27Esc(a)} <span style="opacity:.7;">${g.pcts[i]}</span></div>`).join('');
+  if (!caja) return;
+  const pf = p27PerfilDeFilas(g.acordes.map((a, i) => ({ a, pct: g.pcts[i] })));
+  const sug = pf ? p27SugerirFamiliaPerfil(pf) : null;
+  if (!pf || !sug || g.acordes.length < 2) { caja.style.display = 'none'; caja.innerHTML = ''; return; }
+  _catCalcCtx = { titulo: (document.getElementById('cat-nombre').value || 'Perfume nuevo'), pf, sug, estimado: false };
+  caja.innerHTML = `Familia sugerida por perfil: <strong>${_p27Esc(sug.mejor.nombre)}</strong> <span class="p27-sug-sub">· ${p27PerfilTxt(pf)}</span>
+    <button type="button" class="btn btn-primary btn-sm" data-cat-fam="${_p27Esc(sug.mejor.nombre)}">Usar para Familia Olfativa</button>
+    ${sug.cercana ? `<br><span class="p27-sug-sub">Muy cerca también:</span> <strong>${_p27Esc(sug.segundo.nombre)}</strong> <button type="button" class="btn btn-outline btn-sm" data-cat-fam="${_p27Esc(sug.segundo.nombre)}">Usar esta</button>` : ''}
+    <br><a href="#" data-cat-calc="1" style="color:#56CCF2;font-size:11px;">Ver cálculo</a>`;
+  caja.style.display = 'block';
+}
+(function iniciarEditorAcordes() {
+  const ini = () => {
+    const cont = document.getElementById('cat-acordes-filas'), caja = document.getElementById('cat-sugerencia-fam'), h = document.getElementById('cat-acordes');
+    if (!cont || cont.dataset.listo) return;
+    cont.dataset.listo = '1';
+    cont.addEventListener('input', (e) => {
+      const fila = e.target.closest('.cat-ac-fila'); if (!fila) return;
+      const i = +fila.dataset.i, x = _catFilas[i]; if (!x) return;
+      if (e.target.classList.contains('cat-ac-nombre')) x.a = e.target.value;
+      else if (e.target.classList.contains('cat-ac-pct')) { x.pct = e.target.value === '' ? '' : Number(e.target.value); const r = fila.querySelector('.cat-ac-rango'); if (r && x.pct !== '') r.value = Math.max(1, Math.min(100, x.pct)); }
+      else if (e.target.classList.contains('cat-ac-rango')) { x.pct = Number(e.target.value); fila.querySelector('.cat-ac-pct').value = x.pct; }
+      previsualizarAcordesCatalogo(); catSincronizarOculto(true);
+    });
+    cont.addEventListener('change', (e) => {   // al soltar un porcentaje, se reordena de mayor a menor
+      if (e.target.classList.contains('cat-ac-pct') || e.target.classList.contains('cat-ac-rango')) {
+        const g = catFilasParaGuardar();
+        const vacias = _catFilas.filter(x => !String(x.a || '').trim());
+        _catFilas = g.acordes.map((a, i) => _catFila(a, g.pcts[i])).concat(vacias);
+        catRenderFilas(); catSincronizarOculto(true);
+      }
+    });
+    cont.addEventListener('click', (e) => {
+      const q = e.target.closest('[data-cat-quitar]');
+      if (q) { _catFilas.splice(+q.dataset.catQuitar, 1); catRenderFilas(); catSincronizarOculto(true); }
+    });
+    caja.addEventListener('click', (e) => {
+      const f = e.target.closest('[data-cat-fam]');
+      if (f) { const s = document.getElementById('cat-familia'); if ([...s.options].some(o => o.value === f.dataset.catFam)) { s.value = f.dataset.catFam; s.dispatchEvent(new Event('change', { bubbles: true })); } else alert('Esa familia no está en la lista de Familia Olfativa.'); return; }
+      if (e.target.closest('[data-cat-calc]')) { e.preventDefault(); if (_catCalcCtx) p27AbrirCalculo(_catCalcCtx); }
+    });
+    // Si el borrador automático restaura el campo oculto, se reconstruyen las filas
+    h.addEventListener('change', () => {
+      if (h.value === catSerializar()) return;
+      try { const arr = JSON.parse(h.value); if (Array.isArray(arr)) { _catFilas = arr.map(x => _catFila(x[0], x[1])); catRenderFilas(); } } catch (err) {}
+    });
+    document.getElementById('cat-nombre').addEventListener('input', () => { if (_catCalcCtx) _catCalcCtx.titulo = document.getElementById('cat-nombre').value || 'Perfume nuevo'; });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ini); else ini();
+})();
 let _actLimite = 50;
 function abrirActividad() {
   _actLimite = 50;
@@ -8933,19 +9242,6 @@ function colorAcorde(nombre) {
 // Muestra en vivo las barras de acordes (más ancha la primera, angostándose hacia el final) según
 // el texto separado por comas que se va escribiendo — igual que el catálogo de Distribuidora del
 // Caribe, para ir viendo cómo quedará mientras se transcribe.
-function previsualizarAcordesCatalogo() {
-  const texto = document.getElementById('cat-acordes').value;
-  const acordes = texto.split(',').map(a => a.trim()).filter(Boolean);
-  const el = document.getElementById('cat-acordes-preview');
-  if (!acordes.length) { el.innerHTML = ''; return; }
-  el.innerHTML = acordes.map((a, i) => {
-    const ancho = 100 - (i * (60 / Math.max(acordes.length - 1, 1)));
-    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-      <div style="width:${ancho}%;background:${colorAcorde(a)};color:#1A1410;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${a}</div>
-    </div>`;
-  }).join('');
-}
-
 function abrirNuevaEsenciaCatalogo() {
   document.getElementById('cat-id').value = '';
   document.getElementById('cat-modal-titulo').textContent = '🛍️ Nueva Esencia al Catálogo';
@@ -8954,7 +9250,7 @@ function abrirNuevaEsenciaCatalogo() {
   document.getElementById('cat-genero').value = 'Hombre';
   poblarSelectFamilias('cat-familia', '');
   poblarSelectEdwards('cat-familia-edwards', '');
-  document.getElementById('cat-acordes').value = '';
+  catCargarFilas([]);
   document.getElementById('cat-notas-extra').value = '';
   document.getElementById('cat-activo').checked = true;
   clearFoto('cat-foto-preview', 'cat-foto-data', '🌸');
@@ -8973,7 +9269,7 @@ function editarEsenciaCatalogo(id) {
   document.getElementById('cat-genero').value = e.genero;
   poblarSelectFamilias('cat-familia', e.familiaOlfativa || '');
   poblarSelectEdwards('cat-familia-edwards', e.familiaEdwards || '');
-  document.getElementById('cat-acordes').value = (e.acordes||[]).join(', ');
+  catCargarFilas(e.acordes || [], e.acordesPct || null);
   document.getElementById('cat-notas-extra').value = e.notasExtra || '';
   document.getElementById('cat-activo').checked = e.activo !== false;
   if (e.imagen) {
@@ -8998,7 +9294,8 @@ function guardarEsenciaCatalogo() {
     genero: document.getElementById('cat-genero').value,
     familiaOlfativa: document.getElementById('cat-familia').value,
     familiaEdwards: document.getElementById('cat-familia-edwards').value,
-    acordes: document.getElementById('cat-acordes').value.split(',').map(a => a.trim()).filter(Boolean),
+    acordes: catFilasParaGuardar().acordes,
+    acordesPct: catFilasParaGuardar().pcts,
     notasExtra: document.getElementById('cat-notas-extra').value.trim(),
     activo: document.getElementById('cat-activo').checked,
     imagen: document.getElementById('cat-foto-data').value || '',
@@ -10949,6 +11246,7 @@ function renderLotes() {
       <div style="display:flex;gap:6px;margin-top:12px;align-items:center;flex-wrap:wrap;">
         <div style="flex:1;">${accionHtml}</div>
         <button class="btn btn-outline btn-sm" onclick="mostrarHistorialLote(${lote.id})" title="Ver todo el historial registrado de este lote">📜 Historial completo</button>
+        ${p27LoteFinalizado(lote) ? `<button class="btn btn-outline btn-sm" onclick="abrirObservaciones(${lote.id})" title="Anota cómo salió este lote: positivo, negativo o neutro">📝 Observaciones${(lote.observaciones || []).length ? ` (${lote.observaciones.length})` : ''}</button>` : ''}
         ${editarBtn}
         <button class="btn btn-danger btn-sm" onclick="eliminarLote(${lote.id})">✕</button>
       </div>
@@ -12905,12 +13203,63 @@ renderAll();
 </div>
 <div id="p27-borradores"></div>
 
+<div class="modal-overlay" id="modal-calculo">
+  <div class="modal modal-wide">
+    <button type="button" class="modal-close-x" onclick="closeModal('modal-calculo')" aria-label="Cerrar">✕</button>
+    <div class="modal-body">
+      <div class="modal-title">🧮 Cálculo del perfil</div>
+      <div id="calculo-contenido"></div>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" onclick="closeModal('modal-calculo')">Cerrar</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-observaciones">
+  <div class="modal modal-wide">
+    <button type="button" class="modal-close-x" onclick="closeModal('modal-observaciones')" aria-label="Cerrar">✕</button>
+    <div class="modal-body">
+      <div class="modal-title" id="obs-titulo">📝 Observaciones</div>
+      <div id="obs-contexto" style="font-size:12px;color:#56CCF2;margin-bottom:8px;"></div>
+      <div id="obs-lista"></div>
+      <div style="font-size:11px;opacity:.7;margin:8px 0;" id="obs-contador"></div>
+      <div id="obs-lleno" style="display:none;font-size:12px;color:#FFB020;">Este lote ya tiene las 3 observaciones. Edita o quita una para cambiarla.</div>
+      <div id="obs-form" style="margin-top:6px;">
+        <div class="field"><label>Tipo</label>
+          <select id="obs-tipo"><option value="positivo">👍 Positivo</option><option value="negativo">👎 Negativo</option><option value="neutro">➖ Neutro</option></select></div>
+        <div class="field"><label>Observación</label><textarea id="obs-texto" rows="3" placeholder="Ej. La salida se percibe bastante limpia / El aroma queda muy pegado a la piel y no se proyecta"></textarea></div>
+        <div style="display:flex;gap:8px;"><button type="button" class="btn btn-primary" id="obs-btn-guardar" onclick="guardarObservacion()">Agregar observación</button>
+        <button type="button" class="btn btn-outline" id="obs-btn-cancelar" style="display:none;" onclick="cancelarEdicionObservacion()">Cancelar edición</button></div>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" onclick="closeModal('modal-observaciones')">Cerrar</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-experiencia">
+  <div class="modal modal-wide">
+    <button type="button" class="modal-close-x" onclick="closeModal('modal-experiencia')" aria-label="Cerrar">✕</button>
+    <div class="modal-body">
+      <div class="modal-title">🧪 Experiencia de lotes</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Todas las observaciones que has dejado en tus lotes terminados. Filtra para ver, por ejemplo, solo lo negativo de una familia.</div>
+      <div id="exp-resumen" style="font-size:13px;margin-bottom:8px;"></div>
+      <div class="grid-2">
+        <div class="field"><label>Tipo</label><select id="exp-tipo" onchange="renderExperiencia()"><option value="">Todos</option><option value="positivo">👍 Positivas</option><option value="negativo">👎 Negativas</option><option value="neutro">➖ Neutras</option></select></div>
+        <div class="field"><label>Esencia</label><select id="exp-esencia" onchange="renderExperiencia()"></select></div>
+      </div>
+      <div class="field"><label>Familia usada</label><select id="exp-familia" onchange="renderExperiencia()"></select></div>
+      <div id="exp-lista"></div>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" onclick="closeModal('modal-experiencia')">Cerrar</button></div>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal-overlay" id="modal-equiv-familias">
   <div class="modal modal-wide">
     <button type="button" class="modal-close-x" onclick="closeModal('modal-equiv-familias')" aria-label="Cerrar">✕</button>
     <div class="modal-body">
       <div class="modal-title">📚 Equivalencias de familias del catálogo</div>
-      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Cuando uses datos del catálogo al registrar una esencia, la app rellenará la familia según esta tabla. La propuesta inicial la armó la app: revísala y cámbiala cuando quieras. No modifica esencias ya registradas ni el catálogo.</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Aquí dices a qué familia tuya pertenece cada etiqueta del proveedor. Con eso la app calcula el perfil promedio (frescura, corazón y cuerpo) de los perfumes de cada una de tus familias, y la familia que sugiere para un perfume sale de comparar su perfil con esos promedios. La propuesta inicial la armó la app: revísala y cámbiala cuando quieras. No modifica esencias ya registradas ni el catálogo.</div>
       <div id="equiv-filas"></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-outline" onclick="restablecerEquivFamilias()">↩ Restablecer propuesta</button>
@@ -12968,7 +13317,7 @@ renderAll();
       <button type="button" class="btn btn-outline" onclick="abrirListasGuardadas()">🗂️ Administrar listas</button>
 
       <div class="card-title" style="font-size:14px;margin:22px 0 8px;">📚 Equivalencias de familias del catálogo</div>
-      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Define a cuál de tus familias corresponde cada etiqueta de familia del catálogo, para que "Usar datos del catálogo" rellene la familia correcta al registrar una esencia.</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Define a qué familia tuya pertenece cada etiqueta de familia del proveedor. Con eso la app arma el perfil promedio de cada una de tus familias y, a partir de ahí, sugiere la familia de cada esencia nueva.</div>
       <button type="button" class="btn btn-outline" onclick="abrirEquivFamilias()">📚 Ajustar equivalencias</button>
 
       <div class="card-title" style="font-size:14px;margin:22px 0 8px;">1. Respaldar</div>
