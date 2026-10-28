@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V98 -->
+<!-- Admin V99 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -4383,7 +4383,7 @@ function p27RenderCatMatch() {
   if (_catAplicado) {
     const p = _catAplicado.p;
     const fs = _catAplicado.fs;
-    const perfilLinea = (fs && fs.perfil) ? `<br><span class="p27-sug-sub">Perfil por porcentajes: ${p27PerfilTxt(fs.perfil)} → familia sugerida <b>${_p27Esc(fs.nombre)}</b>${fs.sug && fs.sug.cercana ? ` (muy cerca también: ${_p27Esc(fs.sug.segundo.nombre)})` : ''}. <a href="#" data-cat-accion="calculo">Ver cálculo</a></span>` : '';
+    const perfilLinea = (fs && fs.perfil) ? `<br><span class="p27-sug-sub">Perfil por porcentajes: ${p27PerfilTxt(fs.perfil)}${fs.sug ? p27DomLinea(fs.sug) : ''} → familia sugerida <b>${_p27Esc(fs.nombre)}</b>${fs.sug && fs.sug.cercana ? ` (muy cerca también: ${_p27Esc(fs.sug.segundo.nombre)})` : ''}. <a href="#" data-cat-accion="calculo">Ver cálculo</a></span>` : '';
     box.innerHTML = `<div class="p27-catmatch-ok">✔ Datos aplicados desde el catálogo: <strong>${_p27Esc(p27NombreCortoCatalogo(p))}</strong> — ${_p27Esc(p.disenador)}. Revísalos y ajusta lo que quieras. <button type="button" class="btn btn-outline btn-sm" data-cat-accion="deshacer">↩ Deshacer</button>${perfilLinea}</div>`;
     box.style.display = 'block';
     return;
@@ -4623,7 +4623,7 @@ function p27RenderSim() {
   const mostrarNotas = !r.usoNotas && notasSug.length && JSON.stringify(notasSug) !== JSON.stringify(actuales);
   box.innerHTML = `<div class="p27-catmatch-t">🔎 Parecidos en tu catálogo (según ${base})</div>
     ${sug ? `<div style="margin:4px 0 6px;">Familia sugerida (por perfil): <strong>${_p27Esc(sug.mejor.nombre)}</strong> <button type="button" class="btn btn-primary btn-sm" data-sim-fam="${_p27Esc(sug.mejor.nombre)}">Usar esta familia</button>
-      <br><span class="p27-sug-sub">Perfil: ${p27PerfilTxt(pf)} · <a href="#" data-sim-accion="calculo" style="color:#56CCF2;">Ver cálculo</a></span>
+      <br><span class="p27-sug-sub">Perfil: ${p27PerfilTxt(pf)}${p27DomLinea(sug)} · <a href="#" data-sim-accion="calculo" style="color:#56CCF2;">Ver cálculo</a></span>
       ${sug.cercana ? `<br><span class="p27-sug-sub">Muy cerca también:</span> <strong>${_p27Esc(sug.segundo.nombre)}</strong> <button type="button" class="btn btn-outline btn-sm" data-sim-fam="${_p27Esc(sug.segundo.nombre)}">Usar esta</button>` : ''}</div>` : '<div class="p27-sug-sub" style="margin:4px 0;">No se pudo calcular el perfil con esos acordes.</div>'}
     <div class="p27-sug-sub" style="margin:6px 0 2px;">Perfumes de tu catálogo con acordes parecidos:</div>
     ${r.similares.slice(0, 5).map(fila).join('')}
@@ -4710,28 +4710,45 @@ function p27IniciarSim() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', p27IniciarSim); else p27IniciarSim();
 
 
-// ═══════════════ V98: FAMILIA SUGERIDA POR PERFIL DE PORCENTAJES ═══════════════
-// Cada acorde del catálogo se asigna a un grupo: FRESCURA (cítrico, acuático, verde…), CORAZÓN (floral y frutal)
-// o CUERPO (amaderado, dulce, almizcle, ámbar, atalcado…). Se suman los porcentajes de las barras de cada grupo
-// y se obtiene el perfil del perfume (por ejemplo 26% / 33% / 41%). Ese perfil se compara con el perfil promedio
-// de los perfumes de cada una de tus familias y se sugiere la más cercana. Es una sugerencia, no una regla.
-const P27_G_FRESCURA = new Set(['Cítrico', 'Fresco', 'Acuático', 'Marino', 'Ozónico', 'Salado', 'Mineral', 'Verde', 'Herbal', 'Fresco especiado', 'Aromático', 'Lavanda']);
-const P27_G_CORAZON = new Set(['Afrutados', 'Tropical', 'Acerezado', 'Florales', 'Floral blanco', 'Floral amarillo', 'Rosas', 'Iris', 'Violeta', 'Nardos']);
-const P27_G_CUERPO = new Set(['Amaderado', 'Pachulí', 'Terrosos', 'Conífera', 'Musgoso', 'Ámbar', 'Balsámico', 'Oud', 'Dulce', 'Avainillado', 'Caramelo', 'Cacao', 'Chocolate', 'Café', 'Coco', 'Lactónico', 'Nueces', 'Almendrado', 'Amielado', 'Ron', 'Whisky', 'Champán', 'Atalcado', 'Almizclado', 'Cuero', 'Ahumado', 'Tabaco', 'Animálico', 'Cálido especiado', 'Canela']);
-const P27_G_NOMBRE = { frescura: 'Frescura', corazon: 'Corazón', cuerpo: 'Cuerpo' };
-function p27GrupoAcorde(a) { return P27_G_FRESCURA.has(a) ? 'frescura' : P27_G_CORAZON.has(a) ? 'corazon' : P27_G_CUERPO.has(a) ? 'cuerpo' : ''; }
+// ═══════════════ V99: FAMILIA SUGERIDA POR PERFIL DE 6 GRUPOS + ACORDE DOMINANTE ═══════════════
+// Cada acorde del catálogo se asigna a uno de 6 grupos (los nombres son los acordes que contienen). Se suman los
+// porcentajes de las barras de cada grupo y se obtiene el perfil del perfume. Ese perfil se compara con el perfil
+// promedio de los perfumes de cada una de tus familias y se sugiere la más cercana. Si dos familias quedan casi
+// empatadas (menos de 8 puntos), desempata el ACORDE DOMINANTE: la familia en la que quedaron en tu catálogo los
+// perfumes con ese mismo acorde como el más fuerte. Es una sugerencia, no una regla.
+// V99 separó "Aromático / Lavanda" del resto de lo fresco: en V98 todo iba junto en "Frescura" y la app no lograba
+// distinguir los perfumes aromáticos (familia D) de los cítricos (familia A).
+const P27_GRUPOS = {
+  cit: { nombre: 'Cítrico / Fresco', txt: 'cítrico', corto: 'Cít.', acordes: ['Cítrico', 'Fresco'] },
+  acu: { nombre: 'Acuático / Verde', txt: 'acuático/verde', corto: 'Acu.', acordes: ['Acuático', 'Marino', 'Ozónico', 'Salado', 'Mineral', 'Verde', 'Herbal'] },
+  aro: { nombre: 'Aromático / Lavanda', txt: 'aromático', corto: 'Aro.', acordes: ['Aromático', 'Lavanda', 'Fresco especiado'] },
+  cor: { nombre: 'Floral / Frutal', txt: 'floral-frutal', corto: 'Flo.', acordes: ['Afrutados', 'Tropical', 'Acerezado', 'Florales', 'Floral blanco', 'Floral amarillo', 'Rosas', 'Iris', 'Violeta', 'Nardos'] },
+  mad: { nombre: 'Madera / Tierra', txt: 'madera/tierra', corto: 'Mad.', acordes: ['Amaderado', 'Pachulí', 'Terrosos', 'Conífera', 'Musgoso'] },
+  cal: { nombre: 'Dulce / Ámbar / Almizcle', txt: 'dulce/ámbar', corto: 'Cál.', acordes: ['Ámbar', 'Balsámico', 'Oud', 'Dulce', 'Avainillado', 'Caramelo', 'Cacao', 'Chocolate', 'Café', 'Coco', 'Lactónico', 'Nueces', 'Almendrado', 'Amielado', 'Ron', 'Whisky', 'Champán', 'Atalcado', 'Almizclado', 'Cuero', 'Ahumado', 'Tabaco', 'Animálico', 'Cálido especiado', 'Canela'] },
+};
+const P27_G_ORDEN = ['cit', 'acu', 'aro', 'cor', 'mad', 'cal'];
+const P27_G_ACORDE = {};
+P27_G_ORDEN.forEach(k => P27_GRUPOS[k].acordes.forEach(a => { P27_G_ACORDE[a] = k; }));
+function p27GrupoAcorde(a) { return P27_G_ACORDE[a] || ''; }
 function p27PctsDe(p) { return (p.acordes || []).map((a, i) => (p.acordesPct && p.acordesPct[i] != null) ? p.acordesPct[i] : Math.round(100 * Math.pow(0.88, i))); }
 function p27FilasDePerfume(p) { const pc = p27PctsDe(p); return (p.acordes || []).map((a, i) => ({ a, pct: pc[i] })); }
 function p27PerfilDeFilas(filas) {
-  const s = { frescura: 0, corazon: 0, cuerpo: 0 };
-  const f2 = filas.map(x => { const g = p27GrupoAcorde(x.a); if (g) s[g] += x.pct; return { a: x.a, pct: x.pct, g }; });
-  const total = s.frescura + s.corazon + s.cuerpo;
+  const s = {}; P27_G_ORDEN.forEach(k => { s[k] = 0; });
+  let dom = null;
+  const f2 = filas.map(x => {
+    const g = p27GrupoAcorde(x.a); if (g) s[g] += x.pct;
+    if (!dom || x.pct > dom.pct) dom = { a: x.a, pct: x.pct };
+    return { a: x.a, pct: x.pct, g };
+  });
+  const total = P27_G_ORDEN.reduce((t, k) => t + s[k], 0);
   if (total <= 0) return null;
-  return { f: 100 * s.frescura / total, m: 100 * s.corazon / total, b: 100 * s.cuerpo / total, sumas: s, total, filas: f2 };
+  const p = {}; P27_G_ORDEN.forEach(k => { p[k] = 100 * s[k] / total; });
+  return { p, sumas: s, total, filas: f2, dom };
 }
+function p27ClaveCatalogo() { return (db.catalogoVitrina || []).length + '|' + JSON.stringify(db.equivalenciasFamilia || {}) + '|' + (db.familiasOlfativas || []).length; }
 let _perfFam = null, _perfFamKey = '';
 function p27PerfilesFamilias() {
-  const key = (db.catalogoVitrina || []).length + '|' + JSON.stringify(db.equivalenciasFamilia || {}) + '|' + (db.familiasOlfativas || []).length;
+  const key = p27ClaveCatalogo();
   if (_perfFam && _perfFamKey === key) return _perfFam;
   const acc = {};
   (db.catalogoVitrina || []).forEach(p => {
@@ -4739,22 +4756,55 @@ function p27PerfilesFamilias() {
     if (!fam) return;
     const pf = p27PerfilDeFilas(p27FilasDePerfume(p));
     if (!pf) return;
-    const o = acc[fam] || (acc[fam] = { f: 0, m: 0, b: 0, n: 0 });
-    o.f += pf.f; o.m += pf.m; o.b += pf.b; o.n++;
+    const o = acc[fam] || (acc[fam] = { s: {}, n: 0 });
+    P27_G_ORDEN.forEach(k => { o.s[k] = (o.s[k] || 0) + pf.p[k]; });
+    o.n++;
   });
   const out = {};
-  Object.keys(acc).forEach(k => { const o = acc[k]; if (o.n >= 3) out[k] = { f: o.f / o.n, m: o.m / o.n, b: o.b / o.n, n: o.n }; });
+  Object.keys(acc).forEach(f => {
+    const o = acc[f]; if (o.n < 3) return;
+    const p = {}; P27_G_ORDEN.forEach(k => { p[k] = o.s[k] / o.n; });
+    out[f] = { p, n: o.n };
+  });
   _perfFam = out; _perfFamKey = key;
+  return out;
+}
+// Acorde dominante → familia en la que quedaron los perfumes de tu catálogo con ese acorde como el más fuerte
+let _domFam = null, _domFamKey = '';
+function p27DominanteFamilias() {
+  const key = p27ClaveCatalogo();
+  if (_domFam && _domFamKey === key) return _domFam;
+  const acc = {};
+  (db.catalogoVitrina || []).forEach(p => {
+    const fam = p27FamiliaParaCatalogo(p);
+    if (!fam || !(p.acordes || []).length) return;
+    const pf = p27PerfilDeFilas(p27FilasDePerfume(p));
+    if (!pf || !pf.dom) return;
+    const o = acc[pf.dom.a] || (acc[pf.dom.a] = {});
+    o[fam] = (o[fam] || 0) + 1;
+  });
+  const out = {};
+  Object.keys(acc).forEach(a => {
+    const o = acc[a], fams = Object.keys(o).sort((x, y) => o[y] - o[x]);
+    const total = fams.reduce((t, f) => t + o[f], 0);
+    if (total >= 3 && o[fams[0]] / total >= 0.6) out[a] = { nombre: fams[0], n: o[fams[0]], total };
+  });
+  _domFam = out; _domFamKey = key;
   return out;
 }
 function p27SugerirFamiliaPerfil(pf) {
   const fams = p27PerfilesFamilias();
   const lista = Object.keys(fams).map(nombre => {
     const x = fams[nombre];
-    return { nombre, f: x.f, m: x.m, b: x.b, n: x.n, d: Math.abs(pf.f - x.f) + Math.abs(pf.m - x.m) + Math.abs(pf.b - x.b) };
+    let d = 0; P27_G_ORDEN.forEach(k => { d += Math.abs(pf.p[k] - x.p[k]); });
+    return { nombre, p: x.p, n: x.n, d };
   }).sort((a, b) => a.d - b.d);
   if (!lista.length) return null;
-  return { lista, mejor: lista[0], segundo: lista[1] || null, cercana: !!(lista[1] && lista[1].d - lista[0].d < 8) };
+  const cercana = !!(lista[1] && lista[1].d - lista[0].d < 8);
+  let mejor = lista[0], segundo = lista[1] || null, desempate = false;
+  const dom = pf.dom ? { a: pf.dom.a, pct: pf.dom.pct, fam: p27DominanteFamilias()[pf.dom.a] || null } : null;
+  if (cercana && dom && dom.fam && segundo && dom.fam.nombre === segundo.nombre) { const t = mejor; mejor = segundo; segundo = t; desempate = true; }
+  return { lista, mejor, segundo, cercana, dominante: dom, desempate };
 }
 // Familia sugerida para un perfume del catálogo (usa sus porcentajes; si no se pudiera, cae a la etiqueta del proveedor)
 function p27FamiliaSugerida(p) {
@@ -4762,7 +4812,9 @@ function p27FamiliaSugerida(p) {
   if (pf) { const sug = p27SugerirFamiliaPerfil(pf); if (sug) return { nombre: sug.mejor.nombre, perfil: pf, sug, via: 'perfil', estimado: !(p.acordesPct && p.acordesPct.length) }; }
   return { nombre: p27FamiliaParaCatalogo(p), perfil: null, sug: null, via: 'etiqueta', estimado: false };
 }
-const p27PerfilTxt = (pf) => `frescura ${Math.round(pf.f)}% · corazón ${Math.round(pf.m)}% · cuerpo ${Math.round(pf.b)}%`;
+const p27PerfilTxt = (pf) => P27_G_ORDEN.filter(k => Math.round(pf.p[k]) >= 1).sort((a, b) => pf.p[b] - pf.p[a]).map(k => `${P27_GRUPOS[k].txt} ${Math.round(pf.p[k])}%`).join(' · ');
+// "· acorde dominante: Amaderado" (+ aviso si fue el que decidió un empate)
+const p27DomLinea = (sug) => (sug && sug.dominante) ? ` · acorde dominante: <b>${_p27Esc(sug.dominante.a)}</b>${sug.desempate ? ' (decidió el empate)' : ''}` : '';
 
 // Ventana "Ver cálculo": muestra TODO el procedimiento para que se pueda comprobar con una calculadora
 let _calcCtx = null;
@@ -4770,23 +4822,35 @@ function p27AbrirCalculo(ctx) {
   if (!ctx || !ctx.pf) return;
   _calcCtx = ctx;
   const pf = ctx.pf, sug = ctx.sug;
-  const tabla = pf.filas.map(x => `<tr><td>${_p27Esc(x.a)}</td><td style="text-align:right;">${x.pct}</td><td>${x.g ? P27_G_NOMBRE[x.g] : '<span style="opacity:.5">— (no cuenta)</span>'}</td></tr>`).join('');
+  const nomG = (g) => g ? P27_GRUPOS[g].nombre : '<span style="opacity:.5">— (no cuenta)</span>';
+  const tabla = pf.filas.map(x => `<tr><td>${_p27Esc(x.a)}</td><td style="text-align:right;">${x.pct}</td><td>${nomG(x.g)}</td></tr>`).join('');
   const suma = (g) => { const v = pf.filas.filter(x => x.g === g).map(x => x.pct); return v.length ? `${v.join(' + ')} = <b>${pf.sumas[g]}</b>` : '<b>0</b>'; };
-  const fams = sug ? sug.lista.slice(0, 8).map((x, i) => `<tr${i === 0 ? ' style="background:rgba(201,162,39,.16);"' : ''}><td>${_p27Esc(x.nombre)}</td><td style="text-align:right;">${Math.round(x.f)}</td><td style="text-align:right;">${Math.round(x.m)}</td><td style="text-align:right;">${Math.round(x.b)}</td><td style="text-align:right;"><b>${x.d.toFixed(0)}</b></td><td style="text-align:right;opacity:.6;">${x.n}</td></tr>`).join('') : '';
+  const sumas = P27_G_ORDEN.map(k => `${P27_GRUPOS[k].nombre}: ${suma(k)}`).join('<br>');
+  const totalTxt = P27_G_ORDEN.map(k => pf.sumas[k]).join(' + ');
+  const cab = P27_G_ORDEN.map(k => `<th>${P27_GRUPOS[k].corto}</th>`).join('');
+  const fams = sug ? sug.lista.slice(0, 8).map(x => `<tr${x.nombre === sug.mejor.nombre ? ' style="background:rgba(201,162,39,.16);"' : ''}><td>${_p27Esc(x.nombre)}</td>${P27_G_ORDEN.map(k => `<td style="text-align:right;">${Math.round(x.p[k])}</td>`).join('')}<td style="text-align:right;"><b>${x.d.toFixed(0)}</b></td><td style="text-align:right;opacity:.6;">${x.n}</td></tr>`).join('') : '';
+  const perfilFila = `<tr style="opacity:.85;"><td><i>Este perfume</i></td>${P27_G_ORDEN.map(k => `<td style="text-align:right;">${Math.round(pf.p[k])}</td>`).join('')}<td></td><td></td></tr>`;
+  let domTxt = '';
+  if (sug && sug.dominante) {
+    const d = sug.dominante;
+    domTxt = `<div class="card-title" style="font-size:13px;margin:12px 0 4px;">5. Acorde dominante (solo desempata)</div>
+    <div style="font-size:13px;line-height:1.6;">Acorde más fuerte: <b>${_p27Esc(d.a)}</b> (${d.pct}). ${d.fam ? `En tu catálogo, ${d.fam.n} de ${d.fam.total} perfumes con ese acorde como dominante quedaron en <b>${_p27Esc(d.fam.nombre)}</b>.` : 'En tu catálogo no hay suficientes perfumes con ese acorde como dominante (o quedaron repartidos) para sacar una conclusión.'}<br>${sug.desempate ? `Como las dos primeras familias están a menos de 8 puntos, la app eligió <b>${_p27Esc(sug.mejor.nombre)}</b> por este dato (solo por perfil habría salido ${_p27Esc(sug.segundo.nombre)}).` : sug.cercana ? 'Las dos primeras están a menos de 8 puntos, pero el acorde dominante no cambia el resultado.' : 'La diferencia con la segunda familia es de 8 puntos o más: el acorde dominante no interviene.'}</div>`;
+  }
   document.getElementById('calculo-contenido').innerHTML = `
     <div class="card-title" style="font-size:14px;margin:4px 0 6px;">${_p27Esc(ctx.titulo || 'Perfil')}</div>
     ${ctx.estimado ? '<div class="p27-sug-sub" style="margin-bottom:6px;">⚠️ Los porcentajes de este perfume son estimados (por el orden de los acordes), no medidos de una barra.</div>' : ''}
     <div class="card-title" style="font-size:13px;margin:10px 0 4px;">1. Cada acorde, con su porcentaje y su grupo</div>
     <table class="p27-tabla"><thead><tr><th>Acorde</th><th>%</th><th>Grupo</th></tr></thead><tbody>${tabla}</tbody></table>
     <div class="card-title" style="font-size:13px;margin:12px 0 4px;">2. Suma de cada grupo</div>
-    <div style="font-size:13px;line-height:1.7;">Frescura: ${suma('frescura')}<br>Corazón: ${suma('corazon')}<br>Cuerpo: ${suma('cuerpo')}<br>Total: ${pf.sumas.frescura} + ${pf.sumas.corazon} + ${pf.sumas.cuerpo} = <b>${pf.total}</b></div>
+    <div style="font-size:13px;line-height:1.7;">${sumas}<br>Total: ${totalTxt} = <b>${pf.total}</b></div>
     <div class="card-title" style="font-size:13px;margin:12px 0 4px;">3. Perfil del perfume (cada suma ÷ total × 100)</div>
     <div style="font-size:13px;"><b>${p27PerfilTxt(pf)}</b></div>
     ${sug ? `<div class="card-title" style="font-size:13px;margin:12px 0 4px;">4. Comparación con el perfil promedio de cada familia</div>
-    <div class="p27-sug-sub" style="margin-bottom:4px;">Diferencia = |frescura − frescura de la familia| + |corazón − …| + |cuerpo − …|. La menor es la más cercana.</div>
-    <table class="p27-tabla"><thead><tr><th>Familia</th><th>Fres.</th><th>Cor.</th><th>Cue.</th><th>Dif.</th><th>n</th></tr></thead><tbody>${fams}</tbody></table>
-    <div style="margin-top:8px;font-size:13px;">Sugerida: <b>${_p27Esc(sug.mejor.nombre)}</b>${sug.cercana ? ` · muy cerca también: <b>${_p27Esc(sug.segundo.nombre)}</b>` : ''}</div>` : ''}
-    <div class="p27-sug-sub" style="margin-top:12px;line-height:1.5;">Qué es criterio de la app y qué no: el grupo de cada acorde lo decidió la app (los de la lista "no cuenta" se ignoran). El perfil de cada familia es el promedio de los perfumes de tu catálogo que quedan en esa familia según tus equivalencias (n = cuántos perfumes). Es una hipótesis de partida: lo confirman tus lotes de prueba y tus observaciones.</div>`;
+    <div class="p27-sug-sub" style="margin-bottom:4px;">Diferencia = suma de |tu % − % de la familia| en los 6 grupos. La menor es la más cercana. Columnas: Cít. = Cítrico/Fresco · Acu. = Acuático/Verde · Aro. = Aromático/Lavanda · Flo. = Floral/Frutal · Mad. = Madera/Tierra · Cál. = Dulce/Ámbar/Almizcle.</div>
+    <table class="p27-tabla" style="font-size:12px;"><thead><tr><th>Familia</th>${cab}<th>Dif.</th><th>n</th></tr></thead><tbody>${perfilFila}${fams}</tbody></table>
+    <div style="margin-top:8px;font-size:13px;">Sugerida: <b>${_p27Esc(sug.mejor.nombre)}</b>${sug.cercana ? ` · muy cerca también: <b>${_p27Esc(sug.segundo.nombre)}</b>` : ''}</div>
+    ${domTxt}` : ''}
+    <div class="p27-sug-sub" style="margin-top:12px;line-height:1.5;">Qué es criterio de la app y qué no: el grupo de cada acorde lo decidió la app (los de la lista "no cuenta" se ignoran). El perfil de cada familia es el promedio de los perfumes de tu catálogo que quedan en esa familia según tus equivalencias (n = cuántos perfumes). El acorde dominante que desempata sale del mismo dato que la etiqueta del proveedor (la etiqueta es el acorde más fuerte), así que repite el criterio del proveedor. Es una hipótesis de partida: la confirman tus lotes de prueba y tus observaciones.</div>`;
   openModal('modal-calculo');
 }
 
@@ -4937,7 +5001,7 @@ function previsualizarAcordesCatalogo() {
   const sug = pf ? p27SugerirFamiliaPerfil(pf) : null;
   if (!pf || !sug || g.acordes.length < 2) { caja.style.display = 'none'; caja.innerHTML = ''; return; }
   _catCalcCtx = { titulo: (document.getElementById('cat-nombre').value || 'Perfume nuevo'), pf, sug, estimado: false };
-  caja.innerHTML = `Familia sugerida por perfil: <strong>${_p27Esc(sug.mejor.nombre)}</strong> <span class="p27-sug-sub">· ${p27PerfilTxt(pf)}</span>
+  caja.innerHTML = `Familia sugerida por perfil: <strong>${_p27Esc(sug.mejor.nombre)}</strong> <span class="p27-sug-sub">· ${p27PerfilTxt(pf)}${p27DomLinea(sug)}</span>
     <button type="button" class="btn btn-primary btn-sm" data-cat-fam="${_p27Esc(sug.mejor.nombre)}">Usar para Familia Olfativa</button>
     ${sug.cercana ? `<br><span class="p27-sug-sub">Muy cerca también:</span> <strong>${_p27Esc(sug.segundo.nombre)}</strong> <button type="button" class="btn btn-outline btn-sm" data-cat-fam="${_p27Esc(sug.segundo.nombre)}">Usar esta</button>` : ''}
     <br><a href="#" data-cat-calc="1" style="color:#56CCF2;font-size:11px;">Ver cálculo</a>`;
@@ -13259,7 +13323,7 @@ renderAll();
     <button type="button" class="modal-close-x" onclick="closeModal('modal-equiv-familias')" aria-label="Cerrar">✕</button>
     <div class="modal-body">
       <div class="modal-title">📚 Equivalencias de familias del catálogo</div>
-      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Aquí dices a qué familia tuya pertenece cada etiqueta del proveedor. Con eso la app calcula el perfil promedio (frescura, corazón y cuerpo) de los perfumes de cada una de tus familias, y la familia que sugiere para un perfume sale de comparar su perfil con esos promedios. La propuesta inicial la armó la app: revísala y cámbiala cuando quieras. No modifica esencias ya registradas ni el catálogo.</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Aquí dices a qué familia tuya pertenece cada etiqueta del proveedor. Con eso la app calcula el perfil promedio (en 6 grupos de acordes: cítrico, acuático/verde, aromático, floral-frutal, madera y dulce/ámbar) de los perfumes de cada una de tus familias, y la familia que sugiere para un perfume sale de comparar su perfil con esos promedios. La propuesta inicial la armó la app: revísala y cámbiala cuando quieras. No modifica esencias ya registradas ni el catálogo.</div>
       <div id="equiv-filas"></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-outline" onclick="restablecerEquivFamilias()">↩ Restablecer propuesta</button>
