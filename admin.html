@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V99 -->
+<!-- Admin V100 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -705,6 +705,8 @@
 /* V96: asistente del catálogo */
 .p27-sug-item.cat .p27-sug-txt{opacity:.92;}
 .p27-sug-sub{font-size:11px;opacity:.65;}
+.p27-tabla th.num,.p27-tabla td.num{text-align:right;}
+.p27-linkcalc{color:#56CCF2;font-size:12px;text-decoration:underline;}
 .p27-sug-badge{flex:0 0 auto;font-size:13px;opacity:.8;padding-right:6px;}
 .p27-catmatch{margin:8px 0 12px;padding:10px 12px;border:1px solid #56CCF2;border-radius:10px;background:rgba(86,204,242,.07);font-size:13px;}
 .p27-catmatch-t{font-size:12px;color:#56CCF2;margin-bottom:6px;}
@@ -1268,8 +1270,10 @@
       </div>
     </div>
     <div id="estandar-auto" style="display:none;" class="alert alert-info">
-      📐 Estándar detectado: <strong id="estandar-nombre"></strong><br>
-      ⏱️ Maceración recomendada: <strong id="estandar-maceracion"></strong>
+      <div style="line-height:1.7;">
+        📐 Estándar detectado: <strong id="estandar-nombre"></strong><br>
+        ⏱️ Maceración recomendada: <strong id="estandar-maceracion"></strong>
+      </div>
     </div>
     <div class="field">
       <label>Referencia Olfativa (opcional)</label>
@@ -1355,11 +1359,16 @@
       <table>
         <thead><tr>
           <th>Familia</th><th>Estándar</th><th>% IPADEO</th><th>% Cimalide</th><th>Fijadores</th>
-          <th>Maceración</th><th>Refrigerado y Filtrado</th><th>Notas Olfativas Típicas</th><th></th>
+          <th>Maceración</th><th>Refrigerado y Filtrado</th><th>Notas Olfativas Típicas</th>
         </tr></thead>
         <tbody id="tabla-familias-body"></tbody>
       </table>
     </div>
+    <details id="familias-etiquetas" style="margin-top:14px;">
+      <summary id="familias-etiquetas-titulo" style="cursor:pointer;font-size:13px;color:#56CCF2;">Etiquetas del proveedor (solo Catálogo)</summary>
+      <div class="p27-sug-sub" style="margin:8px 0;line-height:1.5;">Son los nombres que trae el proveedor en el Catálogo (Cítrica, Aromática, Gourmand…). No son fórmulas: la app las traduce a una de tus familias con las "Equivalencias". Ya no aparecen como opción al registrar una esencia.</div>
+      <div id="familias-etiquetas-body" style="overflow-x:auto;"></div>
+    </details>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-ajustes-familia')">Cerrar</button>
       <button class="btn btn-primary" onclick="abrirEditarFamilia(null)">+ Agregar Familia Nueva</button>
@@ -3116,6 +3125,16 @@ function asegurarFamiliasCatalogoRegistradas() {
       personalizada: true,
     });
   });
+  // V100: las familias que la app creó sola a partir de las etiquetas del proveedor (sin código A–F, con valores
+  // neutros sin verificar) se marcan como "etiqueta del proveedor": siguen existiendo para el Catálogo, pero ya no
+  // se mezclan con las familias de fórmula. Si alguna esencia o lote ya la usa, se deja como familia de fórmula.
+  (db.familiasOlfativas || []).forEach(f => {
+    if (f.etiquetaProveedor !== undefined) return;
+    if (f.cod || !f.personalizada) return;
+    if (!String(f.descripcion || '').startsWith('Familia agregada automáticamente desde el Catálogo')) return;
+    const usada = (db.esencias || []).some(e => e.familia === f.nombre) || (db.lotes || []).some(l => l.familia === f.nombre);
+    if (!usada) f.etiquetaProveedor = true;
+  });
 }
 
 const INSUMOS_BASE = ['Alcohol 95°', 'IPADEO', 'Cimalide 50', 'Propilenglicol'];
@@ -4383,7 +4402,7 @@ function p27RenderCatMatch() {
   if (_catAplicado) {
     const p = _catAplicado.p;
     const fs = _catAplicado.fs;
-    const perfilLinea = (fs && fs.perfil) ? `<br><span class="p27-sug-sub">Perfil por porcentajes: ${p27PerfilTxt(fs.perfil)}${fs.sug ? p27DomLinea(fs.sug) : ''} → familia sugerida <b>${_p27Esc(fs.nombre)}</b>${fs.sug && fs.sug.cercana ? ` (muy cerca también: ${_p27Esc(fs.sug.segundo.nombre)})` : ''}. <a href="#" data-cat-accion="calculo">Ver cálculo</a></span>` : '';
+    const perfilLinea = (fs && fs.perfil) ? `<br><span class="p27-sug-sub">Perfil por porcentajes: ${p27PerfilTxt(fs.perfil)}${fs.sug ? p27DomLinea(fs.sug) : ''} → familia sugerida <b>${_p27Esc(fs.nombre)}</b>${fs.sug && fs.sug.cercana ? ` (muy cerca también: ${_p27Esc(fs.sug.segundo.nombre)})` : ''}.</span> <a href="#" data-cat-accion="calculo" class="p27-linkcalc">Ver cálculo</a>` : '';
     box.innerHTML = `<div class="p27-catmatch-ok">✔ Datos aplicados desde el catálogo: <strong>${_p27Esc(p27NombreCortoCatalogo(p))}</strong> — ${_p27Esc(p.disenador)}. Revísalos y ajusta lo que quieras. <button type="button" class="btn btn-outline btn-sm" data-cat-accion="deshacer">↩ Deshacer</button>${perfilLinea}</div>`;
     box.style.display = 'block';
     return;
@@ -4411,6 +4430,7 @@ function p27AplicarCatalogo(id) {
   renderNotasDominantesEsencia(p27NotasDeAcordes(e.p));
   ['e-nota1', 'e-nota2', 'e-nota3'].forEach(i => fire($(i)));
   const fs = p27FamiliaSugerida(e.p); _catAplicado.fs = fs;
+  try { sugerirFamiliaPorNotas(); } catch (err) {}   // V100: ya hay perfil, ahora sí se puede comparar con las notas
   const fam = fs.nombre;
   if (fam && [...$('e-familia').options].some(o => o.value === fam)) { $('e-familia').value = fam; try { onFamiliaChange(); } catch (err) {} fire($('e-familia')); }
   } finally { _sugSilencio = false; }
@@ -4465,13 +4485,15 @@ function renderEquivFamilias() {
   const cuenta = {};
   (db.catalogoVitrina || []).forEach(p => { const l = p.familiaOlfativa || ''; if (l) cuenta[l] = (cuenta[l] || 0) + 1; });
   const etiquetas = Object.keys(cuenta).sort((a, b) => cuenta[b] - cuenta[a] || a.localeCompare(b, 'es'));
-  const fams = (db.familiasOlfativas || []).map(f => f.nombre);
+  const famsTodas = (db.familiasOlfativas || []).map(f => f.nombre);
+  const fams = (db.familiasOlfativas || []).filter(f => !f.etiquetaProveedor).map(f => f.nombre);
   const user = db.equivalenciasFamilia || {};
   document.getElementById('equiv-filas').innerHTML = etiquetas.map(l => {
     const actual = user[l] !== undefined ? user[l] : (P27_EQUIV_FAMILIA_DEFAULT[l] || '@');
-    const valor = (actual === '@' || fams.includes(actual)) ? actual : '@';
+    const valor = (actual === '@' || famsTodas.includes(actual)) ? actual : '@';
+    const opciones = (valor !== '@' && !fams.includes(valor)) ? [...fams, valor] : fams;
     return `<div class="p27-lista-fila"><span style="flex:1;"><strong>${_p27Esc(l)}</strong> <span style="opacity:.6;font-size:11px;">· ${cuenta[l]} perfume${cuenta[l] === 1 ? '' : 's'}</span></span>
-      <select data-equiv="${_p27Esc(l)}" style="flex:1;max-width:260px;"><option value="@"${valor === '@' ? ' selected' : ''}>La misma del catálogo</option>${fams.map(f => `<option value="${_p27Esc(f)}"${valor === f ? ' selected' : ''}>${_p27Esc(f)}</option>`).join('')}</select></div>`;
+      <select data-equiv="${_p27Esc(l)}" style="flex:1;max-width:260px;"><option value="@"${valor === '@' ? ' selected' : ''}>La misma del catálogo</option>${opciones.map(f => `<option value="${_p27Esc(f)}"${valor === f ? ' selected' : ''}>${_p27Esc(f)}</option>`).join('')}</select></div>`;
   }).join('');
 }
 document.addEventListener('change', (e) => {
@@ -4598,6 +4620,10 @@ function p27SugerirPorSimilitud(texto, notas) {
 
 let _simUltimo = null;
 function p27RenderSim() {
+  _simUltimo = null;
+  try { p27RenderSimInner(); } finally { try { sugerirFamiliaPorNotas(); } catch (e) {} }   // V100: refresca el aviso de notas vs perfil
+}
+function p27RenderSimInner() {
   const box = document.getElementById('sim-match');
   if (!box) return;
   const ov = document.getElementById('modal-esencia');
@@ -4827,7 +4853,7 @@ function p27AbrirCalculo(ctx) {
   const suma = (g) => { const v = pf.filas.filter(x => x.g === g).map(x => x.pct); return v.length ? `${v.join(' + ')} = <b>${pf.sumas[g]}</b>` : '<b>0</b>'; };
   const sumas = P27_G_ORDEN.map(k => `${P27_GRUPOS[k].nombre}: ${suma(k)}`).join('<br>');
   const totalTxt = P27_G_ORDEN.map(k => pf.sumas[k]).join(' + ');
-  const cab = P27_G_ORDEN.map(k => `<th>${P27_GRUPOS[k].corto}</th>`).join('');
+  const cab = P27_G_ORDEN.map(k => `<th class="num">${P27_GRUPOS[k].corto}</th>`).join('');
   const fams = sug ? sug.lista.slice(0, 8).map(x => `<tr${x.nombre === sug.mejor.nombre ? ' style="background:rgba(201,162,39,.16);"' : ''}><td>${_p27Esc(x.nombre)}</td>${P27_G_ORDEN.map(k => `<td style="text-align:right;">${Math.round(x.p[k])}</td>`).join('')}<td style="text-align:right;"><b>${x.d.toFixed(0)}</b></td><td style="text-align:right;opacity:.6;">${x.n}</td></tr>`).join('') : '';
   const perfilFila = `<tr style="opacity:.85;"><td><i>Este perfume</i></td>${P27_G_ORDEN.map(k => `<td style="text-align:right;">${Math.round(pf.p[k])}</td>`).join('')}<td></td><td></td></tr>`;
   let domTxt = '';
@@ -4840,14 +4866,14 @@ function p27AbrirCalculo(ctx) {
     <div class="card-title" style="font-size:14px;margin:4px 0 6px;">${_p27Esc(ctx.titulo || 'Perfil')}</div>
     ${ctx.estimado ? '<div class="p27-sug-sub" style="margin-bottom:6px;">⚠️ Los porcentajes de este perfume son estimados (por el orden de los acordes), no medidos de una barra.</div>' : ''}
     <div class="card-title" style="font-size:13px;margin:10px 0 4px;">1. Cada acorde, con su porcentaje y su grupo</div>
-    <table class="p27-tabla"><thead><tr><th>Acorde</th><th>%</th><th>Grupo</th></tr></thead><tbody>${tabla}</tbody></table>
+    <table class="p27-tabla"><thead><tr><th>Acorde</th><th class="num">%</th><th>Grupo</th></tr></thead><tbody>${tabla}</tbody></table>
     <div class="card-title" style="font-size:13px;margin:12px 0 4px;">2. Suma de cada grupo</div>
     <div style="font-size:13px;line-height:1.7;">${sumas}<br>Total: ${totalTxt} = <b>${pf.total}</b></div>
     <div class="card-title" style="font-size:13px;margin:12px 0 4px;">3. Perfil del perfume (cada suma ÷ total × 100)</div>
     <div style="font-size:13px;"><b>${p27PerfilTxt(pf)}</b></div>
     ${sug ? `<div class="card-title" style="font-size:13px;margin:12px 0 4px;">4. Comparación con el perfil promedio de cada familia</div>
     <div class="p27-sug-sub" style="margin-bottom:4px;">Diferencia = suma de |tu % − % de la familia| en los 6 grupos. La menor es la más cercana. Columnas: Cít. = Cítrico/Fresco · Acu. = Acuático/Verde · Aro. = Aromático/Lavanda · Flo. = Floral/Frutal · Mad. = Madera/Tierra · Cál. = Dulce/Ámbar/Almizcle.</div>
-    <table class="p27-tabla" style="font-size:12px;"><thead><tr><th>Familia</th>${cab}<th>Dif.</th><th>n</th></tr></thead><tbody>${perfilFila}${fams}</tbody></table>
+    <table class="p27-tabla" style="font-size:12px;"><thead><tr><th>Familia</th>${cab}<th class="num">Dif.</th><th class="num">n</th></tr></thead><tbody>${perfilFila}${fams}</tbody></table>
     <div style="margin-top:8px;font-size:13px;">Sugerida: <b>${_p27Esc(sug.mejor.nombre)}</b>${sug.cercana ? ` · muy cerca también: <b>${_p27Esc(sug.segundo.nombre)}</b>` : ''}</div>
     ${domTxt}` : ''}
     <div class="p27-sug-sub" style="margin-top:12px;line-height:1.5;">Qué es criterio de la app y qué no: el grupo de cada acorde lo decidió la app (los de la lista "no cuenta" se ignoran). El perfil de cada familia es el promedio de los perfumes de tu catálogo que quedan en esa familia según tus equivalencias (n = cuántos perfumes). El acorde dominante que desempata sale del mismo dato que la etiqueta del proveedor (la etiqueta es el acorde más fuerte), así que repite el criterio del proveedor. Es una hipótesis de partida: la confirman tus lotes de prueba y tus observaciones.</div>`;
@@ -5829,7 +5855,7 @@ function sincronizarScrollTop(wrapId, topId, innerId) {
   const inner = document.getElementById(innerId);
   const table = wrap ? wrap.querySelector('table') : null;
   if (!wrap || !top || !inner || !table) return;
-  inner.style.width = table.scrollWidth + 'px';
+  inner.style.width = Math.max(table.scrollWidth, table.offsetWidth) + 'px';
   if (!scrollTopTablasListas.has(wrapId)) {
     scrollTopTablasListas.add(wrapId);
     let sincronizando = false;
@@ -6042,7 +6068,8 @@ function onFamiliaChange() {
 function poblarSelectFamilias(selectId, valorSeleccionado) {
   const sel = document.getElementById(selectId);
   const actual = valorSeleccionado !== undefined ? valorSeleccionado : sel.value;
-  const familias = [...(db.familiasOlfativas || [])].sort((a,b) => {
+  const soloFormula = selectId === 'e-familia';   // V100: la Esencia solo ofrece familias de fórmula
+  const familias = [...(db.familiasOlfativas || [])].filter(f => !soloFormula || !f.etiquetaProveedor || f.nombre === actual).sort((a,b) => {
     if (!!a.cod !== !!b.cod) return a.cod ? -1 : 1;
     if (a.cod && b.cod) return a.cod.localeCompare(b.cod);
     return a.nombre.localeCompare(b.nombre);
@@ -6141,6 +6168,16 @@ function agregarNotaDominanteNueva() {
   const vacio = ids.find(id => !document.getElementById(id).value);
   if (vacio) { document.getElementById(vacio).value = nombreLimpio; sugerirFamiliaPorNotas(); }
 }
+// V100: la sugerencia por notas ya NO decide: las notas son un dato. Solo se muestra un aviso cuando apuntan a una
+// familia distinta de la que sale del perfil de acordes (que usa todas las barras, no solo 3 notas).
+// Familia sugerida por el perfil de acordes en la esencia que se está registrando (catálogo aplicado o acordes escritos)
+function p27SugPerfilActual() {
+  try {
+    if (_catAplicado && _catAplicado.fs && _catAplicado.fs.sug) return _catAplicado.fs.sug;
+    if (!_catAplicado && _simUltimo && _simUltimo.sug) return _simUltimo.sug;
+  } catch (e) {}
+  return null;
+}
 // Sugerencia ponderada por dominancia: la 1ª nota pesa más que la 2ª, y esta más que la 3ª.
 function sugerirFamiliaPorNotas() {
   const notas = notasDominantesSeleccionadas();
@@ -6157,6 +6194,18 @@ function sugerirFamiliaPorNotas() {
   const top = mejores[0][1];
   const codsGanadores = mejores.filter(([c,p]) => p === top).map(([c]) => c);
   const nombresGanadores = (db.familiasOlfativas||[]).filter(f => codsGanadores.includes(f.cod)).map(f => `${f.nombre} (${f.cod})`);
+  const sug = p27SugPerfilActual();
+  const fPerfil = sug ? (db.familiasOlfativas || []).find(f => f.nombre === sug.mejor.nombre) : null;
+  if (fPerfil && fPerfil.cod) {
+    // Hay perfil con qué comparar: las notas solo hablan si discrepan
+    if (codsGanadores.includes(fPerfil.cod)) { out.textContent = ''; return; }
+    const f2 = sug.cercana && sug.segundo ? (db.familiasOlfativas || []).find(f => f.nombre === sug.segundo.nombre) : null;
+    if (f2 && f2.cod && codsGanadores.includes(f2.cod)) { out.style.color = '#56CCF2'; out.textContent = `ℹ️ Las notas apuntan a ${nombresGanadores.join(' o ')}, que el perfil de acordes también marca como muy cercana (primera opción del perfil: ${fPerfil.cod} — ${fPerfil.nombre}).`; return; }
+    out.style.color = '#F2C94C';
+    out.textContent = `⚠️ Las dos señales difieren: por acordes (perfil) → ${fPerfil.cod} — ${fPerfil.nombre}; por notas dominantes → ${nombresGanadores.join(' o ')}. Decides tú.`;
+    return;
+  }
+  out.style.color = '#56CCF2';   // sin perfil con qué comparar: se muestra como antes
   out.textContent = nombresGanadores.length ? `💡 Sugerido por notas: ${nombresGanadores.join(' o ')}` : '';
 }
 
@@ -6168,6 +6217,9 @@ function abrirAjustesFamiliaOlfativa() {
   actualizarPresupuestoFijadores();
   renderTablaFamilias();
   openModal('modal-ajustes-familia');
+  // V100: con el modal oculto la tabla medía 0 px y la barra horizontal no aparecía; se recalcula ya abierto
+  sincronizarScrollTop('familias-table-wrap', 'familias-scroll-top', 'familias-scroll-top-inner');
+  setTimeout(() => sincronizarScrollTop('familias-table-wrap', 'familias-scroll-top', 'familias-scroll-top-inner'), 80);
 }
 function actualizarPresupuestoFijadores() {
   const esencia = parseFloat(document.getElementById('fb-esencia').value) || 0;
@@ -6188,13 +6240,12 @@ function guardarFormulaBase() {
 function renderTablaFamilias() {
   const tbody = document.getElementById('tabla-familias-body');
   const presupuesto = 100 - db.formulaBase.esencia - db.formulaBase.alcohol - db.formulaBase.pg;
-  tbody.innerHTML = (db.familiasOlfativas || []).map(f => {
+  tbody.innerHTML = (db.familiasOlfativas || []).filter(f => !f.etiquetaProveedor).map(f => {
     const totalFijadores = +(f.ipadeo + f.cimalide).toFixed(2);
     const desajuste = Math.abs(totalFijadores - presupuesto) > 0.05;
-    const enUso = db.esencias.some(e => e.familia === f.nombre);
     const notasTxt = (f.notas && f.notas.length) ? f.notas.map(n => n.split('(')[0].trim()).join(', ') : '—';
     return `<tr>
-      <td>${f.nombre}</td>
+      <td><div style="display:flex;gap:8px;align-items:center;"><button class="btn btn-outline btn-sm" onclick="abrirEditarFamilia('${f.nombre.replace(/'/g,"\\'")}')">Editar</button><span>${f.nombre}</span></div></td>
       <td>${f.cod || '—'}</td>
       <td>${f.ipadeo.toFixed(2)}%</td>
       <td>${f.cimalide.toFixed(2)}%</td>
@@ -6202,10 +6253,35 @@ function renderTablaFamilias() {
       <td style="font-size:11px;">${textoMaceracionFamilia(f)}</td>
       <td>${f.refrigerado ? 'Sí' : 'No'}</td>
       <td style="font-size:11px;max-width:180px;">${notasTxt}</td>
-      <td><button class="btn btn-outline btn-sm" onclick="abrirEditarFamilia('${f.nombre.replace(/'/g,"\\'")}')">Editar</button></td>
     </tr>`;
   }).join('');
+  renderEtiquetasProveedor();
   sincronizarScrollTop('familias-table-wrap', 'familias-scroll-top', 'familias-scroll-top-inner');
+}
+// V100: lista aparte de las etiquetas del proveedor (solo Catálogo). No son fórmulas: se traducen a una familia
+// A–F con tus equivalencias. Si alguna de verdad necesita su propia fórmula, se puede pasar a familia de fórmula.
+function renderEtiquetasProveedor() {
+  const box = document.getElementById('familias-etiquetas-body');
+  if (!box) return;
+  const et = (db.familiasOlfativas || []).filter(f => f.etiquetaProveedor).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  const cuenta = {};
+  (db.catalogoVitrina || []).forEach(p => { const l = p.familiaOlfativa || ''; if (l) cuenta[l] = (cuenta[l] || 0) + 1; });
+  const t = document.getElementById('familias-etiquetas-titulo');
+  if (t) t.textContent = `Etiquetas del proveedor (solo Catálogo) · ${et.length}`;
+  box.innerHTML = et.length ? `<table class="p27-tabla"><thead><tr><th>Etiqueta</th><th>Se traduce a</th><th class="num">Perfumes</th><th></th></tr></thead><tbody>${et.map(f => {
+    const eq = p27FamiliaParaCatalogo({ familiaOlfativa: f.nombre });
+    return `<tr><td>${_p27Esc(f.nombre)}</td><td>${eq && eq !== f.nombre ? _p27Esc(eq) : '<span style="opacity:.6;">— sin equivalencia</span>'}</td><td class="num">${cuenta[f.nombre] || 0}</td><td style="text-align:right;"><button type="button" class="btn btn-outline btn-sm" data-n="${_p27Esc(f.nombre)}" onclick="p27EtiquetaComoFormula(this.dataset.n)">Usar como familia de fórmula</button></td></tr>`;
+  }).join('')}</tbody></table>` : '<div class="p27-sug-sub">No hay etiquetas separadas.</div>';
+}
+function p27EtiquetaComoFormula(nombre) {
+  const f = (db.familiasOlfativas || []).find(x => x.nombre === nombre);
+  if (!f) return;
+  if (!confirm(`¿Usar "${nombre}" como familia de fórmula? Pasará a la tabla principal y a la lista de familias de la Esencia con sus valores actuales (${f.ipadeo}% IPADEO / ${f.cimalide}% Cimalide), que son un punto de partida sin verificar.`)) return;
+  f.etiquetaProveedor = false;
+  saveToDrive();
+  renderTablaFamilias();
+  poblarSelectFamilias('e-familia');
+  if (document.getElementById('cat-familia')) poblarSelectFamilias('cat-familia');
 }
 function actualizarSumaFijadoresEdit() {
   const ipadeo = parseFloat(document.getElementById('ef-ipadeo').value) || 0;
@@ -13044,7 +13120,7 @@ function calcularFilasMateriaPrima() {
   const factorRef = REF_GRAMOS_ESENCIA_100ML / (db.formulaBase.esencia || 27);
   const alcoholPorPerfume100 = (db.formulaBase.alcohol || 0) * factorRef;
   const pgPorPerfume100 = (db.formulaBase.pg || 0) * factorRef;
-  const familias = db.familiasOlfativas || [];
+  const familias = (db.familiasOlfativas || []).filter(f => !f.etiquetaProveedor);   // V100: sin las familias de relleno de las etiquetas
   const ipadeoProm = familias.length ? familias.reduce((s,f) => s + (f.ipadeo||0), 0) / familias.length : 1.5;
   const cimalideProm = familias.length ? familias.reduce((s,f) => s + (f.cimalide||0), 0) / familias.length : 0.75;
   const ipadeoPorPerfume100 = ipadeoProm * factorRef;
