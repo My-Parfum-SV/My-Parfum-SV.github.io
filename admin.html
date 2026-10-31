@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V100 -->
+<!-- Admin V101 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -707,6 +707,12 @@
 .p27-sug-sub{font-size:11px;opacity:.65;}
 .p27-tabla th.num,.p27-tabla td.num{text-align:right;}
 .p27-linkcalc{color:#56CCF2;font-size:12px;text-decoration:underline;}
+.p27-chips{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;}
+.p27-chips-t{width:100%;font-size:11px;opacity:.65;margin-top:6px;}
+.p27-chip{display:inline-flex;align-items:center;cursor:pointer;margin:0;}
+.p27-chip input{display:none;}
+.p27-chip span{padding:4px 10px;border:1px solid var(--border);border-radius:999px;font-size:12px;}
+.p27-chip input:checked+span{background:rgba(201,162,39,.22);border-color:#C9A227;}
 .p27-sug-badge{flex:0 0 auto;font-size:13px;opacity:.8;padding-right:6px;}
 .p27-catmatch{margin:8px 0 12px;padding:10px 12px;border:1px solid #56CCF2;border-radius:10px;background:rgba(86,204,242,.07);font-size:13px;}
 .p27-catmatch-t{font-size:12px;color:#56CCF2;margin-bottom:6px;}
@@ -2820,7 +2826,8 @@
         <select id="cat-familia-edwards">
           <option value="">— Sin clasificar aún —</option>
         </select>
-        <div style="font-size:11px;opacity:0.5;margin-top:6px;">Clasificación real del concepto del perfume para el catálogo/cliente (ej. Acuática Fougère) — no afecta tiempos de producción, es independiente de la Familia Olfativa de arriba.</div>
+        <div style="font-size:11px;opacity:0.5;margin-top:6px;">Clasificación real del concepto del perfume para el catálogo/cliente (ej. Acuática Fougère). Desde V101 también guía la familia de fórmula (A–F) según tu tabla de Equivalencias. Si lo dejas vacío en un perfume nuevo, la app lo sugiere por parecido con tus perfumes.</div>
+        <div id="cat-edwards-sug" class="p27-sug-sub" style="margin-top:6px;opacity:.9;"></div>
       </div>
     </div>
     <div class="field">
@@ -2832,6 +2839,36 @@
       <button type="button" class="btn btn-outline btn-sm" onclick="catAgregarAcorde()">＋ Agregar acorde</button>
       <div id="cat-acordes-preview" style="margin-top:10px;"></div>
       <div id="cat-sugerencia-fam" class="p27-catmatch" style="display:none;margin-top:10px;"></div>
+    </div>
+    <div class="field">
+      <label>Pirámide olfativa (opcional)</label>
+      <div style="font-size:11px;opacity:0.6;margin-bottom:6px;line-height:1.5;">Para mostrarla en el catálogo. Separa las notas con comas. No se usa para decidir la familia.</div>
+      <input id="cat-nota-salida" type="text" placeholder="Salida (ej. bergamota, pimienta)" autocomplete="off" style="margin-bottom:6px;">
+      <input id="cat-nota-corazon" type="text" placeholder="Corazón (ej. lavanda, notas metálicas)" autocomplete="off" style="margin-bottom:6px;">
+      <input id="cat-nota-fondo" type="text" placeholder="Fondo (ej. ambroxan, pachulí)" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Temporada y ocasión de uso (opcional)</label>
+      <div id="cat-uso-chips" class="p27-chips">
+        <div class="p27-chips-t">Temporada</div>
+        <label class="p27-chip"><input type="checkbox" data-uso="temporadas" value="Primavera"><span>🌸 Primavera</span></label>
+        <label class="p27-chip"><input type="checkbox" data-uso="temporadas" value="Verano"><span>☀️ Verano</span></label>
+        <label class="p27-chip"><input type="checkbox" data-uso="temporadas" value="Otoño"><span>🍂 Otoño</span></label>
+        <label class="p27-chip"><input type="checkbox" data-uso="temporadas" value="Invierno"><span>❄️ Invierno</span></label>
+        <div class="p27-chips-t">Momento del día</div>
+        <label class="p27-chip"><input type="checkbox" data-uso="momentos" value="Día"><span>🌤️ Día</span></label>
+        <label class="p27-chip"><input type="checkbox" data-uso="momentos" value="Noche"><span>🌙 Noche</span></label>
+        <div class="p27-chips-t">Ocasión</div>
+        <label class="p27-chip"><input type="checkbox" data-uso="ocasiones" value="Día a día"><span>Día a día</span></label>
+        <label class="p27-chip"><input type="checkbox" data-uso="ocasiones" value="Trabajo / oficina"><span>Trabajo / oficina</span></label>
+        <label class="p27-chip"><input type="checkbox" data-uso="ocasiones" value="Casual"><span>Casual</span></label>
+        <label class="p27-chip"><input type="checkbox" data-uso="ocasiones" value="Deportivo"><span>Deportivo</span></label>
+        <label class="p27-chip"><input type="checkbox" data-uso="ocasiones" value="Campo / aire libre"><span>Campo / aire libre</span></label>
+        <label class="p27-chip"><input type="checkbox" data-uso="ocasiones" value="Salida / fiesta"><span>Salida / fiesta</span></label>
+        <label class="p27-chip"><input type="checkbox" data-uso="ocasiones" value="Formal / elegante"><span>Formal / elegante</span></label>
+        <label class="p27-chip"><input type="checkbox" data-uso="ocasiones" value="Romántico"><span>Romántico</span></label>
+      </div>
+      <input id="cat-uso-otras" type="text" placeholder="Otras ocasiones (separadas por comas)" autocomplete="off" style="margin-top:8px;">
     </div>
     <div class="field"><label>Notas adicionales (opcional)</label><textarea id="cat-notas-extra" rows="2" placeholder="Cualquier detalle extra que quieras que veas tú o el cliente"></textarea></div>
     <div class="field" style="flex-direction:row;align-items:center;gap:8px;">
@@ -4402,7 +4439,7 @@ function p27RenderCatMatch() {
   if (_catAplicado) {
     const p = _catAplicado.p;
     const fs = _catAplicado.fs;
-    const perfilLinea = (fs && fs.perfil) ? `<br><span class="p27-sug-sub">Perfil por porcentajes: ${p27PerfilTxt(fs.perfil)}${fs.sug ? p27DomLinea(fs.sug) : ''} → familia sugerida <b>${_p27Esc(fs.nombre)}</b>${fs.sug && fs.sug.cercana ? ` (muy cerca también: ${_p27Esc(fs.sug.segundo.nombre)})` : ''}.</span> <a href="#" data-cat-accion="calculo" class="p27-linkcalc">Ver cálculo</a>` : '';
+    const perfilLinea = (fs && (fs.perfil || fs.via === 'edwards')) ? `<br><span class="p27-sug-sub">${p27ViaTxt(fs)}.</span> <a href="#" data-cat-accion="calculo" class="p27-linkcalc">Ver cálculo</a>` : '';
     box.innerHTML = `<div class="p27-catmatch-ok">✔ Datos aplicados desde el catálogo: <strong>${_p27Esc(p27NombreCortoCatalogo(p))}</strong> — ${_p27Esc(p.disenador)}. Revísalos y ajusta lo que quieras. <button type="button" class="btn btn-outline btn-sm" data-cat-accion="deshacer">↩ Deshacer</button>${perfilLinea}</div>`;
     box.style.display = 'block';
     return;
@@ -4466,7 +4503,7 @@ function p27IniciarCatalogoAsistente() {
     e.preventDefault();
     if (a.dataset.catAccion === 'deshacer') p27DeshacerCatalogo();
     else if (a.dataset.catAccion === 'equiv') abrirEquivFamilias();
-    else if (a.dataset.catAccion === 'calculo' && _catAplicado && _catAplicado.fs && _catAplicado.fs.perfil) p27AbrirCalculo({ titulo: `${p27NombreCortoCatalogo(_catAplicado.p)} — ${_catAplicado.p.disenador}`, pf: _catAplicado.fs.perfil, sug: _catAplicado.fs.sug, estimado: _catAplicado.fs.estimado });
+    else if (a.dataset.catAccion === 'calculo' && _catAplicado && _catAplicado.fs && _catAplicado.fs.perfil) p27AbrirCalculo({ titulo: `${p27NombreCortoCatalogo(_catAplicado.p)} — ${_catAplicado.p.disenador}`, pf: _catAplicado.fs.perfil, sug: _catAplicado.fs.sug, estimado: _catAplicado.fs.estimado, fs: _catAplicado.fs });
   });
   ['e-nombre', 'e-disenador'].forEach(id => {
     const el = document.getElementById(id);
@@ -4480,7 +4517,7 @@ function p27IniciarCatalogoAsistente() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', p27IniciarCatalogoAsistente); else p27IniciarCatalogoAsistente();
 
 // ── Tabla de equivalencias de familias (etiqueta del catálogo → tu familia) ──
-function abrirEquivFamilias() { renderEquivFamilias(); openModal('modal-equiv-familias'); }
+function abrirEquivFamilias() { renderEquivFamilias(); renderEquivEdwards(); openModal('modal-equiv-familias'); }
 function renderEquivFamilias() {
   const cuenta = {};
   (db.catalogoVitrina || []).forEach(p => { const l = p.familiaOlfativa || ''; if (l) cuenta[l] = (cuenta[l] || 0) + 1; });
@@ -4496,6 +4533,27 @@ function renderEquivFamilias() {
       <select data-equiv="${_p27Esc(l)}" style="flex:1;max-width:260px;"><option value="@"${valor === '@' ? ' selected' : ''}>La misma del catálogo</option>${opciones.map(f => `<option value="${_p27Esc(f)}"${valor === f ? ' selected' : ''}>${_p27Esc(f)}</option>`).join('')}</select></div>`;
   }).join('');
 }
+// V101: tabla Edwards → familia de fórmula (señal principal para sugerir la familia)
+function renderEquivEdwards() {
+  const cont = document.getElementById('equiv-edwards-filas');
+  if (!cont) return;
+  const cuenta = {};
+  (db.catalogoVitrina || []).forEach(p => { if (p.familiaEdwards) cuenta[p.familiaEdwards] = (cuenta[p.familiaEdwards] || 0) + 1; });
+  const fams = (db.familiasOlfativas || []).filter(f => !f.etiquetaProveedor);
+  cont.innerHTML = Object.entries(TAXONOMIA_EDWARDS).map(([g, subs]) => `<div class="p27-sug-sub" style="margin:8px 0 2px;">${_p27Esc(g)}</div>` + subs.map(s => {
+    const r = p27ResolverEdwards(s), valor = r.modo === 'directo' ? r.fam : '@', n = cuenta[s] || 0;
+    return `<div class="p27-lista-fila"><span style="flex:1;"><strong>${_p27Esc(s)}</strong> <span style="opacity:.6;font-size:11px;">· ${n} perfume${n === 1 ? '' : 's'}</span></span>
+      <select data-equiv-edw="${_p27Esc(s)}" style="flex:1;max-width:260px;"><option value="@"${valor === '@' ? ' selected' : ''}>Decidir por el perfil de acordes</option>${fams.map(f => `<option value="${_p27Esc(f.nombre)}"${valor === f.nombre ? ' selected' : ''}>${f.cod ? f.cod + ' — ' : ''}${_p27Esc(f.nombre)}</option>`).join('')}</select></div>`;
+  }).join('')).join('');
+}
+document.addEventListener('change', (e) => {
+  const s = e.target.closest && e.target.closest('select[data-equiv-edw]');
+  if (!s) return;
+  if (!db.equivalenciasEdwards) db.equivalenciasEdwards = {};
+  db.equivalenciasEdwards[s.dataset.equivEdw] = s.value;
+  saveToDrive();
+  try { renderEquivEdwards(); } catch (err) {}
+});
 document.addEventListener('change', (e) => {
   const s = e.target.closest && e.target.closest('select[data-equiv]');
   if (!s) return;
@@ -4505,6 +4563,8 @@ document.addEventListener('change', (e) => {
 });
 function restablecerEquivFamilias() {
   db.equivalenciasFamilia = {};
+  db.equivalenciasEdwards = {};
+  renderEquivEdwards();
   renderEquivFamilias();
   saveToDrive();
 }
@@ -4600,7 +4660,7 @@ function p27Similares(u, opc) {
 function p27VotarFamilias(sim, K) {
   const g = {};
   sim.slice(0, K || 7).forEach(t => {
-    const f = p27FamiliaParaCatalogo(t.p);
+    const f = t.p.familiaEdwards ? p27FamiliaBase(t.p) : p27FamiliaParaCatalogo(t.p);   // V101: por Edwards
     if (!f) return;
     g[f] = g[f] || { nombre: f, peso: 0, n: 0 };
     g[f].peso += Math.pow(t.s, 3); g[f].n++;
@@ -4771,14 +4831,42 @@ function p27PerfilDeFilas(filas) {
   const p = {}; P27_G_ORDEN.forEach(k => { p[k] = 100 * s[k] / total; });
   return { p, sumas: s, total, filas: f2, dom };
 }
-function p27ClaveCatalogo() { return (db.catalogoVitrina || []).length + '|' + JSON.stringify(db.equivalenciasFamilia || {}) + '|' + (db.familiasOlfativas || []).length; }
+// ═══════════════ V101: EDWARDS → FAMILIA DE FÓRMULA ═══════════════
+// Tus familias A–F nacieron como estilos olfativos (Coco Mademoiselle y Miss Dior = Chypre = C), no como "el acorde
+// más fuerte". Por eso la señal principal para sugerir la familia de fórmula es el Edwards del perfume, traducido con
+// esta tabla (editable en "Equivalencias"). El perfil de acordes queda como apoyo y para los casos ambiguos ('@').
+const P27_EDWARDS_A_COD = {
+  'Cítrica': 'A', 'Verde': 'A', 'Acuática': 'A', 'Aromática': 'D', 'Fougère': 'D',
+  'Floral Suave': 'B', 'Floral': 'B', 'Floral Oriental': '@',
+  'Oriental Suave': 'F', 'Oriental': 'E', 'Amaderada Oriental': 'E',
+  'Amaderada Aromática': 'D', 'Chypre': 'C', 'Amaderada Seca': 'D',
+};
+function p27GrupoEdwards(sub) { for (const g in TAXONOMIA_EDWARDS) if (TAXONOMIA_EDWARDS[g].includes(sub)) return g; return ''; }
+// { fam, modo }: 'directo' = hay familia; 'perfil' = se decide por el perfil de acordes; 'ninguno' = sin Edwards
+function p27ResolverEdwards(sub) {
+  if (!sub) return { fam: '', modo: 'ninguno' };
+  const user = db.equivalenciasEdwards || {};
+  const v = user[sub] !== undefined ? user[sub] : (P27_EDWARDS_A_COD[sub] || '@');
+  if (v === '@') return { fam: '', modo: 'perfil' };
+  const fams = db.familiasOlfativas || [];
+  let f = fams.find(x => x.nombre === v);
+  if (!f && /^[A-F]$/.test(v)) f = fams.find(x => x.cod === v);
+  return f ? { fam: f.nombre, modo: 'directo' } : { fam: '', modo: 'perfil' };
+}
+// Familia de fórmula de un perfume del catálogo SOLO por su Edwards (vacío si es ambiguo o no tiene)
+function p27FamiliaBase(p) { const r = p27ResolverEdwards(p.familiaEdwards); return r.modo === 'directo' ? r.fam : ''; }
+function p27ClaveCatalogo() {
+  const cat = db.catalogoVitrina || []; let h = 0;
+  cat.forEach(p => { const s = (p.familiaEdwards || '') + '|' + (p.familiaOlfativa || '') + '|' + (p.acordes || []).join(',') + '|' + (p.acordesPct || []).join(','); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; });
+  return cat.length + '|' + h + '|' + JSON.stringify(db.equivalenciasFamilia || {}) + '|' + JSON.stringify(db.equivalenciasEdwards || {}) + '|' + (db.familiasOlfativas || []).map(f => f.nombre + (f.etiquetaProveedor ? '*' : '')).join(',');
+}
 let _perfFam = null, _perfFamKey = '';
 function p27PerfilesFamilias() {
   const key = p27ClaveCatalogo();
   if (_perfFam && _perfFamKey === key) return _perfFam;
   const acc = {};
   (db.catalogoVitrina || []).forEach(p => {
-    const fam = p27FamiliaParaCatalogo(p);
+    const fam = p27FamiliaBase(p);   // V101: la familia de cada perfume sale de su Edwards, no de la etiqueta
     if (!fam) return;
     const pf = p27PerfilDeFilas(p27FilasDePerfume(p));
     if (!pf) return;
@@ -4802,7 +4890,7 @@ function p27DominanteFamilias() {
   if (_domFam && _domFamKey === key) return _domFam;
   const acc = {};
   (db.catalogoVitrina || []).forEach(p => {
-    const fam = p27FamiliaParaCatalogo(p);
+    const fam = p27FamiliaBase(p);
     if (!fam || !(p.acordes || []).length) return;
     const pf = p27PerfilDeFilas(p27FilasDePerfume(p));
     if (!pf || !pf.dom) return;
@@ -4832,11 +4920,45 @@ function p27SugerirFamiliaPerfil(pf) {
   if (cercana && dom && dom.fam && segundo && dom.fam.nombre === segundo.nombre) { const t = mejor; mejor = segundo; segundo = t; desempate = true; }
   return { lista, mejor, segundo, cercana, dominante: dom, desempate };
 }
-// Familia sugerida para un perfume del catálogo (usa sus porcentajes; si no se pudiera, cae a la etiqueta del proveedor)
+// Familia sugerida para un perfume del catálogo: 1º su Edwards (traducido); si es ambiguo o no tiene, el perfil de acordes;
+// si tampoco hay acordes, la etiqueta del proveedor.
 function p27FamiliaSugerida(p) {
   const filas = p27FilasDePerfume(p), pf = p27PerfilDeFilas(filas);
-  if (pf) { const sug = p27SugerirFamiliaPerfil(pf); if (sug) return { nombre: sug.mejor.nombre, perfil: pf, sug, via: 'perfil', estimado: !(p.acordesPct && p.acordesPct.length) }; }
+  const sug = pf ? p27SugerirFamiliaPerfil(pf) : null;
+  const estimado = !(p.acordesPct && p.acordesPct.length);
+  const ed = p27ResolverEdwards(p.familiaEdwards);
+  if (ed.modo === 'directo') return { nombre: ed.fam, perfil: pf, sug, via: 'edwards', edwards: p.familiaEdwards, edwardsOrigen: p.edwardsOrigen || '', difiere: !!(sug && sug.mejor.nombre !== ed.fam), estimado };
+  if (sug) return { nombre: sug.mejor.nombre, perfil: pf, sug, via: 'perfil', edwards: p.familiaEdwards || '', edwardsOrigen: p.edwardsOrigen || '', difiere: false, estimado };
   return { nombre: p27FamiliaParaCatalogo(p), perfil: null, sug: null, via: 'etiqueta', estimado: false };
+}
+// Texto corto de cómo se llegó a la familia (para las tarjetas)
+function p27ViaTxt(fs) {
+  if (!fs) return '';
+  if (fs.via === 'edwards') return `Edwards: <b>${_p27Esc(fs.edwards)}</b>${fs.edwardsOrigen === 'sugerido' ? ' (sugerido)' : ''} → familia <b>${_p27Esc(fs.nombre)}</b>${fs.difiere ? ` · el perfil de acordes apunta a <b>${_p27Esc(fs.sug.mejor.nombre)}</b>` : ''}${fs.perfil ? ` · perfil: ${p27PerfilTxt(fs.perfil)}${fs.sug ? p27DomLinea(fs.sug) : ''}` : ''}`;
+  return `${fs.perfil ? `Perfil por porcentajes: ${p27PerfilTxt(fs.perfil)}${fs.sug ? p27DomLinea(fs.sug) : ''} → ` : ''}familia sugerida <b>${_p27Esc(fs.nombre)}</b>${fs.sug && fs.sug.cercana ? ` (muy cerca también: ${_p27Esc(fs.sug.segundo.nombre)})` : ''}`;
+}
+// Edwards sugerido para un perfume nuevo: se compara con los perfumes de tu catálogo que ya tienen Edwards
+// (medido en tus 261: acierta cerca de 54% la subfamilia y 74% el grupo — es una sugerencia, revísala).
+function p27SugerirEdwards(acordes, pcts, excluirId) {
+  const u = {};
+  (acordes || []).forEach((a, i) => { if (a) u[a] = Math.max(u[a] || 0, ((pcts && pcts[i] != null) ? pcts[i] : 100 * Math.pow(0.88, i)) / 100); });
+  const nu = Math.sqrt(Object.values(u).reduce((s, x) => s + x * x, 0));
+  if (Object.keys(u).length < 3 || !nu) return null;
+  const sims = [];
+  (db.catalogoVitrina || []).forEach(p => {
+    if (!p.familiaEdwards || (excluirId !== undefined && String(p.id) === String(excluirId))) return;
+    const pc = p27PctsDe(p); let d = 0, np = 0;
+    (p.acordes || []).forEach((a, i) => { const x = pc[i] / 100; np += x * x; if (u[a]) d += u[a] * x; });
+    if (d > 0 && np > 0) sims.push({ e: p.familiaEdwards, s: d / (nu * Math.sqrt(np)) });
+  });
+  sims.sort((a, b) => b.s - a.s);
+  const top = sims.slice(0, 9);
+  if (!top.length) return null;
+  const sub = {}, grp = {}; let tot = 0;
+  top.forEach(t => { sub[t.e] = (sub[t.e] || 0) + t.s; const g = p27GrupoEdwards(t.e); grp[g] = (grp[g] || 0) + t.s; tot += t.s; });
+  const ord = (o) => Object.entries(o).sort((a, b) => b[1] - a[1])[0];
+  const s1 = ord(sub), g1 = ord(grp);
+  return { sub: s1[0], subShare: s1[1] / tot, grupo: g1[0], grupoShare: g1[1] / tot };
 }
 const p27PerfilTxt = (pf) => P27_G_ORDEN.filter(k => Math.round(pf.p[k]) >= 1).sort((a, b) => pf.p[b] - pf.p[a]).map(k => `${P27_GRUPOS[k].txt} ${Math.round(pf.p[k])}%`).join(' · ');
 // "· acorde dominante: Amaderado" (+ aviso si fue el que decidió un empate)
@@ -4847,7 +4969,7 @@ let _calcCtx = null;
 function p27AbrirCalculo(ctx) {
   if (!ctx || !ctx.pf) return;
   _calcCtx = ctx;
-  const pf = ctx.pf, sug = ctx.sug;
+  const pf = ctx.pf, sug = ctx.sug, fsx = ctx.fs;
   const nomG = (g) => g ? P27_GRUPOS[g].nombre : '<span style="opacity:.5">— (no cuenta)</span>';
   const tabla = pf.filas.map(x => `<tr><td>${_p27Esc(x.a)}</td><td style="text-align:right;">${x.pct}</td><td>${nomG(x.g)}</td></tr>`).join('');
   const suma = (g) => { const v = pf.filas.filter(x => x.g === g).map(x => x.pct); return v.length ? `${v.join(' + ')} = <b>${pf.sumas[g]}</b>` : '<b>0</b>'; };
@@ -4862,8 +4984,11 @@ function p27AbrirCalculo(ctx) {
     domTxt = `<div class="card-title" style="font-size:13px;margin:12px 0 4px;">5. Acorde dominante (solo desempata)</div>
     <div style="font-size:13px;line-height:1.6;">Acorde más fuerte: <b>${_p27Esc(d.a)}</b> (${d.pct}). ${d.fam ? `En tu catálogo, ${d.fam.n} de ${d.fam.total} perfumes con ese acorde como dominante quedaron en <b>${_p27Esc(d.fam.nombre)}</b>.` : 'En tu catálogo no hay suficientes perfumes con ese acorde como dominante (o quedaron repartidos) para sacar una conclusión.'}<br>${sug.desempate ? `Como las dos primeras familias están a menos de 8 puntos, la app eligió <b>${_p27Esc(sug.mejor.nombre)}</b> por este dato (solo por perfil habría salido ${_p27Esc(sug.segundo.nombre)}).` : sug.cercana ? 'Las dos primeras están a menos de 8 puntos, pero el acorde dominante no cambia el resultado.' : 'La diferencia con la segunda familia es de 8 puntos o más: el acorde dominante no interviene.'}</div>`;
   }
+  const edBloque = (fsx && fsx.via === 'edwards') ? `<div class="card-title" style="font-size:13px;margin:10px 0 4px;">0. Señal principal: Edwards</div>
+    <div style="font-size:13px;line-height:1.6;">Edwards de este perfume: <b>${_p27Esc(fsx.edwards)}</b>${fsx.edwardsOrigen === 'sugerido' ? ' (sugerido por parecido con tus perfumes, aún sin confirmar)' : ''}. Según tu tabla de Equivalencias corresponde a la familia <b>${_p27Esc(fsx.nombre)}</b>.<br>${fsx.difiere ? `El perfil de acordes (pasos 1 a 4) apunta a <b>${_p27Esc(sug.mejor.nombre)}</b>: las dos señales difieren, decides tú.` : 'El perfil de acordes (pasos 1 a 4) coincide con esa familia.'}</div>` : '';
   document.getElementById('calculo-contenido').innerHTML = `
     <div class="card-title" style="font-size:14px;margin:4px 0 6px;">${_p27Esc(ctx.titulo || 'Perfil')}</div>
+    ${edBloque}
     ${ctx.estimado ? '<div class="p27-sug-sub" style="margin-bottom:6px;">⚠️ Los porcentajes de este perfume son estimados (por el orden de los acordes), no medidos de una barra.</div>' : ''}
     <div class="card-title" style="font-size:13px;margin:10px 0 4px;">1. Cada acorde, con su porcentaje y su grupo</div>
     <table class="p27-tabla"><thead><tr><th>Acorde</th><th class="num">%</th><th>Grupo</th></tr></thead><tbody>${tabla}</tbody></table>
@@ -4874,9 +4999,9 @@ function p27AbrirCalculo(ctx) {
     ${sug ? `<div class="card-title" style="font-size:13px;margin:12px 0 4px;">4. Comparación con el perfil promedio de cada familia</div>
     <div class="p27-sug-sub" style="margin-bottom:4px;">Diferencia = suma de |tu % − % de la familia| en los 6 grupos. La menor es la más cercana. Columnas: Cít. = Cítrico/Fresco · Acu. = Acuático/Verde · Aro. = Aromático/Lavanda · Flo. = Floral/Frutal · Mad. = Madera/Tierra · Cál. = Dulce/Ámbar/Almizcle.</div>
     <table class="p27-tabla" style="font-size:12px;"><thead><tr><th>Familia</th>${cab}<th class="num">Dif.</th><th class="num">n</th></tr></thead><tbody>${perfilFila}${fams}</tbody></table>
-    <div style="margin-top:8px;font-size:13px;">Sugerida: <b>${_p27Esc(sug.mejor.nombre)}</b>${sug.cercana ? ` · muy cerca también: <b>${_p27Esc(sug.segundo.nombre)}</b>` : ''}</div>
+    <div style="margin-top:8px;font-size:13px;">Por perfil de acordes: <b>${_p27Esc(sug.mejor.nombre)}</b>${sug.cercana ? ` · muy cerca también: <b>${_p27Esc(sug.segundo.nombre)}</b>` : ''}</div>
     ${domTxt}` : ''}
-    <div class="p27-sug-sub" style="margin-top:12px;line-height:1.5;">Qué es criterio de la app y qué no: el grupo de cada acorde lo decidió la app (los de la lista "no cuenta" se ignoran). El perfil de cada familia es el promedio de los perfumes de tu catálogo que quedan en esa familia según tus equivalencias (n = cuántos perfumes). El acorde dominante que desempata sale del mismo dato que la etiqueta del proveedor (la etiqueta es el acorde más fuerte), así que repite el criterio del proveedor. Es una hipótesis de partida: la confirman tus lotes de prueba y tus observaciones.</div>`;
+    <div class="p27-sug-sub" style="margin-top:12px;line-height:1.5;">Qué es criterio de la app y qué no: el grupo de cada acorde lo decidió la app (los de la lista "no cuenta" se ignoran). Si el perfume tiene Edwards, esa es la señal principal (paso 0) y el perfil de acordes queda como apoyo. El perfil de cada familia es el promedio de los perfumes de tu catálogo cuyo Edwards se traduce a esa familia según tus Equivalencias (n = cuántos perfumes). El acorde dominante solo desempata cuando no hay Edwards con qué decidir: se mira en qué familia (por Edwards) quedaron los perfumes de tu catálogo que tienen ese mismo acorde como el más fuerte. Es una hipótesis de partida: la confirman tus lotes de prueba y tus observaciones.</div>`;
   openModal('modal-calculo');
 }
 
@@ -5020,16 +5145,22 @@ function previsualizarAcordesCatalogo() {
   const g = catFilasParaGuardar();
   const caja = document.getElementById('cat-sugerencia-fam');
   _catCalcCtx = null;
+  try { catRefrescarEdwardsSugerido(); } catch (err) {}   // V101: el Edwards sugerido se actualiza con los acordes
   if (!g.acordes.length) { el.innerHTML = ''; if (caja) { caja.style.display = 'none'; caja.innerHTML = ''; } return; }
   el.innerHTML = g.acordes.map((a, i) => `<div style="width:${g.pcts[i]}%;background:${colorAcorde(a)};color:#1A1410;font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_p27Esc(a)} <span style="opacity:.7;">${g.pcts[i]}</span></div>`).join('');
   if (!caja) return;
   const pf = p27PerfilDeFilas(g.acordes.map((a, i) => ({ a, pct: g.pcts[i] })));
   const sug = pf ? p27SugerirFamiliaPerfil(pf) : null;
   if (!pf || !sug || g.acordes.length < 2) { caja.style.display = 'none'; caja.innerHTML = ''; return; }
-  _catCalcCtx = { titulo: (document.getElementById('cat-nombre').value || 'Perfume nuevo'), pf, sug, estimado: false };
-  caja.innerHTML = `Familia sugerida por perfil: <strong>${_p27Esc(sug.mejor.nombre)}</strong> <span class="p27-sug-sub">· ${p27PerfilTxt(pf)}${p27DomLinea(sug)}</span>
-    <button type="button" class="btn btn-primary btn-sm" data-cat-fam="${_p27Esc(sug.mejor.nombre)}">Usar para Familia Olfativa</button>
-    ${sug.cercana ? `<br><span class="p27-sug-sub">Muy cerca también:</span> <strong>${_p27Esc(sug.segundo.nombre)}</strong> <button type="button" class="btn btn-outline btn-sm" data-cat-fam="${_p27Esc(sug.segundo.nombre)}">Usar esta</button>` : ''}
+  const edVal = (document.getElementById('cat-familia-edwards') || {}).value || '';
+  const ed = p27ResolverEdwards(edVal), porEdw = ed.modo === 'directo';
+  const principal = porEdw ? ed.fam : sug.mejor.nombre;
+  const fsCtx = { via: porEdw ? 'edwards' : 'perfil', edwards: edVal, edwardsOrigen: _catEdwardsAuto ? 'sugerido' : '', nombre: principal, difiere: porEdw && sug.mejor.nombre !== ed.fam, sug, perfil: pf };
+  _catCalcCtx = { titulo: (document.getElementById('cat-nombre').value || 'Perfume nuevo'), pf, sug, estimado: false, fs: fsCtx };
+  caja.innerHTML = `Familia sugerida: <strong>${_p27Esc(principal)}</strong> <span class="p27-sug-sub">· ${porEdw ? `por Edwards <b>${_p27Esc(edVal)}</b>${_catEdwardsAuto ? ' (sugerido)' : ''}${fsCtx.difiere ? ` · el perfil de acordes apunta a <b>${_p27Esc(sug.mejor.nombre)}</b>` : ''} · ` : ''}${p27PerfilTxt(pf)}${p27DomLinea(sug)}</span>
+    <button type="button" class="btn btn-primary btn-sm" data-cat-fam="${_p27Esc(principal)}">Usar para Familia Olfativa</button>
+    ${fsCtx.difiere ? `<br><span class="p27-sug-sub">Perfil de acordes:</span> <strong>${_p27Esc(sug.mejor.nombre)}</strong> <button type="button" class="btn btn-outline btn-sm" data-cat-fam="${_p27Esc(sug.mejor.nombre)}">Usar esta</button>` : ''}
+    ${(!porEdw && sug.cercana) ? `<br><span class="p27-sug-sub">Muy cerca también:</span> <strong>${_p27Esc(sug.segundo.nombre)}</strong> <button type="button" class="btn btn-outline btn-sm" data-cat-fam="${_p27Esc(sug.segundo.nombre)}">Usar esta</button>` : ''}
     <br><a href="#" data-cat-calc="1" style="color:#56CCF2;font-size:11px;">Ver cálculo</a>`;
   caja.style.display = 'block';
 }
@@ -6081,8 +6212,8 @@ function poblarSelectFamilias(selectId, valorSeleccionado) {
 }
 
 // ═══ Taxonomía de Edwards (Rueda de Fragancias de Michael Edwards) ═══
-// Referencia real de familia olfativa para el Catálogo (Vitrina) — independiente de la Familia Olfativa
-// de producción (esa sigue ligada a la Clase de Maceración). Esta es la clasificación real del concepto
+// Referencia real de familia olfativa para el Catálogo (Vitrina). Desde V101 también es la señal principal para
+// sugerir la familia de fórmula (A–F), con la tabla de Equivalencias. Esta es la clasificación real del concepto
 // del perfume (ej. Nautica Blue es Acuática Fougère aunque su acorde más alto en la gráfica sea Amaderado).
 // Se llena por tandas, marca por marca, con investigación real — no se infiere automáticamente.
 const TAXONOMIA_EDWARDS = {
@@ -6173,8 +6304,8 @@ function agregarNotaDominanteNueva() {
 // Familia sugerida por el perfil de acordes en la esencia que se está registrando (catálogo aplicado o acordes escritos)
 function p27SugPerfilActual() {
   try {
-    if (_catAplicado && _catAplicado.fs && _catAplicado.fs.sug) return _catAplicado.fs.sug;
-    if (!_catAplicado && _simUltimo && _simUltimo.sug) return _simUltimo.sug;
+    if (_catAplicado && _catAplicado.fs) return _catAplicado.fs;
+    if (!_catAplicado && _simUltimo && _simUltimo.sug) return { nombre: _simUltimo.sug.mejor.nombre, via: 'perfil', sug: _simUltimo.sug };
   } catch (e) {}
   return null;
 }
@@ -6194,18 +6325,19 @@ function sugerirFamiliaPorNotas() {
   const top = mejores[0][1];
   const codsGanadores = mejores.filter(([c,p]) => p === top).map(([c]) => c);
   const nombresGanadores = (db.familiasOlfativas||[]).filter(f => codsGanadores.includes(f.cod)).map(f => `${f.nombre} (${f.cod})`);
-  const sug = p27SugPerfilActual();
-  const fPerfil = sug ? (db.familiasOlfativas || []).find(f => f.nombre === sug.mejor.nombre) : null;
-  if (fPerfil && fPerfil.cod) {
-    // Hay perfil con qué comparar: las notas solo hablan si discrepan
-    if (codsGanadores.includes(fPerfil.cod)) { out.textContent = ''; return; }
-    const f2 = sug.cercana && sug.segundo ? (db.familiasOlfativas || []).find(f => f.nombre === sug.segundo.nombre) : null;
-    if (f2 && f2.cod && codsGanadores.includes(f2.cod)) { out.style.color = '#56CCF2'; out.textContent = `ℹ️ Las notas apuntan a ${nombresGanadores.join(' o ')}, que el perfil de acordes también marca como muy cercana (primera opción del perfil: ${fPerfil.cod} — ${fPerfil.nombre}).`; return; }
+  const prin = p27SugPerfilActual();
+  const fPrin = prin ? (db.familiasOlfativas || []).find(f => f.nombre === prin.nombre) : null;
+  if (fPrin && fPrin.cod) {
+    // Hay una señal principal (Edwards o perfil de acordes): las notas solo hablan si discrepan
+    if (codsGanadores.includes(fPrin.cod)) { out.textContent = ''; return; }
+    const f2 = (prin.via === 'perfil' && prin.sug && prin.sug.cercana && prin.sug.segundo) ? (db.familiasOlfativas || []).find(f => f.nombre === prin.sug.segundo.nombre) : null;
+    if (f2 && f2.cod && codsGanadores.includes(f2.cod)) { out.style.color = '#56CCF2'; out.textContent = `ℹ️ Las notas apuntan a ${nombresGanadores.join(' o ')}, que el perfil de acordes también marca como muy cercana (primera opción del perfil: ${fPrin.cod} — ${fPrin.nombre}).`; return; }
     out.style.color = '#F2C94C';
-    out.textContent = `⚠️ Las dos señales difieren: por acordes (perfil) → ${fPerfil.cod} — ${fPerfil.nombre}; por notas dominantes → ${nombresGanadores.join(' o ')}. Decides tú.`;
+    const quien = prin.via === 'edwards' ? `Edwards (${prin.edwards})` : 'acordes (perfil)';
+    out.textContent = `⚠️ Las dos señales difieren: por ${quien} → ${fPrin.cod} — ${fPrin.nombre}; por notas dominantes → ${nombresGanadores.join(' o ')}. Decides tú.`;
     return;
   }
-  out.style.color = '#56CCF2';   // sin perfil con qué comparar: se muestra como antes
+  out.style.color = '#56CCF2';   // sin señal principal con qué comparar: se muestra como antes
   out.textContent = nombresGanadores.length ? `💡 Sugerido por notas: ${nombresGanadores.join(' o ')}` : '';
 }
 
@@ -9382,6 +9514,52 @@ function colorAcorde(nombre) {
 // Muestra en vivo las barras de acordes (más ancha la primera, angostándose hacia el final) según
 // el texto separado por comas que se va escribiendo — igual que el catálogo de Distribuidora del
 // Caribe, para ir viendo cómo quedará mientras se transcribe.
+// ═══════════════ V101: PIRÁMIDE, TEMPORADA/OCASIÓN y EDWARDS SUGERIDO en el formulario del Catálogo ═══════════════
+let _catEdwardsAuto = false;   // true = el campo Edwards lo llenó la app (sugerido) y todavía no lo tocaste
+function catCargarUso(e) {
+  const g = (k) => (e && Array.isArray(e[k])) ? e[k] : [];
+  document.querySelectorAll('#cat-uso-chips input[data-uso]').forEach(c => { c.checked = g(c.dataset.uso).includes(c.value); });
+  const $ = (i) => document.getElementById(i);
+  $('cat-nota-salida').value = (e && e.notasSalida) || '';
+  $('cat-nota-corazon').value = (e && e.notasCorazon) || '';
+  $('cat-nota-fondo').value = (e && e.notasFondo) || '';
+  $('cat-uso-otras').value = (e && e.ocasionesOtras) || '';
+}
+function catLeerUso() {
+  const o = { temporadas: [], momentos: [], ocasiones: [] };
+  document.querySelectorAll('#cat-uso-chips input[data-uso]:checked').forEach(c => { o[c.dataset.uso].push(c.value); });
+  const $ = (i) => document.getElementById(i).value.trim();
+  return { ...o, notasSalida: $('cat-nota-salida'), notasCorazon: $('cat-nota-corazon'), notasFondo: $('cat-nota-fondo'), ocasionesOtras: $('cat-uso-otras') };
+}
+function p27LineaUsoCatalogo(e) {
+  const partes = [];
+  if ((e.temporadas || []).length) partes.push((e.temporadas || []).join(', '));
+  if ((e.momentos || []).length) partes.push((e.momentos || []).join(' y '));
+  const oc = (e.ocasiones || []).concat(String(e.ocasionesOtras || '').split(',').map(s => s.trim()).filter(Boolean));
+  if (oc.length) partes.push(oc.join(', '));
+  const pir = [];
+  if (e.notasSalida) pir.push(`Salida: ${e.notasSalida}`);
+  if (e.notasCorazon) pir.push(`Corazón: ${e.notasCorazon}`);
+  if (e.notasFondo) pir.push(`Fondo: ${e.notasFondo}`);
+  return (partes.length ? `<div style="font-size:11px;opacity:0.55;margin-top:2px;">🕒 ${_p27Esc(partes.join(' · '))}</div>` : '') + (pir.length ? `<div style="font-size:11px;opacity:0.55;margin-top:2px;">🔺 ${_p27Esc(pir.join(' · '))}</div>` : '');
+}
+function catRefrescarEdwardsSugerido() {
+  const sel = document.getElementById('cat-familia-edwards'), box = document.getElementById('cat-edwards-sug');
+  if (!sel || !box) return;
+  if (!_catEdwardsAuto) { box.innerHTML = ''; return; }
+  const g = catFilasParaGuardar();
+  const idRaw = document.getElementById('cat-id').value;
+  const r = g.acordes.length >= 3 ? p27SugerirEdwards(g.acordes, g.pcts, idRaw ? parseFloat(idRaw) : undefined) : null;
+  if (r) { sel.value = r.sub; box.innerHTML = `💡 Sugerido por parecido con tus perfumes: <b>${_p27Esc(r.sub)}</b> (grupo ${_p27Esc(r.grupo)}). Acierta cerca de 54% la subfamilia y 74% el grupo: revísalo y cámbialo si no te convence.`; }
+  else { sel.value = ''; box.innerHTML = 'Se sugerirá solo cuando haya 3 o más acordes.'; }
+}
+document.addEventListener('change', (e) => {   // si lo cambias tú, la app deja de tocarlo
+  if (e.target && e.target.id === 'cat-familia-edwards') {
+    _catEdwardsAuto = false;
+    const b = document.getElementById('cat-edwards-sug'); if (b) b.innerHTML = '';
+    try { previsualizarAcordesCatalogo(); } catch (err) {}
+  }
+});
 function abrirNuevaEsenciaCatalogo() {
   document.getElementById('cat-id').value = '';
   document.getElementById('cat-modal-titulo').textContent = '🛍️ Nueva Esencia al Catálogo';
@@ -9390,6 +9568,7 @@ function abrirNuevaEsenciaCatalogo() {
   document.getElementById('cat-genero').value = 'Hombre';
   poblarSelectFamilias('cat-familia', '');
   poblarSelectEdwards('cat-familia-edwards', '');
+  _catEdwardsAuto = true; catCargarUso(null);   // V101
   catCargarFilas([]);
   document.getElementById('cat-notas-extra').value = '';
   document.getElementById('cat-activo').checked = true;
@@ -9409,6 +9588,7 @@ function editarEsenciaCatalogo(id) {
   document.getElementById('cat-genero').value = e.genero;
   poblarSelectFamilias('cat-familia', e.familiaOlfativa || '');
   poblarSelectEdwards('cat-familia-edwards', e.familiaEdwards || '');
+  _catEdwardsAuto = !e.familiaEdwards; catCargarUso(e);   // V101
   catCargarFilas(e.acordes || [], e.acordesPct || null);
   document.getElementById('cat-notas-extra').value = e.notasExtra || '';
   document.getElementById('cat-activo').checked = e.activo !== false;
@@ -9440,6 +9620,9 @@ function guardarEsenciaCatalogo() {
     activo: document.getElementById('cat-activo').checked,
     imagen: document.getElementById('cat-foto-data').value || '',
   };
+  Object.assign(datos, catLeerUso());   // V101: pirámide, temporada y ocasión
+  const prev = idRaw ? db.catalogoVitrina.find(x => x.id === parseFloat(idRaw)) : null;
+  datos.edwardsOrigen = (datos.familiaEdwards && (_catEdwardsAuto || (prev && prev.edwardsOrigen === 'sugerido' && prev.familiaEdwards === datos.familiaEdwards))) ? 'sugerido' : '';
   if (idRaw) {
     const e = db.catalogoVitrina.find(x => x.id === parseFloat(idRaw));
     if (e) Object.assign(e, datos);
@@ -9596,7 +9779,8 @@ function renderCatalogoVitrina() {
         <div style="flex:1;min-width:0;">
           <div class="card-title" style="font-size:16px;">${e.nombre}</div>
           <div style="font-size:12px;opacity:0.6;">${e.disenador || '—'} · ${e.genero}${e.familiaOlfativa ? ` · ${e.familiaOlfativa}` : ''}</div>
-          ${e.familiaEdwards ? `<div style="font-size:11px;opacity:0.5;margin-top:2px;">🎡 ${e.familiaEdwards}</div>` : ''}
+          ${e.familiaEdwards ? `<div style="font-size:11px;opacity:0.5;margin-top:2px;">🎡 ${e.familiaEdwards}${e.edwardsOrigen === 'sugerido' ? ' · sugerido' : ''}</div>` : ''}
+          ${p27LineaUsoCatalogo(e)}
         </div>
       </div>
       <div style="margin-top:10px;">${acordesHtml}</div>
@@ -13399,7 +13583,10 @@ renderAll();
     <button type="button" class="modal-close-x" onclick="closeModal('modal-equiv-familias')" aria-label="Cerrar">✕</button>
     <div class="modal-body">
       <div class="modal-title">📚 Equivalencias de familias del catálogo</div>
-      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Aquí dices a qué familia tuya pertenece cada etiqueta del proveedor. Con eso la app calcula el perfil promedio (en 6 grupos de acordes: cítrico, acuático/verde, aromático, floral-frutal, madera y dulce/ámbar) de los perfumes de cada una de tus familias, y la familia que sugiere para un perfume sale de comparar su perfil con esos promedios. La propuesta inicial la armó la app: revísala y cámbiala cuando quieras. No modifica esencias ya registradas ni el catálogo.</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Aquí dices a qué familia de fórmula (A–F) corresponde cada tipo de Edwards. Es la señal principal para sugerir la familia, porque tus familias nacieron como estilos olfativos (por ejemplo, Chypre = C). Con "Decidir por el perfil de acordes" la app usa el perfil de 6 grupos de acordes de ese perfume. Más abajo, las etiquetas del proveedor solo se usan si el perfume no tiene Edwards. Esto no modifica esencias ya registradas ni el catálogo.</div>
+      <div class="card-title" style="font-size:14px;margin:8px 0 2px;">Edwards → familia de fórmula</div>
+      <div id="equiv-edwards-filas"></div>
+      <div class="card-title" style="font-size:14px;margin:16px 0 2px;">Etiqueta del proveedor → familia (solo si no hay Edwards)</div>
       <div id="equiv-filas"></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-outline" onclick="restablecerEquivFamilias()">↩ Restablecer propuesta</button>
