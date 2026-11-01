@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V101 -->
+<!-- Admin V102 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -2837,6 +2837,11 @@
       <datalist id="lista-acordes-catalogo"></datalist>
       <div id="cat-acordes-filas"></div>
       <button type="button" class="btn btn-outline btn-sm" onclick="catAgregarAcorde()">＋ Agregar acorde</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('cat-lector-archivo').click()">📷 Leer porcentajes de una imagen</button>
+      <input type="file" id="cat-lector-archivo" accept="image/*" style="display:none;" onchange="catLectorDesdeArchivo(this)">
+      <div class="p27-sug-sub" style="margin-top:6px;line-height:1.5;">Sube o pega (Ctrl+V) la captura del gráfico de acordes: la app mide el largo de cada barra y calcula los porcentajes de arriba hacia abajo (la más larga = 100). Los nombres los escribes tú, en el mismo orden de la imagen.</div>
+      <div id="cat-lector-msg" style="margin-top:8px;font-size:12px;line-height:1.6;"></div>
+      <div id="cat-lector-prev"></div>
       <div id="cat-acordes-preview" style="margin-top:10px;"></div>
       <div id="cat-sugerencia-fam" class="p27-catmatch" style="display:none;margin-top:10px;"></div>
     </div>
@@ -5108,6 +5113,7 @@ function catSincronizarOculto(notificar) {
   if (notificar) h.dispatchEvent(new Event('input', { bubbles: true }));
 }
 function catCargarFilas(acordes, pcts) {
+  try { catLimpiarLector(); } catch (e) {}   // V102
   _catFilas = (acordes || []).map((a, i) => _catFila(a, (pcts && pcts[i] != null) ? pcts[i] : Math.round(100 * Math.pow(0.88, i))));
   catRenderFilas(); catSincronizarOculto(false);
 }
@@ -5140,6 +5146,142 @@ function catAgregarAcorde(a, pct) {
   const inputs = document.querySelectorAll('#cat-acordes-filas .cat-ac-nombre');
   if (inputs.length && !a) inputs[inputs.length - 1].focus();
 }
+// ═══════════════ V102: LECTOR DE BARRAS (porcentajes a partir de una imagen) ═══════════════
+// Mide el largo de cada barra del gráfico de acordes (la más larga = 100). No lee los nombres: los escribes tú.
+// Probado con capturas de Fragrantica con fondo claro; con fondo oscuro o capturas muy recortadas puede fallar: revisa siempre.
+function p27MedirBarras(data, W, H) {
+  const T = 14, GAP = 2;
+  if (W < 420) return { error: 'La imagen es muy pequeña (' + W + ' px de ancho). Usa una captura de al menos unos 600 px de ancho.' };
+  const med = (arr) => { const a = arr.slice().sort((p, q) => p - q), n = a.length; return n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2; };
+  // 1) color de fondo = el más frecuente (agrupando de 8 en 8)
+  const cnt = new Int32Array(32768), sr = new Float64Array(32768), sg = new Float64Array(32768), sb = new Float64Array(32768);
+  for (let i = 0; i < W * H; i++) { const r = data[i * 4], g = data[i * 4 + 1], b = data[i * 4 + 2], k = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3); cnt[k]++; sr[k] += r; sg[k] += g; sb[k] += b; }
+  let km = 0; for (let k = 1; k < 32768; k++) if (cnt[k] > cnt[km]) km = k;
+  const bg = [sr[km] / cnt[km], sg[km] / cnt[km], sb[km] / cnt[km]];
+  // 2) en cada fila, el tramo continuo más largo que no es fondo (se puentean huecos de 2 px por el texto/JPEG)
+  const runs = new Array(H);
+  for (let y = 0; y < H; y++) {
+    const base = y * W * 4;
+    const fg = (x) => (Math.abs(data[base + x * 4] - bg[0]) + Math.abs(data[base + x * 4 + 1] - bg[1]) + Math.abs(data[base + x * 4 + 2] - bg[2])) > T;
+    let best = [0, 0, 0], x = 0;
+    while (x < W) {
+      if (!fg(x)) { x++; continue; }
+      const s = x; let e = x; x++;
+      while (x < W) {
+        if (fg(x)) { e = x; x++; continue; }
+        let g = 0; while (x + g < W && g <= GAP && !fg(x + g)) g++;
+        if (x + g < W && g <= GAP && fg(x + g)) x += g; else break;
+      }
+      if (e - s + 1 > best[0]) best = [e - s + 1, s, e];
+    }
+    runs[y] = best;
+  }
+  // 3) bandas de filas seguidas con tramos largos = barras
+  const minRun = 0.25 * W, bandas = [];
+  for (let y = 0; y < H;) {
+    if (runs[y][0] >= minRun) { const y0 = y; while (y < H && runs[y][0] >= minRun) y++; bandas.push([y0, y - 1]); } else y++;
+  }
+  let bs = bandas.filter(([a, b]) => b - a + 1 >= 10).map(([a, b]) => {
+    const h = b - a + 1, m0 = a + Math.floor(h * 0.25), m1 = b - Math.floor(h * 0.25), sub = runs.slice(m0, m1 + 1);
+    const e1 = sub.map(r => r[2]), x0 = med(sub.map(r => r[1]));
+    // color de la barra a la izquierda del texto, fila por fila: si cambia mucho, hay dos barras mezcladas en la misma banda
+    const xs = Math.min(W - 1, Math.round(x0 + Math.max(16, 0.04 * W))), cols = [];
+    for (let yy = m0; yy <= m1; yy++) { const p = (yy * W + xs) * 4; cols.push([data[p], data[p + 1], data[p + 2]]); }
+    const mc = [0, 1, 2].map(c => med(cols.map(v => v[c])));
+    const dc = Math.max(...cols.map(v => Math.abs(v[0] - mc[0]) + Math.abs(v[1] - mc[1]) + Math.abs(v[2] - mc[2])));
+    return { a, b, h, x0, x1: med(e1), dx: Math.max(...e1) - Math.min(...e1), dc };
+  });
+  const sinBarras = { error: 'No encontré barras. Usa una captura que muestre el gráfico de acordes completo, con las barras horizontales.' };
+  if (bs.length < 3) return sinBarras;
+  // 4) dejar solo las que arrancan alineadas a la izquierda y tienen alto parecido (descarta títulos, texto y otros elementos)
+  const MALA = { error: 'No pude separar bien las barras: la imagen parece muy pequeña o muy comprimida. Usa una captura más grande (de unos 600 px de ancho o más), de preferencia en PNG.' };
+  const todos = bs, modalX = med(bs.map(o => o.x0)), tolX = Math.max(4, 0.015 * W);
+  bs = bs.filter(o => Math.abs(o.x0 - modalX) <= tolX);
+  const mh = med(bs.map(o => o.h));
+  bs = bs.filter(o => o.h >= 0.5 * mh && o.h <= 1.8 * mh);
+  if (bs.length < 3) return sinBarras;
+  // si una banda descartada queda entre las barras (dos barras pegadas por la compresión), no se sigue en silencio
+  const s0 = bs[0].a, s1 = bs[bs.length - 1].b;
+  if (todos.some(o => !bs.includes(o) && o.a >= s0 && o.b <= s1)) return MALA;
+  if (bs.some(o => o.dx > Math.max(6, 0.02 * W) || o.dc > 60)) return MALA;   // una barra mezclada con otra: el borde derecho no es constante
+  // 5) control de calidad: las barras deben estar separadas de forma regular; si no, la imagen es muy pequeña o está muy comprimida
+  const pasos = []; for (let i = 1; i < bs.length; i++) pasos.push((bs[i].a + bs[i].b) / 2 - (bs[i - 1].a + bs[i - 1].b) / 2);
+  const paso = med(pasos);
+  if (pasos.some(p => Math.abs(p - paso) > 0.3 * paso)) return MALA;
+  let aviso = '';
+  if (bs.length > 15) { bs = bs.slice(0, 15); aviso = 'Había más de 15 barras: usé las primeras 15.'; }
+  const left = med(bs.map(o => o.x0)), anchos = bs.map(o => o.x1 - left + 1), mx = Math.max(...anchos);
+  if (!(mx > 0.2 * W)) return sinBarras;
+  return { pcts: anchos.map(a => Math.max(1, Math.round(100 * a / mx))), n: bs.length, fondo: bg.map(Math.round), aviso };
+}
+function p27ImagenAPixeles(dataUrl) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const esc = Math.min(1, 900 / img.naturalWidth);   // se reduce a 900 px de ancho: más rápido y los porcentajes no cambian
+      const W = Math.max(1, Math.round(img.naturalWidth * esc)), H = Math.max(1, Math.round(img.naturalHeight * esc));
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H); ctx.drawImage(img, 0, 0, W, H);
+      res({ data: ctx.getImageData(0, 0, W, H).data, W, H });
+    };
+    img.onerror = () => rej(new Error('imagen'));
+    img.src = dataUrl;
+  });
+}
+let _catFilasAntesLector = null;
+function catLimpiarLector() {
+  const m = document.getElementById('cat-lector-msg'), p = document.getElementById('cat-lector-prev');
+  if (m) m.innerHTML = ''; if (p) p.innerHTML = '';
+  _catFilasAntesLector = null;
+}
+function catLectorDesdeArchivo(input) { const f = input.files && input.files[0]; input.value = ''; if (f) catLectorProcesar(f); }
+function catLectorProcesar(file) {
+  const msg = document.getElementById('cat-lector-msg');
+  if (!msg) return;
+  if (!file || !/^image\//.test(file.type || '')) { msg.innerHTML = '⚠️ Eso no es una imagen. Sube un PNG o JPG con el gráfico de acordes.'; return; }
+  msg.innerHTML = '⏳ Midiendo las barras…';
+  const fr = new FileReader();
+  fr.onload = async () => {
+    try {
+      const px = await p27ImagenAPixeles(fr.result);
+      const r = p27MedirBarras(px.data, px.W, px.H);
+      if (r.error) { msg.innerHTML = '⚠️ ' + _p27Esc(r.error); return; }
+      catAplicarLectura(r, fr.result);
+    } catch (e) { msg.innerHTML = '⚠️ No pude leer la imagen. Prueba con una captura en PNG o JPG.'; }
+  };
+  fr.onerror = () => { msg.innerHTML = '⚠️ No pude abrir el archivo.'; };
+  fr.readAsDataURL(file);
+}
+function catAplicarLectura(r, urlPrev) {
+  _catFilasAntesLector = JSON.parse(JSON.stringify(_catFilas));
+  const M = _catFilas.length, N = r.pcts.length;
+  r.pcts.forEach((p, i) => { if (i < M) _catFilas[i].pct = p; else _catFilas.push(_catFila('', p)); });
+  catRenderFilas(); catSincronizarOculto(true);
+  const nota = M === 0 ? 'Escribe el nombre de cada barra, de arriba hacia abajo, en el mismo orden de la imagen.'
+    : M < N ? `Se aplicaron a tus ${M} acordes y se agregaron ${N - M} filas sin nombre: escríbelos.`
+    : M > N ? `La imagen tiene menos barras (${N}) que tus acordes (${M}): los últimos ${M - N} quedaron como estaban.`
+    : 'Se aplicaron de arriba hacia abajo a tus acordes. Revisa que cada nombre esté en su barra.';
+  const msg = document.getElementById('cat-lector-msg'), prev = document.getElementById('cat-lector-prev');
+  if (msg) msg.innerHTML = `📷 Leí <b>${N} barras</b>: ${r.pcts.join(' · ')}.<br>${nota}${r.aviso ? '<br>' + _p27Esc(r.aviso) : ''} <a href="#" class="p27-linkcalc" onclick="catDeshacerLectura();return false;">↩ Deshacer</a>`;
+  if (prev && urlPrev) prev.innerHTML = `<img src="${urlPrev}" alt="Imagen leída" style="max-width:100%;max-height:260px;margin-top:6px;border-radius:8px;border:1px solid var(--border);">`;
+  const vacios = [...document.querySelectorAll('#cat-acordes-filas .cat-ac-nombre')].filter(i => !i.value.trim());
+  if (vacios.length) vacios[0].focus();
+}
+function catDeshacerLectura() {
+  if (!_catFilasAntesLector) return;
+  _catFilas = _catFilasAntesLector; _catFilasAntesLector = null;
+  catRenderFilas(); catSincronizarOculto(true);
+  const m = document.getElementById('cat-lector-msg'), p = document.getElementById('cat-lector-prev');
+  if (m) m.innerHTML = '↩ Lectura deshecha: tus porcentajes quedaron como estaban.'; if (p) p.innerHTML = '';
+}
+document.addEventListener('paste', (e) => {   // Ctrl+V con una captura copiada, mientras el formulario del Catálogo está abierto
+  const m = document.getElementById('modal-catalogo-vitrina');
+  if (!m || !m.classList.contains('open')) return;
+  const items = (e.clipboardData && e.clipboardData.items) || [];
+  for (const it of items) {
+    if (it.kind === 'file' && /^image\//.test(it.type)) { const f = it.getAsFile(); if (f) { e.preventDefault(); catLectorProcesar(f); return; } }
+  }
+});
 function previsualizarAcordesCatalogo() {
   const el = document.getElementById('cat-acordes-preview'); if (!el) return;
   const g = catFilasParaGuardar();
@@ -13644,7 +13786,7 @@ renderAll();
       <button type="button" class="btn btn-outline" onclick="abrirListasGuardadas()">🗂️ Administrar listas</button>
 
       <div class="card-title" style="font-size:14px;margin:22px 0 8px;">📚 Equivalencias de familias del catálogo</div>
-      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Define a qué familia tuya pertenece cada etiqueta de familia del proveedor. Con eso la app arma el perfil promedio de cada una de tus familias y, a partir de ahí, sugiere la familia de cada esencia nueva.</div>
+      <div style="color:#56CCF2;font-size:12px;opacity:.9;margin-bottom:8px;">Define a qué familia de fórmula (A–F) corresponde cada tipo de Edwards, que es la señal principal para sugerir la familia, y cada etiqueta del proveedor (solo se usa si el perfume no tiene Edwards). Con eso la app arma el perfil promedio de cada familia y sugiere la familia de cada esencia nueva.</div>
       <button type="button" class="btn btn-outline" onclick="abrirEquivFamilias()">📚 Ajustar equivalencias</button>
 
       <div class="card-title" style="font-size:14px;margin:22px 0 8px;">1. Respaldar</div>
