@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V105 -->
+<!-- Admin V107 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -734,6 +734,19 @@
 .cat-ac-nombre{flex:2;min-width:140px;}
 .cat-ac-pct{width:74px;}
 .cat-ac-rango{flex:1;min-width:90px;}
+
+.ps-bloque{border:1px solid var(--border-soft);border-radius:10px;padding:12px;margin-bottom:12px;background:rgba(255,255,255,0.02);}
+.ps-bt{font-weight:600;color:var(--gold-light);margin-bottom:8px;}
+.ps-fila{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;}
+.ps-fila input{width:110px;}
+.ps-fila select{max-width:230px;}
+.ps-paso{padding:10px 0 4px;border-top:1px dashed var(--border-soft);}
+.ps-tit{font-size:13px;color:var(--gold-light);}
+.ps-obj{font-size:12px;color:#56CCF2;margin:4px 0 8px;}
+.ps-ins{display:flex;gap:12px;flex-wrap:wrap;}
+.ps-ins label{font-size:11px;opacity:0.9;display:flex;flex-direction:column;gap:3px;}
+.ps-ins input{width:140px;}
+.ps-res{font-size:12px;margin-top:6px;min-height:16px;}
 </style>
 </head>
 <body class="app-locked">
@@ -962,6 +975,7 @@
         <div class="section-title">⚗️ Lotes de Producción</div>
         <div class="section-sub">Seguimiento de maceración y proceso Parfum 27</div>
       </div>
+      <button class="btn btn-outline" onclick="abrirRecipientes()">⚖️ Recipientes</button>
       <button class="btn btn-outline" onclick="abrirTablaDetallada('lotes')">📋 Tabla detallada</button>
       <button class="btn btn-outline" onclick="abrirExperiencia()">🧪 Experiencia de lotes</button>
       <button class="btn btn-primary" onclick="openModal('modal-lote')">+ Nuevo Lote</button>
@@ -1023,9 +1037,9 @@
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Tipo</th><th>Nombre del producto</th><th>Proveedor</th><th>Presentación</th><th class="cell-num">Precio</th><th>Fecha de compra</th><th>Fecha de agotado</th>
+          <th>Tipo</th><th>Nombre del producto</th><th>Proveedor</th><th>Presentación</th><th class="cell-num">Precio de compra</th><th class="cell-num">Costo por g</th><th>Fecha de compra</th><th>Fecha de agotado</th>
         </tr></thead>
-        <tbody id="tabla-material-usado"><tr><td colspan="7"><div class="empty-state"><div class="es-icon">🗄️</div><p>Aún no hay materia prima usada o agotada registrada</p></div></td></tr></tbody>
+        <tbody id="tabla-material-usado"><tr><td colspan="8"><div class="empty-state"><div class="es-icon">🗄️</div><p>Aún no hay materia prima usada o agotada registrada</p></div></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -2066,6 +2080,7 @@
     <div class="modal-title" id="conjunto-insumo-titulo">📦 Editar Conjunto</div>
     <input type="hidden" id="ci-nombre">
     <div style="color:#56CCF2;font-size:11px;opacity:0.5;margin-bottom:10px;">🔥 = el registro del que se está descontando primero (más antiguo con stock). Clic en el valor de Stock Individual para ajustarlo manualmente.</div>
+    <div id="ci-aviso-agotados" style="color:var(--gold-light);font-size:12px;margin-bottom:10px;"></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th></th><th>Insumo</th><th>Proveedor</th><th>Cantidad Comprada</th><th>Fecha Registro</th><th class="cell-num">Stock Individual</th><th></th></tr></thead>
@@ -2405,6 +2420,7 @@
           <select id="l-bote-nuevo" style="flex:1;"></select>
           <button type="button" class="btn btn-outline btn-sm" onclick="agregarBoteLote()">+ Agregar bote</button>
         </div>
+        <div id="l-pesaje-botes" style="margin-top:10px;"></div>
       </div>
     </div>
     <div id="lote-familia-info" style="display:none;" class="alert alert-info"></div>
@@ -2436,7 +2452,7 @@
             <strong>Recipiente A</strong>
             <div class="formula-row" style="border:none;padding:4px 0 0;font-size:12px;"><span class="ing">IPADEO</span><span class="val" id="fp-ipadeo-a">—</span></div>
             <div class="formula-row" style="border:none;padding:0;font-size:12px;"><span class="ing">Cimalide 50</span><span class="val" id="fp-cimalide-a">—</span></div>
-            <div class="formula-row" style="border:none;padding:0;font-size:12px;"><span class="ing">Alcohol 95°</span><span class="val">20.00g</span></div>
+            <div class="formula-row" style="border:none;padding:0;font-size:12px;"><span class="ing">Alcohol 95°</span><span class="val" id="fp-alcohol-a">20.00g</span></div>
           </div>
         </div>
         <div class="alert alert-info" style="font-size:12px;">
@@ -2527,6 +2543,74 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-detalle-costo')">Cerrar</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- MODAL RECIPIENTES Y TARA (V107) -->
+<div class="modal-overlay" id="modal-recipientes" style="z-index:270;">
+  <div class="modal" style="max-width:760px;">
+    <button type="button" class="modal-close-x" onclick="closeModal('modal-recipientes')" aria-label="Cerrar">✕</button>
+    <div class="modal-body">
+    <div class="modal-title">⚖️ Recipientes y tara</div>
+    <div class="alert alert-info" style="font-size:12px;">Pesa cada recipiente <strong>vacío y seco</strong> y anota las mediciones: la tara es su promedio (puedes corregirla a mano). Los botes se enlazan con el proveedor y el tamaño (1 oz / ½ oz) de la esencia para elegir su tara solos. La tabla se va armando con tus primeros lotes.</div>
+    <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Tipo</th><th class="cell-num">Tara (g)</th><th>Mediciones</th><th></th></tr></thead><tbody id="rc-tabla"></tbody></table></div>
+    <div class="card" style="margin-top:14px;">
+      <div class="card-title" style="font-size:14px;" id="rc-form-titulo">➕ Nuevo recipiente</div>
+      <input type="hidden" id="rc-id">
+      <div class="field"><label>Nombre</label><input id="rc-nombre" type="text" placeholder="Ej: Bote 1 oz RQuímica, Frasco ámbar 240 ml, Taza 100 ml"></div>
+      <div class="field"><label>Tipo</label>
+        <select id="rc-tipo" onchange="rcTipoChange()"><option value="bote">Bote de esencia</option><option value="frasco">Frasco de maceración</option><option value="taza">Taza medidora</option><option value="otro">Otro</option></select></div>
+      <div class="field" id="rc-bote-box" style="display:flex;gap:10px;">
+        <div style="flex:1;"><label>Proveedor del bote</label><select id="rc-proveedor"></select></div>
+        <div style="flex:1;"><label>Tamaño</label><select id="rc-presentacion"><option value="1oz">1 oz</option><option value="0.5oz">½ oz</option></select></div>
+      </div>
+      <div class="field"><label>Mediciones del recipiente vacío (g), separadas por coma</label><input id="rc-med" type="text" placeholder="10.42, 10.38, 10.45" oninput="rcOnMed()"></div>
+      <div class="field"><label>Tara (g) — promedio de las mediciones, editable</label><input id="rc-tara" type="number" step="0.01" min="0" oninput="rcOnTara()"></div>
+      <div class="field"><label>Nota (opcional)</label><input id="rc-nota" type="text"></div>
+      <div class="modal-actions"><button class="btn btn-outline" onclick="rcNuevo()">Limpiar</button><button class="btn btn-primary" onclick="rcGuardar()">Guardar recipiente</button></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- MODAL HOJA DE PESAJE (V107) -->
+<div class="modal-overlay" id="modal-pesaje" style="z-index:250;">
+  <div class="modal" style="max-width:820px;">
+    <button type="button" class="modal-close-x" onclick="psCerrar()" aria-label="Cerrar">✕</button>
+    <div class="modal-body">
+    <div class="modal-title">⚖️ Hoja de pesaje — <span id="ps-titulo"></span></div>
+    <div id="ps-contenido" onkeydown="psKey(event)"></div>
+    <div class="modal-actions">
+      <span id="ps-guardado" style="font-size:11px;opacity:0.7;margin-right:auto;"></span>
+      <button class="btn btn-outline" onclick="abrirRecipientes()">⚖️ Recipientes</button>
+      <button class="btn btn-outline" onclick="psExportarCSV()">⬇️ CSV</button>
+      <button class="btn btn-primary" onclick="psCerrar()">💾 Guardar y cerrar</button>
+    </div>
+  </div></div>
+</div>
+
+<!-- MODAL ALCOHOL RESTANTE — FIN DE PREDILUCIÓN (V106) -->
+<div class="modal-overlay" id="modal-alcohol-restante" style="z-index:260;">
+  <div class="modal">
+    <button type="button" class="modal-close-x" onclick="closeModal('modal-alcohol-restante')" aria-label="Cerrar">✕</button>
+    <div class="modal-body">
+    <div class="modal-title">🧪 Fin de predilución — Alcohol restante</div>
+    <input type="hidden" id="ar-lote-id">
+    <div class="alert alert-info" style="font-size:12px;" id="ar-resumen"></div>
+    <div class="field">
+      <label>Alcohol 95°</label>
+      <div id="ar-lista" style="margin-bottom:6px;"></div>
+      <div id="ar-agregar" style="display:flex;gap:6px;align-items:flex-end;">
+        <select id="ar-nuevo" style="flex:1;"></select>
+        <input id="ar-nuevo-gramos" type="number" step="0.01" min="0" style="width:90px;" placeholder="g">
+        <button type="button" class="btn btn-outline btn-sm" onclick="usarRegistroAlcoholRestante()">Usar</button>
+      </div>
+      <div id="ar-check" style="font-size:11px;margin-top:4px;"></div>
+    </div>
+    <div class="field"><label>Fecha en que terminó la predilución y comenzó la mezcla completa</label><input id="ar-fecha" type="date"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-alcohol-restante')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarAlcoholRestante()">✓ Confirmar y pasar a Maceración</button>
     </div>
   </div></div>
 </div>
@@ -3642,6 +3726,7 @@ async function loadFromDrive() {
         db.vinetas = db.vinetas.filter(v => !(v.tipo === 'marca' && v.loteId !== undefined));
       }
       if (!db.contadorLote) db.contadorLote = db.lotes ? db.lotes.length : 0;
+      migrarV106();   // V106
       if (!db.proveedoresExtra) db.proveedoresExtra = [];
       if (db.margenVentaPct === undefined || db.margenVentaPct === null) db.margenVentaPct = 70;
       if (db.vitrinaAppsScriptUrl === undefined) db.vitrinaAppsScriptUrl = '';
@@ -5918,7 +6003,7 @@ const TABLA_CONFIG = {
             stockLabel: `${formatUnidadesInsumo(unidadesCount)} ${unidadInsumoAbrev(n)}`,
             precioLabel: '$' + precioUnidad.toFixed(2),
             gramosLabel: pesoUnidad.toFixed(2) + 'g',
-            costoGLabel: '$' + costoPorGramo.toFixed(2),
+            costoGLabel: fmtCostoG(costoPorGramo),
             nota: notasUnicas.join('; '),
             fechaRegistro: fechaMasReciente,
             _gramosTotalGrupo: gramosGrupo,
@@ -5976,7 +6061,7 @@ const TABLA_CONFIG = {
             proveedor: registros[0].proveedor || 'Sin proveedor',
             valorUsoLabel: '$' + (ad.valorUso||0).toFixed(2),
             stockLabel: gramosGrupo.toFixed(2) + 'g',
-            costoGLabel: '$' + costoPorGramo.toFixed(2),
+            costoGLabel: fmtCostoG(costoPorGramo),
             nota: notasUnicas.join('; '),
             fechaRegistro: fechaMasReciente,
             _gramosTotalGrupo: gramosGrupo,
@@ -6133,6 +6218,7 @@ const TABLA_CONFIG = {
     titulo: '📋 Tabla Detallada — Lotes',
     columnas: [
       { key: 'codigo', label: 'N° Lote' },
+      { key: 'volumenTxt', label: 'Volumen' },
       { key: 'clienteNombre', label: 'Cliente' },
       { key: 'esenciaNombre', label: 'Esencia' },
       { key: 'estandar', label: 'Estándar' },
@@ -6154,6 +6240,7 @@ const TABLA_CONFIG = {
     getData: () => db.lotes.map(l => ({
       ...l,
       estadoLabel: ESTADO_LABELS[l.estadoActual] || l.estadoActual,
+      volumenTxt: l.formula?.volumenNominal ? l.formula.volumenNominal + ' ml' : '—',
       preInicio: l.estados?.prediluccion?.fechaInicio || null,
       preFin: l.estados?.prediluccion?.fechaFinReal || null,
       macInicio: l.estados?.maceracion?.fechaInicio || null,
@@ -7314,15 +7401,7 @@ function descontarDeGruposInsumo(nombre, gramos, fecha) {
       g.stock = 0;
       g.agotado = true;
       g.fechaAgotado = fecha || hoyISO();
-      registrarMaterialUsado({
-        tipo: 'insumo',
-        nombre,
-        proveedor: g.proveedor || '',
-        presentacion: 'Compra (gramos)',
-        precio: g.costoPorGramo || 0,
-        fechaCompra: g.fechaRegistro || '',
-        fechaAgotado: g.fechaAgotado,
-      });
+      registrarMaterialUsado(entradaMUInsumo('insumo', nombre, g, 0));
     }
   }
   recalcularAgregadosInsumo(nombre);
@@ -7334,7 +7413,7 @@ function onInsumoSelectChange() {
   poblarSelectoresProveedor();
   clearFoto('i-foto-preview', 'i-foto-data', '📷');
   document.getElementById('i-stock-actual').textContent = ins
-    ? `Stock actual: ${(ins.stock||0).toFixed(2)}g · Costo/g promedio: $${(ins.costoPorGramo||0).toFixed(2)}`
+    ? `Stock actual: ${(ins.stock||0).toFixed(2)}g · Costo/g promedio: ${fmtCostoG(ins.costoPorGramo)}`
     : 'Stock actual: 0g';
   document.getElementById('i-peso-unidad').value = (ins && ins.pesoUnidad) || PESO_UNIDAD_DEFAULT[nombre] || '';
   document.getElementById('i-unidad-label').textContent = unidadInsumoPlural(nombre);
@@ -7355,7 +7434,7 @@ function recalcularCompraInsumo() {
   const gramosTotal = pesoUnidad * unidades;
   const costoPorGramo = gramosTotal > 0 ? (precioTotal / gramosTotal) : 0;
   document.getElementById('i-resumen-gramos').textContent = gramosTotal.toFixed(2) + 'g';
-  document.getElementById('i-resumen-costo').textContent = '$' + costoPorGramo.toFixed(2);
+  document.getElementById('i-resumen-costo').textContent = fmtCostoG(costoPorGramo);
   return { gramosTotal, costoPorGramo };
 }
 
@@ -7386,6 +7465,9 @@ function renderTablaConjuntoInsumo(nombre) {
   if (!tbody) return;
   const ins = db.insumos[nombre];
   const grupos = ((ins && ins.grupos) || []).filter(g => !g.agotado);
+  const nAgot = ((ins && ins.grupos) || []).filter(g => g.agotado).length;
+  const avisoEl = document.getElementById('ci-aviso-agotados');
+  if (avisoEl) avisoEl.innerHTML = nAgot ? `📜 ${nAgot} registro${nAgot>1?'s':''} agotado${nAgot>1?'s':''} de este insumo — ${nAgot>1?'los':'lo'} encuentras en <strong>Materia Prima Usada</strong>.` : '';
   if (!grupos.length) {
     tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="es-icon">📦</div><p>Sin compras activas registradas</p></div></td></tr>`;
     return;
@@ -7495,15 +7577,7 @@ function marcarRegistroGrupoInsumoAgotado(nombre, grupoId) {
   if (!confirm(`¿Marcar esta compra de "${nombre}" como agotada? Esto la retira del stock disponible para nuevos lotes.`)) return;
   g.agotado = true;
   g.fechaAgotado = hoyISO();
-  registrarMaterialUsado({
-    tipo: 'insumo',
-    nombre,
-    proveedor: g.proveedor || '',
-    presentacion: `Compra${g.stock ? ` · ${g.stock.toFixed(2)}g restantes` : ''}`,
-    precio: g.costoPorGramo || 0,
-    fechaCompra: g.fechaRegistro || '',
-    fechaAgotado: g.fechaAgotado,
-  });
+  registrarMaterialUsado(entradaMUInsumo('insumo', nombre, g, g.stock||0));
   recalcularAgregadosInsumo(nombre);
   saveToDrive();
   renderTablaConjuntoInsumo(nombre);
@@ -7518,7 +7592,7 @@ function eliminarRegistroGrupoInsumo(nombre, grupoId) {
   abrirModalMotivoBaja('insumo', {
     nombre,
     proveedor: g.proveedor || '',
-    presentacion: `$${(g.costoPorGramo||0).toFixed(2)}/g`,
+    presentacion: `${fmtCostoG(g.costoPorGramo)}/g`,
     precio: (g.costoPorGramo||0) * (g.stock||0),
     cantidad: 1,
     fechaRegistro: g.fechaRegistro || '',
@@ -7601,7 +7675,7 @@ function guardarInsumo() {
   document.getElementById('i-proveedor-nuevo').style.display = 'none';
   clearFoto('i-foto-preview', 'i-foto-data', '📷');
   recalcularCompraInsumo();
-  document.getElementById('i-stock-actual').textContent = `Stock actual: ${(db.insumos[nombre].stock||0).toFixed(2)}g · Costo/g promedio: $${(db.insumos[nombre].costoPorGramo||0).toFixed(2)}`;
+  document.getElementById('i-stock-actual').textContent = `Stock actual: ${(db.insumos[nombre].stock||0).toFixed(2)}g · Costo/g promedio: ${fmtCostoG(db.insumos[nombre].costoPorGramo)}`;
   renderAll();
 }
 
@@ -7683,11 +7757,7 @@ function descontarDeGruposAditivo(nombre, gramos, fecha) {
       g.stock = 0;
       g.agotado = true;
       g.fechaAgotado = fecha || hoyISO();
-      registrarMaterialUsado({
-        tipo: 'insumoAditivo', nombre, proveedor: g.proveedor || '',
-        presentacion: 'Compra (gramos)', precio: g.costoPorGramo || 0,
-        fechaCompra: g.fechaRegistro || '', fechaAgotado: g.fechaAgotado,
-      });
+      registrarMaterialUsado(entradaMUInsumo('insumoAditivo', nombre, g, 0));
     }
   }
   recalcularAgregadosAditivo(nombre);
@@ -7898,11 +7968,7 @@ function marcarRegistroGrupoAditivoAgotado(nombre, grupoId) {
   if (!confirm(`¿Marcar esta compra de "${nombre}" como agotada? Esto la retira del stock disponible.`)) return;
   g.agotado = true;
   g.fechaAgotado = hoyISO();
-  registrarMaterialUsado({
-    tipo: 'insumoAditivo', nombre, proveedor: g.proveedor || '',
-    presentacion: `Compra${g.stock ? ` · ${g.stock.toFixed(2)}g restantes` : ''}`,
-    precio: g.costoPorGramo || 0, fechaCompra: g.fechaRegistro || '', fechaAgotado: g.fechaAgotado,
-  });
+  registrarMaterialUsado(entradaMUInsumo('insumoAditivo', nombre, g, g.stock||0));
   recalcularAgregadosAditivo(nombre);
   saveToDrive();
   renderTablaConjuntoAditivo(nombre);
@@ -7913,7 +7979,7 @@ function eliminarRegistroGrupoAditivo(nombre, grupoId) {
   const g = ad && ad.grupos.find(x => x.id === grupoId);
   if (!g) return;
   abrirModalMotivoBaja('insumoAditivo', {
-    nombre, proveedor: g.proveedor || '', presentacion: `$${(g.costoPorGramo||0).toFixed(2)}/g`,
+    nombre, proveedor: g.proveedor || '', presentacion: `${fmtCostoG(g.costoPorGramo)}/g`,
     precio: (g.costoPorGramo||0) * (g.stock||0), cantidad: 1, fechaRegistro: g.fechaRegistro || '',
   }, () => {
     ad.grupos = ad.grupos.filter(x => x.id !== grupoId);
@@ -7949,7 +8015,7 @@ function renderInsumosAditivos() {
       <div style="font-size:13px;margin-bottom:6px;">Valor de uso: <strong style="color:var(--gold-light);">$${(ad.valorUso||0).toFixed(2)}</strong> · ${(ad.gramosPorUso||0)}g por aplicación</div>
       ${sinStock ? '<div style="font-size:12px;opacity:0.6;margin-bottom:8px;">Sin stock activo</div>' : `
       <div class="stock-num" style="color:var(--gold);margin-bottom:4px;">${(ad.stock||0).toFixed(2)}<span class="unit">g</span></div>
-      <div style="font-size:12px;opacity:0.7;margin-top:4px;">Costo/g promedio: $${(ad.costoPorGramo||0).toFixed(2)}</div>`}
+      <div style="font-size:12px;opacity:0.7;margin-top:4px;">Costo/g promedio: ${fmtCostoG(ad.costoPorGramo)}</div>`}
       <div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;">
         <button class="btn btn-primary btn-sm" style="flex:1;" onclick="abrirAgregarAlConjuntoAditivo('${nombre.replace(/'/g,"\\'")}')">Agregar al Conjunto</button>
         ${!sinStock ? `<button class="btn btn-outline btn-sm" style="flex:1;" onclick="abrirEditarConjuntoAditivo('${nombre.replace(/'/g,"\\'")}')">Editar Conjunto</button>` : ''}
@@ -13046,7 +13112,7 @@ let loteModalPreseleccionPedido = null;
 function populateLoteSelect(preseleccionarPedidoId) {
   const sel = document.getElementById('l-esencia');
   sel.innerHTML = '<option value="">— Seleccionar esencia —</option>' +
-    db.esencias.map(e => `<option value="${e.id}">${e.nombre}${e.disenador ? ' — ' + e.disenador : ''}</option>`).join('');
+    db.esencias.filter(e => botesDisponiblesEsencia(e).length > 0).slice().sort((a,b) => a.nombre.localeCompare(b.nombre, 'es')).map(e => `<option value="${e.id}">${e.nombre}${e.disenador ? ' — ' + e.disenador : ''}</option>`).join('');
   document.getElementById('formula-preview').style.display = 'none';
   document.getElementById('lote-familia-info').style.display = 'none';
   document.getElementById('lote-bote-selector').style.display = 'none';
@@ -13084,6 +13150,10 @@ function onLotePedidoVinculadoChange() {
   // onEsenciaLoteChange() y reseteaba botes/insumos aunque la esencia terminara siendo la misma).
   if (selEsencia.value) return;
   const match = db.esencias.find(e => e.nombre.toLowerCase() === (p.esenciaNombre||'').toLowerCase());
+  if (match && botesDisponiblesEsencia(match).length === 0) {
+    alert(`La esencia "${match.nombre}" de esta solicitud no tiene botes disponibles. Registra un bote nuevo en Esencias para poder iniciar el lote.`);
+    return;
+  }
   if (match) { selEsencia.value = match.id; onEsenciaLoteChange(); }
 }
 
@@ -13098,6 +13168,7 @@ function crearLoteDesdePedido(pedidoId) {
 }
 
 let lBotesSeleccionados = [];
+let lPesajeBotes = {};
 let lGramosTocadoManual = false; // true en cuanto Kike edita el campo de gramos a mano
 
 // ═══════════════ SELECCIÓN MANUAL DE INSUMOS (Fase 3) ═══════════════
@@ -13131,18 +13202,24 @@ function renderSelectorInsumosLote() {
   if (!formula) { cont.style.display = 'none'; return; }
   cont.style.display = 'block';
   cont.innerHTML = `<div class="card-title" style="font-size:14px;margin:16px 0 10px;">🧪 ¿De cuáles registros se descuenta cada insumo?</div>` +
-    INSUMOS_LOTE_CONFIG.map(cfg => htmlSelectorInsumoLote(cfg, formula[cfg.formulaKey])).join('');
-  INSUMOS_LOTE_CONFIG.forEach(cfg => renderListaInsumoLote(cfg.key, formula[cfg.formulaKey]));
+    INSUMOS_LOTE_CONFIG.map(cfg => htmlSelectorInsumoLote(cfg, gramosNecesariosInsumoLote(cfg, formula))).join('');
+  INSUMOS_LOTE_CONFIG.forEach(cfg => renderListaInsumoLote(cfg.key, gramosNecesariosInsumoLote(cfg, formula)));
 }
 
 function htmlSelectorInsumoLote(cfg, gramosNecesarios) {
+  const esAlcohol = cfg.key === 'alcohol';
+  const comp = esAlcohol ? alcoholComprometido() : 0;
+  const nota = esAlcohol
+    ? `<div style="font-size:11px;color:#56CCF2;opacity:0.8;margin:0 0 6px;">Solo el alcohol del Recipiente A. El resto se descuenta al confirmar el fin de la predilución.${comp > 0.01 ? ` Ya comprometidos para completar otros lotes en predilución: <strong>${comp.toFixed(2)}g</strong>.` : ''}</div>`
+    : '';
   return `<div class="field">
-    <label>${cfg.label} <span style="opacity:0.5;font-weight:400;">— necesita ~${(gramosNecesarios||0).toFixed(2)}g</span></label>
+    <label>${cfg.label} <span style="opacity:0.5;font-weight:400;">— necesita ~${(gramosNecesarios||0).toFixed(2)}g${esAlcohol ? ' (Recipiente A)' : ''}</span></label>
+    ${nota}
     <div id="ins-${cfg.key}-lista" style="margin-bottom:6px;"></div>
-    <div style="display:flex;gap:6px;align-items:flex-end;">
+    <div id="ins-${cfg.key}-agregar" style="display:flex;gap:6px;align-items:flex-end;">
       <select id="ins-${cfg.key}-nuevo" style="flex:1;"></select>
       <input id="ins-${cfg.key}-nuevo-gramos" type="number" step="0.01" min="0" style="width:90px;" placeholder="g">
-      <button type="button" class="btn btn-outline btn-sm" onclick="agregarRegistroInsumoLote('${cfg.key}')">+ Agregar</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="agregarRegistroInsumoLote('${cfg.key}')">Usar</button>
     </div>
     <div id="ins-${cfg.key}-check" style="font-size:11px;margin-top:4px;"></div>
   </div>`;
@@ -13154,6 +13231,7 @@ function renderListaInsumoLote(key, gramosNecesarios) {
   const selEl = document.getElementById(`ins-${key}-nuevo`);
   const gramosEl = document.getElementById(`ins-${key}-nuevo-gramos`);
   const checkEl = document.getElementById(`ins-${key}-check`);
+  const agregarEl = document.getElementById(`ins-${key}-agregar`);
   if (!listaEl || !cfg) return;
   const seleccionados = lInsumosSeleccionados[key] || [];
   const usadosIds = seleccionados.map(s => s.grupoId);
@@ -13165,23 +13243,27 @@ function renderListaInsumoLote(key, gramosNecesarios) {
         const label = g ? `${cfg.corto} — ${nombreCortoProveedor(g.proveedor)||'Sin proveedor'} · Stock: ${(g.stock||0).toFixed(2)}g` : '(registro no encontrado)';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:6px;margin-bottom:6px;font-size:12px;">
           <span>${label} — usando <strong>${s.gramos.toFixed(2)}g</strong></span>
-          <button type="button" class="btn btn-danger btn-sm" onclick="quitarRegistroInsumoLote('${key}',${idx})">✕</button>
+          <button type="button" class="btn btn-danger btn-sm" title="Quitar este registro (para elegir otro)" onclick="quitarRegistroInsumoLote('${key}',${idx})">✕</button>
         </div>`;
       }).join('')
     : '<div style="font-size:12px;color:#56CCF2;opacity:0.85;padding:4px 0;">Aún no has seleccionado ningún registro.</div>';
 
   const totalUsado = seleccionados.reduce((s,x) => s + x.gramos, 0);
-  const faltante = Math.max(0, (gramosNecesarios||0) - totalUsado);
+  const necesario = gramosNecesarios || 0;
+  const faltante = Math.max(0, necesario - totalUsado);
+  const cubierto = seleccionados.length > 0 && totalUsado >= necesario - 0.2;
+  if (agregarEl) agregarEl.style.display = cubierto ? 'none' : 'flex';
   selEl.innerHTML = gruposDisp.length
     ? gruposDisp.map(g => `<option value="${g.id}">${cfg.corto} — ${nombreCortoProveedor(g.proveedor)||'Sin proveedor'} · Stock: ${(g.stock||0).toFixed(2)}g</option>`).join('')
     : '<option value="">— Sin más registros disponibles —</option>';
   gramosEl.value = faltante > 0 ? faltante.toFixed(2) : '';
 
   if (!checkEl) return;
-  const diff = Math.abs(totalUsado - (gramosNecesarios||0));
+  const diff = Math.abs(totalUsado - necesario);
   if (!seleccionados.length) { checkEl.textContent = ''; }
-  else if (diff <= 0.2) { checkEl.innerHTML = `<span style="color:#7CB87C;">✓ ${totalUsado.toFixed(2)}g seleccionados — coincide con lo necesario</span>`; }
-  else { checkEl.innerHTML = `<span style="color:#FF2D2D;">⚠️ ${totalUsado.toFixed(2)}g seleccionados de ${(gramosNecesarios||0).toFixed(2)}g necesarios (diferencia: ${diff.toFixed(2)}g)</span>`; }
+  else if (diff <= 0.2) { checkEl.innerHTML = `<span style="color:#7CB87C;">✓ Cubierto: ${totalUsado.toFixed(2)}g de ${necesario.toFixed(2)}g</span>`; }
+  else if (totalUsado > necesario) { checkEl.innerHTML = `<span style="color:#FF2D2D;">⚠️ ${totalUsado.toFixed(2)}g seleccionados, sobran ${diff.toFixed(2)}g sobre los ${necesario.toFixed(2)}g necesarios</span>`; }
+  else { checkEl.innerHTML = `<span style="color:#FF2D2D;">⚠️ Faltan ${diff.toFixed(2)}g: ${totalUsado.toFixed(2)}g seleccionados de ${necesario.toFixed(2)}g necesarios</span>`; }
 }
 
 function agregarRegistroInsumoLote(key) {
@@ -13194,14 +13276,14 @@ function agregarRegistroInsumoLote(key) {
   if (g && gramos > (g.stock||0) + 0.001) { alert(`Este registro solo tiene ${(g.stock||0).toFixed(2)}g disponibles.`); return; }
   lInsumosSeleccionados[key].push({ grupoId, gramos });
   const formula = calcularFormulaLote();
-  renderListaInsumoLote(key, formula ? formula[cfg.formulaKey] : 0);
+  renderListaInsumoLote(key, formula ? gramosNecesariosInsumoLote(cfg, formula) : 0);
 }
 
 function quitarRegistroInsumoLote(key, idx) {
   lInsumosSeleccionados[key].splice(idx, 1);
   const cfg = INSUMOS_LOTE_CONFIG.find(c => c.key === key);
   const formula = calcularFormulaLote();
-  renderListaInsumoLote(key, formula ? formula[cfg.formulaKey] : 0);
+  renderListaInsumoLote(key, formula ? gramosNecesariosInsumoLote(cfg, formula) : 0);
 }
 
 
@@ -13211,7 +13293,7 @@ function onEsenciaLoteChange() {
   const preview = document.getElementById('formula-preview');
   const info = document.getElementById('lote-familia-info');
   const boteBox = document.getElementById('lote-bote-selector');
-  lBotesSeleccionados = [];
+  lBotesSeleccionados = []; lPesajeBotes = {};
   lGramosTocadoManual = false;
   lVolumenNominalTocadoManual = false;
   resetInsumosLoteSeleccionados();
@@ -13267,6 +13349,7 @@ function renderBotesLoteSeleccionados() {
   nuevoSel.innerHTML = botesDisponibles.length
     ? botesDisponibles.map(b => `<option value="${b.id}">${labelBote(b)}</option>`).join('')
     : '<option value="">— Sin más botes disponibles —</option>';
+  renderPesajeBotesLote();
 }
 
 function agregarBoteLote() {
@@ -13307,6 +13390,7 @@ function onGramosEsenciaChange() {
 let lVolumenNominalTocadoManual = false;
 function onVolumenNominalLoteChange() {
   lVolumenNominalTocadoManual = true;
+  try { actualizarCostoLotePreview(); } catch (e) {}
 }
 function sugerirVolumenNominal(volumenMl) {
   if (!volumenMl || volumenMl <= 0) return 0;
@@ -13364,6 +13448,178 @@ function calcularCostoMaterialesLote(esencia, std, gramosEsencia, botesEsencia) 
 }
 
 // Devuelve los gramos exactos de cada insumo que se necesitan para un batch dado un gramosEsencia
+// ═══════════════ V106: ALCOHOL DEL RECIPIENTE A, COSTO REAL POR REGISTRO ═══════════════
+// Regla: el alcohol del Recipiente A = 0.2 g por cada ml de volumen nominal (50→10g, 100→20g, 200→40g).
+// Tope: nunca puede pasar del alcohol total de la fórmula.
+const ALCOHOL_A_POR_ML = 0.2;
+function fmtCostoG(v) { v = v || 0; return '$' + (v > 0 && v < 0.1 ? v.toFixed(4) : v.toFixed(2)); }
+function fmtMontoFino(v) { v = v || 0; return '$' + (v > 0 && v < 0.1 ? v.toFixed(3) : v.toFixed(2)); }
+function alcoholRecipienteA(volumenNominal, alcoholTotal) {
+  const a = +(ALCOHOL_A_POR_ML * (volumenNominal || 0)).toFixed(2);
+  return alcoholTotal === undefined ? a : Math.min(a, alcoholTotal || 0);
+}
+function alcoholALote(lote) {
+  if (lote.alcoholPredilucion !== undefined && lote.alcoholPredilucion !== null) return lote.alcoholPredilucion;
+  return alcoholRecipienteA(lote.formula?.volumenNominal || 100, lote.formula?.alcohol);
+}
+function alcoholRestanteLote(lote) { return Math.max(0, +((lote.formula?.alcohol || 0) - alcoholALote(lote)).toFixed(2)); }
+// true = el alcohol restante todavía NO se ha descontado del stock (se descuenta al confirmar el fin de la predilución).
+// undefined (lotes anteriores a la V106) = ya se descontó todo al crear el lote.
+function alcoholPendienteDescontar(lote) { return lote.alcoholRestanteDescontado === false; }
+function alcoholComprometido() {
+  return (db.lotes || []).filter(l => alcoholPendienteDescontar(l) && l.estadoActual === 'prediluccion').reduce((s, l) => s + alcoholRestanteLote(l), 0);
+}
+function alcoholDetalleTotal(iu) { return [...((iu && iu.alcohol) || []), ...((iu && iu.alcoholRestante) || [])]; }
+function grupoInsumoPorId(nombre, grupoId) { return ((db.insumos[nombre] && db.insumos[nombre].grupos) || []).find(g => g.id === grupoId); }
+function precioReferenciaFIFO(nombre) {
+  const act = ((db.insumos[nombre] && db.insumos[nombre].grupos) || []).filter(g => !g.agotado && (g.stock || 0) > 0.001)
+    .sort((a, b) => (a.fechaRegistro || '').localeCompare(b.fechaRegistro || ''));
+  return act.length ? (act[0].costoPorGramo || 0) : ((db.insumos[nombre] && db.insumos[nombre].costoPorGramo) || 0);
+}
+function costoDetalleInsumo(nombre, detalle) {
+  return (detalle || []).reduce((s, d) => {
+    let cpg = d.costoPorGramo;
+    if (cpg === undefined) { const g = grupoInsumoPorId(nombre, d.grupoId); cpg = g ? (g.costoPorGramo || 0) : ((db.insumos[nombre] && db.insumos[nombre].costoPorGramo) || 0); }
+    return s + (d.gramos || 0) * cpg;
+  }, 0);
+}
+const INSUMOS_COSTEO_DEFS = [['Alcohol 95°', 'alcohol'], ['IPADEO', 'ipadeo'], ['Cimalide 50', 'cimalide'], ['Propilenglicol', 'pg']];
+// Costo de materiales con los registros REALES elegidos; lo que aún no se ha elegido (p. ej. el alcohol restante) se estima con el registro más antiguo con stock.
+function costoMaterialesRealLote(lote) {
+  const esencia = db.esencias.find(e => e.id === lote.esenciaId);
+  const ids = lote.botesEsenciaIds || (lote.boteEsenciaId ? [lote.boteEsenciaId] : []);
+  const botes = esencia ? ids.map(id => (esencia.botes || []).find(b => b.id === id)).filter(Boolean) : [];
+  let total = botes.reduce((s, b) => s + costoBoteEsencia(b), 0);
+  const f = lote.formula || {}, iu = lote.insumosUsados || {};
+  INSUMOS_COSTEO_DEFS.forEach(([nombre, key]) => {
+    const detalle = key === 'alcohol' ? alcoholDetalleTotal(iu) : (iu[key] || []);
+    const usados = detalle.reduce((s, d) => s + (d.gramos || 0), 0);
+    total += costoDetalleInsumo(nombre, detalle);
+    const falta = Math.max(0, (f[key] || 0) - usados);
+    if (falta > 0.005) total += falta * precioReferenciaFIFO(nombre);
+  });
+  return total;
+}
+function actualizarCostoLoteReal(lote) {
+  if (lote.loteMadreId || (lote.loteHijoIds || []).length) return;
+  const c = +costoMaterialesRealLote(lote).toFixed(2);
+  lote.costoMaterialesBatch = c; lote.costoDisponible = c;
+}
+// Vista previa en el modal de Nuevo Lote: usa los registros ya elegidos y estima el resto.
+function costoPreviewLote(botes, formula) {
+  let total = botes.reduce((s, b) => s + costoBoteEsencia(b), 0);
+  INSUMOS_LOTE_CONFIG.forEach(cfg => {
+    const sel = lInsumosSeleccionados[cfg.key] || [];
+    const usados = sel.reduce((s, x) => s + x.gramos, 0);
+    total += costoDetalleInsumo(cfg.nombre, sel);
+    total += Math.max(0, (formula[cfg.formulaKey] || 0) - usados) * precioReferenciaFIFO(cfg.nombre);
+  });
+  return total;
+}
+function gramosNecesariosInsumoLote(cfg, formula) {
+  if (!formula) return 0;
+  if (cfg.key === 'alcohol') {
+    const nom = formula.volumenNominal || parseFloat(document.getElementById('l-volumen-nominal').value) || sugerirVolumenNominal(formula.volumenMl);
+    return alcoholRecipienteA(nom, formula.alcohol);
+  }
+  return formula[cfg.formulaKey];
+}
+function filasInsumosLote(lote, factor) {
+  const f = lote.formula || {}, iu = lote.insumosUsados;
+  const filas = [];
+  INSUMOS_COSTEO_DEFS.forEach(([nombre, key]) => {
+    if (!iu) {
+      const cpg = (db.insumos[nombre] && db.insumos[nombre].costoPorGramo) || 0, g = (f[key] || 0) * factor;
+      filas.push({ nombre, cantidad: g, unidad: 'g', costoUnit: cpg, costoTotal: g * cpg });
+      return;
+    }
+    const detalle = key === 'alcohol' ? alcoholDetalleTotal(iu) : (iu[key] || []);
+    const varios = detalle.length > 1;
+    let usados = 0;
+    detalle.forEach(d => {
+      let cpg = d.costoPorGramo;
+      if (cpg === undefined) { const g = grupoInsumoPorId(nombre, d.grupoId); cpg = g ? (g.costoPorGramo || 0) : 0; }
+      const prov = nombreCortoProveedor(d.proveedor);
+      usados += d.gramos || 0;
+      filas.push({ nombre: varios && prov ? `${nombre} (${prov})` : nombre, cantidad: (d.gramos || 0) * factor, unidad: 'g', costoUnit: cpg, costoTotal: (d.gramos || 0) * factor * cpg });
+    });
+    const falta = Math.max(0, (f[key] || 0) - usados);
+    if (falta > 0.005) {
+      const cpg = precioReferenciaFIFO(nombre);
+      filas.push({ nombre: `${nombre}${key === 'alcohol' ? ' (restante, estimado)' : ' (pendiente)'}`, cantidad: falta * factor, unidad: 'g', costoUnit: cpg, costoTotal: falta * factor * cpg });
+    }
+  });
+  return filas;
+}
+// Fila de "Materia Prima Usada" para un registro de insumo que se agotó: guarda lo COMPRADO (cantidad y precio total), no solo el precio por gramo.
+function entradaMUInsumo(tipo, nombre, g, restantes) {
+  const peso = g.pesoOriginal || 0, cpg = g.costoPorGramo || 0;
+  let cantTxt = '';
+  if (peso) { try { cantTxt = etiquetaCantidadCompradaInsumo(nombre, peso); } catch (e) { cantTxt = ''; } if (cantTxt && !/g$/.test(cantTxt)) cantTxt += ` (${peso.toFixed(2)}g)`; }
+  const resta = restantes > 0.001 ? ` · ${restantes.toFixed(2)}g restantes` : '';
+  return {
+    tipo, nombre, proveedor: g.proveedor || '',
+    presentacion: peso ? `Compra · ${cantTxt}${resta}` : `Compra (gramos)${resta}`,
+    precio: peso ? +(peso * cpg).toFixed(2) : cpg, precioEsTotal: !!peso, costoPorGramo: cpg,
+    fechaCompra: g.fechaRegistro || '', fechaAgotado: g.fechaAgotado,
+  };
+}
+// Devuelve gramos a los registros de insumo de los que salieron (y reactiva el registro si estaba agotado).
+function devolverGramosAGrupos(nombre, detalle) {
+  (detalle || []).forEach(d => {
+    const g = grupoInsumoPorId(nombre, d.grupoId); if (!g) return;
+    g.stock = +((g.stock || 0) + (d.gramos || 0)).toFixed(4);
+    if (g.agotado && g.stock > 0.001) {
+      const idx = (db.materialUsado || []).findIndex(r => r.tipo === 'insumo' && r.nombre === nombre && (r.fechaCompra || '') === (g.fechaRegistro || '') && (r.fechaAgotado || '') === (g.fechaAgotado || '') && (r.proveedor || '') === (g.proveedor || ''));
+      if (idx >= 0) db.materialUsado.splice(idx, 1);
+      g.agotado = false; delete g.fechaAgotado;
+    }
+  });
+  recalcularAgregadosInsumo(nombre);
+}
+function devolverStockLote(lote) {
+  const iu = lote.insumosUsados || {};
+  INSUMOS_COSTEO_DEFS.forEach(([nombre, key]) => devolverGramosAGrupos(nombre, key === 'alcohol' ? alcoholDetalleTotal(iu) : (iu[key] || [])));
+  const es = db.esencias.find(e => e.id === lote.esenciaId);
+  const ids = lote.botesEsenciaIds || (lote.boteEsenciaId ? [lote.boteEsenciaId] : []);
+  if (es) ids.forEach(id => {
+    const b = (es.botes || []).find(x => x.id === id); if (!b || !b.usado) return;
+    const idx = (db.materialUsado || []).findIndex(r => r.tipo === 'esencia' && r.nombre === es.nombre && (r.fechaAgotado || '') === (b.fechaAgotado || '') && (r.fechaCompra || '') === (b.fechaRegistro || '') && (r.precio || 0) === (b.costo || 0));
+    if (idx >= 0) db.materialUsado.splice(idx, 1);
+    b.usado = false; delete b.loteIdUso; delete b.fechaAgotado;
+  });
+}
+// Migración V106 (se corre al cargar los datos): lotes anteriores y filas viejas de Materia Prima Usada.
+function migrarV106() {
+  try {
+    if (!db.recipientes) db.recipientes = [];
+    (db.lotes || []).forEach(l => {
+      if (l.alcoholPredilucion === undefined) l.alcoholPredilucion = alcoholRecipienteA((l.formula && l.formula.volumenNominal) || 100, l.formula && l.formula.alcohol);
+      if (l.alcoholRestanteDescontado === undefined) l.alcoholRestanteDescontado = true;
+      if (!l.costeoRegistros && l.insumosUsados && !l.loteMadreId && !(l.loteHijoIds || []).length && !(l.estados && l.estados.enfrascado && l.estados.enfrascado.confirmado)) {
+        const c = +costoMaterialesRealLote(l).toFixed(2);
+        l.costoMaterialesBatch = c; l.costoDisponible = c; l.costeoRegistros = true;
+      }
+    });
+    (db.materialUsado || []).forEach(r => {
+      if ((r.tipo === 'insumo' || r.tipo === 'insumoAditivo') && r.precioEsTotal === undefined) {
+        const col = r.tipo === 'insumo' ? db.insumos : db.insumosAditivos;
+        const g = ((col && col[r.nombre] && col[r.nombre].grupos) || []).find(x => x.agotado && (x.fechaRegistro || '') === (r.fechaCompra || '') && (x.proveedor || '') === (r.proveedor || '') && (x.fechaAgotado || '') === (r.fechaAgotado || ''));
+        let peso = g && g.pesoOriginal ? g.pesoOriginal : 0;
+        const cpg = g && g.costoPorGramo !== undefined ? g.costoPorGramo : (r.precio || 0);
+        if (!peso && r.nombre === 'Alcohol 95°' && (r.fechaCompra || '').startsWith('2025-08-31')) peso = 402.55;
+        r.costoPorGramo = cpg;
+        if (peso) {
+          let ct = ''; try { ct = etiquetaCantidadCompradaInsumo(r.nombre, peso); } catch (e) {}
+          if (ct && !/g$/.test(ct)) ct += ` (${peso.toFixed(2)}g)`;
+          r.presentacion = `Compra · ${ct || peso.toFixed(2) + 'g'}`;
+          r.precio = +(peso * cpg).toFixed(2); r.precioEsTotal = true;
+        } else { r.precioEsTotal = false; }
+      }
+    });
+  } catch (e) { console.error('migrarV106', e); }
+}
+
 function calcularGramosFormula(std, gramosEsencia) {
   const factorEscala = gramosEsencia / db.formulaBase.esencia;
   return {
@@ -13391,13 +13647,7 @@ function desglosarCostoMaterialesLote(lote, factorProrateo) {
     const numLabel = botesUsados.length > 1 ? ` #${idx+1}` : '';
     return { nombre: `${esencia.nombre}${numLabel} (${presLabel}${sufijo})`, cantidad: 1, unidad: 'u', costoUnit: costoBote*factor, costoTotal: costoBote*factor };
   }) : [{ nombre: esencia ? esencia.nombre : 'Esencia', cantidad: 1, unidad: 'u', costoUnit: 0, costoTotal: 0 }];
-  const filas = [
-    ...filasBotes,
-    { nombre: 'Alcohol 95°', cantidad: (formula.alcohol||0)*factor, unidad: 'g', costoUnit: db.insumos['Alcohol 95°']?.costoPorGramo||0, costoTotal: (formula.alcohol||0)*factor * (db.insumos['Alcohol 95°']?.costoPorGramo||0) },
-    { nombre: 'IPADEO', cantidad: (formula.ipadeo||0)*factor, unidad: 'g', costoUnit: db.insumos['IPADEO']?.costoPorGramo||0, costoTotal: (formula.ipadeo||0)*factor * (db.insumos['IPADEO']?.costoPorGramo||0) },
-    { nombre: 'Cimalide 50', cantidad: (formula.cimalide||0)*factor, unidad: 'g', costoUnit: db.insumos['Cimalide 50']?.costoPorGramo||0, costoTotal: (formula.cimalide||0)*factor * (db.insumos['Cimalide 50']?.costoPorGramo||0) },
-    { nombre: 'Propilenglicol', cantidad: (formula.pg||0)*factor, unidad: 'g', costoUnit: db.insumos['Propilenglicol']?.costoPorGramo||0, costoTotal: (formula.pg||0)*factor * (db.insumos['Propilenglicol']?.costoPorGramo||0) },
-  ];
+  const filas = [ ...filasBotes, ...filasInsumosLote(lote, factor) ];
   // Si el lote (o sub-lote) ya fue enfrascado, agregamos también los frascos usados como filas del desglose
   if (lote.estados?.enfrascado?.confirmado && lote.estados.enfrascado.frascos) {
     lote.estados.enfrascado.frascos.forEach(f => {
@@ -13422,8 +13672,8 @@ function mostrarDetalleCosto(loteId, frascosOverride, factorProrateo, tituloOver
   tbody.innerHTML = filas.map(f => `<tr>
     <td>${f.nombre}</td>
     <td class="cell-num">${f.cantidad.toFixed(f.unidad==='u'?0:2)}${f.unidad}</td>
-    <td class="cell-num">$${f.costoUnit.toFixed(2)}</td>
-    <td class="cell-num">$${f.costoTotal.toFixed(2)}</td>
+    <td class="cell-num">${fmtCostoG(f.costoUnit)}</td>
+    <td class="cell-num">${fmtMontoFino(f.costoTotal)}</td>
   </tr>`).join('');
   document.getElementById('dc-total').textContent = '$' + total.toFixed(2);
   openModal('modal-detalle-costo');
@@ -13462,13 +13712,16 @@ function actualizarCostoLotePreview() {
   if (!lVolumenNominalTocadoManual) {
     document.getElementById('l-volumen-nominal').value = sugerirVolumenNominal(formula.volumenMl);
   }
-  const alcoholFaltante = Math.max(0, formula.alcohol - 20);
+  const nomA = parseFloat(document.getElementById('l-volumen-nominal').value) || sugerirVolumenNominal(formula.volumenMl);
+  const alcA = alcoholRecipienteA(nomA, formula.alcohol);
+  document.getElementById('fp-alcohol-a').textContent = alcA.toFixed(2) + 'g';
+  const alcoholFaltante = Math.max(0, formula.alcohol - alcA);
   document.getElementById('fp-alcohol-faltante').textContent = alcoholFaltante.toFixed(2) + 'g';
   renderSelectorInsumosLote();
 
   // El costo de la esencia se toma de cada bote elegido COMPLETO, no por gramos
   const botes = lBotesSeleccionados.map(id => (esencia.botes||[]).find(b => b.id === id)).filter(Boolean);
-  const costoMateriales = calcularCostoMaterialesLote(esencia, std, gramosEsencia, botes);
+  const costoMateriales = costoPreviewLote(botes, formula);
 
   let avisoBote = '';
   if (!botes.length) {
@@ -13491,20 +13744,12 @@ function descontarDeGruposInsumoManual(nombre, seleccionados, fecha) {
     if (!g) return;
     const descuento = Math.min(g.stock||0, gramos);
     g.stock = +((g.stock||0) - descuento).toFixed(4);
-    detalle.push({ grupoId, proveedor: g.proveedor||'', gramos: descuento });
+    detalle.push({ grupoId, proveedor: g.proveedor||'', gramos: descuento, costoPorGramo: g.costoPorGramo||0 });
     if (g.stock <= 0.001) {
       g.stock = 0;
       g.agotado = true;
       g.fechaAgotado = fecha || hoyISO();
-      registrarMaterialUsado({
-        tipo: 'insumo',
-        nombre,
-        proveedor: g.proveedor || '',
-        presentacion: 'Compra (gramos)',
-        precio: g.costoPorGramo || 0,
-        fechaCompra: g.fechaRegistro || '',
-        fechaAgotado: g.fechaAgotado,
-      });
+      registrarMaterialUsado(entradaMUInsumo('insumo', nombre, g, 0));
     }
   });
   recalcularAgregadosInsumo(nombre);
@@ -13540,8 +13785,8 @@ function guardarLote() {
     const totalUsado = seleccionados.reduce((s,x) => s + x.gramos, 0);
     if (!seleccionados.length) {
       faltantes.push(`${cfg.label}: no has elegido de cuál registro se descuenta`);
-    } else if (Math.abs(totalUsado - formula[cfg.formulaKey]) > 0.2) {
-      faltantes.push(`${cfg.label}: seleccionaste ${totalUsado.toFixed(2)}g, la fórmula necesita ${formula[cfg.formulaKey].toFixed(2)}g`);
+    } else if (Math.abs(totalUsado - gramosNecesariosInsumoLote(cfg, formula)) > 0.2) {
+      faltantes.push(`${cfg.label}: seleccionaste ${totalUsado.toFixed(2)}g, ${cfg.key === 'alcohol' ? 'el Recipiente A necesita' : 'la fórmula necesita'} ${gramosNecesariosInsumoLote(cfg, formula).toFixed(2)}g`);
     }
   });
   if (faltantes.length) {
@@ -13576,6 +13821,10 @@ function guardarLote() {
     clienteNombre,
     pedidoId: pedidoVinculadoId,
     costoMaterialesBatch: +costoMateriales.toFixed(2),
+    alcoholPredilucion: alcoholRecipienteA(formula.volumenNominal, formula.alcohol),
+    alcoholRestanteDescontado: (formula.alcohol - alcoholRecipienteA(formula.volumenNominal, formula.alcohol)) <= 0.01,
+    costeoRegistros: true,
+    pesaje: psPesajeInicialDesdeModal(botes),
     // Disponible para "desprender" en Envasado Final — arrancan iguales al total/nominal del batch
     // y se van descontando con cada lote hijo que se envasa, sin importar el orden en que se haga.
     volumenNominalDisponible: formula.volumenNominal,
@@ -13616,6 +13865,7 @@ function guardarLote() {
     });
   });
 
+  actualizarCostoLoteReal(lote);   // V106: costo con los registros realmente elegidos
   db.lotes.push(lote);
   // Vínculo recíproco: si este lote nace vinculado a una Solicitud Aprobada, ahora sí queda
   // asociada por loteId — esto es lo que permite que su estado se sincronice automáticamente
@@ -13710,6 +13960,15 @@ function exportarFichaLotePDF(loteId) {
     y += 6;
   }
 
+  if (lote.pesaje && psTieneDatos(lote)) {
+    const c = psCalcular(lote);
+    seccion('Registro de pesaje (evidencia)');
+    lote.pesaje.botes.forEach((b, i) => { if (b.bruto !== null && b.bruto !== undefined) linea(`${b.etiqueta} — esencia`, `lleno ${psFmt(b.bruto)} g − tara ${psFmt(b.tara)} g = ${psFmt(c.netos[i])} g neta`); });
+    c.rows.forEach(r => { if (r.real !== null) linea(r.etiqueta, `objetivo ${psFmt(r.objetivo)} g · real ${psFmt(r.real)} g · desv. ${psSigno(r.desv)} g${r.desvPct !== null ? ` (${psSigno(r.desvPct, 1)} %)` : ''}`); });
+    linea('Tolerancia usada', `${psFmt(lote.pesaje.tol)} g`);
+    y += 6;
+  }
+
   if (lote.notas) {
     seccion('Notas del Lote');
     doc.setFontSize(9); doc.setFont(undefined, 'normal');
@@ -13717,6 +13976,345 @@ function exportarFichaLotePDF(loteId) {
   }
 
   doc.save(`Ficha de Lote ${lote.codigo}.pdf`);
+}
+
+// ═══════════════ V107: RECIPIENTES (TARA) Y HOJA DE PESAJE ═══════════════
+function psNum(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
+function psFmt(v, d) { return (v === null || v === undefined || isNaN(v)) ? '—' : (+v).toFixed(d === undefined ? 2 : d); }
+function psSigno(v, d) { if (v === null || v === undefined || isNaN(v)) return '—'; return (v >= 0 ? '+' : '') + v.toFixed(d === undefined ? 2 : d); }
+function psRecipientes(tipo) { return (db.recipientes || []).filter(r => !tipo || r.tipo === tipo); }
+function psRecPorId(id) { return (db.recipientes || []).find(r => String(r.id) === String(id)); }
+function psTaraSugeridaBote(bote) {
+  const pres = (bote && bote.presentacion) || '1oz';
+  const bs = psRecipientes('bote');
+  return bs.find(r => r.proveedor && bote && r.proveedor === bote.proveedor && (r.presentacion || '1oz') === pres)
+      || bs.find(r => !r.proveedor && (r.presentacion || '1oz') === pres) || null;
+}
+function psTaraDeEstado(st) {
+  if (!st) return null;
+  if (st.taraManual !== null && st.taraManual !== undefined) return st.taraManual;
+  const r = psRecPorId(st.taraId);
+  return r ? r.tara : null;
+}
+function psTieneDatos(lote) {
+  const p = lote.pesaje; if (!p) return false;
+  const c = psCalcular(lote);
+  return c.rows.some(r => r.real !== null) || c.netos.some(n => n !== null);
+}
+function psAsegurar(lote) {
+  const p = lote.pesaje = lote.pesaje || {};
+  p.tol = p.tol || db.pesajeTol || 0.09;
+  const esencia = db.esencias.find(e => e.id === lote.esenciaId);
+  const ids = lote.botesEsenciaIds || (lote.boteEsenciaId ? [lote.boteEsenciaId] : []);
+  p.botes = p.botes || [];
+  ids.forEach((id, i) => {
+    let pb = p.botes.find(x => x.boteId === id);
+    if (!pb) {
+      const b = esencia && (esencia.botes || []).find(x => x.id === id);
+      const sug = b ? psTaraSugeridaBote(b) : null;
+      pb = { boteId: id, etiqueta: `Bote ${i + 1}${b && b.proveedor ? ' · ' + nombreCortoProveedor(b.proveedor) : ''}`, taraId: sug ? sug.id : '', tara: sug ? sug.tara : null, bruto: null };
+      p.botes.push(pb);
+    }
+    pb.pg = pb.pg || { bruto: null, agregado: null };
+  });
+  p.frasco = p.frasco || { taraId: '', tara: null, vacio: null };
+  p.taza = p.taza || { taraId: '', tara: null, vacio: null };
+  ['ipadeo', 'cimalide', 'alcA', 'alcR'].forEach(k => { p[k] = p[k] || { bruto: null, agregado: null }; });
+  return p;
+}
+// Calcula TODO a partir de lo que Kike digitó (pesos de la báscula): netos, objetivos, reales, desviaciones y verificaciones.
+function psCalcular(lote) {
+  const p = psAsegurar(lote), f = lote.formula || {}, tol = p.tol;
+  const netos = p.botes.map(b => (b.bruto !== null && b.bruto !== undefined && b.tara !== null && b.tara !== undefined) ? +(b.bruto - b.tara).toFixed(4) : null);
+  const todosNetos = netos.length > 0 && netos.every(n => n !== null && n > 0);
+  const sumNeto = +netos.reduce((s, n) => s + (n || 0), 0).toFixed(4);
+  const rows = [];
+  function paso(key, etiqueta, base, objetivo, reg) {
+    const bruto = reg.bruto === undefined ? null : reg.bruto, agregado = reg.agregado === undefined ? null : reg.agregado;
+    let real = null, brutoFinal = null, cuadra = null;
+    if (agregado !== null) real = agregado; else if (bruto !== null && base !== null) real = +(bruto - base).toFixed(4);
+    if (bruto !== null) brutoFinal = bruto; else if (agregado !== null && base !== null) brutoFinal = +(base + agregado).toFixed(4);
+    if (bruto !== null && agregado !== null && base !== null) { const dif = +(bruto - (base + agregado)).toFixed(4); cuadra = { dif, ok: Math.abs(dif) <= tol + 1e-9 }; }
+    const desv = (real !== null && objetivo !== null) ? +(real - objetivo).toFixed(4) : null;
+    const r = { key, etiqueta, base, objetivo, brutoObj: (base !== null && objetivo !== null) ? +(base + objetivo).toFixed(4) : null, bruto, agregado, real, brutoFinal, desv, desvPct: (desv !== null && objetivo > 0) ? desv / objetivo * 100 : null, ok: desv !== null ? Math.abs(desv) <= tol + 1e-9 : null, cuadra };
+    rows.push(r);
+    return r;
+  }
+  p.botes.forEach((b, i) => {
+    const pgObj = (f.pg || 0) * (todosNetos && sumNeto > 0 ? netos[i] / sumNeto : 1 / p.botes.length);
+    paso('pg' + i, `PG — ${b.etiqueta}`, (b.bruto === undefined ? null : b.bruto), pgObj, b.pg);
+  });
+  const baseFrasco = (p.frasco.vacio !== null && p.frasco.vacio !== undefined) ? p.frasco.vacio : (p.frasco.tara === undefined ? null : p.frasco.tara);
+  const ip = paso('ipadeo', 'IPADEO', baseFrasco, f.ipadeo || 0, p.ipadeo);
+  paso('cimalide', 'Cimalide 50', ip.brutoFinal !== null ? ip.brutoFinal : null, f.cimalide || 0, p.cimalide);
+  const baseTaza = (p.taza.vacio !== null && p.taza.vacio !== undefined) ? p.taza.vacio : (p.taza.tara === undefined ? null : p.taza.tara);
+  paso('alcA', 'Alcohol 95° — Recipiente A (predilución)', baseTaza, alcoholALote(lote), p.alcA);
+  paso('alcR', 'Alcohol restante (al unir A + B)', baseTaza, alcoholRestanteLote(lote), p.alcR);
+  const suma = (pref) => { const rr = rows.filter(r => r.key.indexOf(pref) === 0 && r.real !== null); return rr.length ? rr.reduce((s, r) => s + r.real, 0) : null; };
+  const get = (k) => { const r = rows.find(x => x.key === k); return r ? r.real : null; };
+  const resumen = [
+    { etiqueta: 'Esencia (neta)', formula: f.esencia || 0, real: todosNetos ? sumNeto : null },
+    { etiqueta: 'Propilenglicol', formula: f.pg || 0, real: suma('pg') },
+    { etiqueta: 'IPADEO', formula: f.ipadeo || 0, real: get('ipadeo') },
+    { etiqueta: 'Cimalide 50', formula: f.cimalide || 0, real: get('cimalide') },
+    { etiqueta: 'Alcohol — Recipiente A', formula: alcoholALote(lote), real: get('alcA') },
+    { etiqueta: 'Alcohol restante', formula: alcoholRestanteLote(lote), real: get('alcR') },
+  ].map(x => ({ ...x, desv: x.real !== null ? x.real - x.formula : null, desvPct: (x.real !== null && x.formula > 0) ? (x.real - x.formula) / x.formula * 100 : null }));
+  return { rows, netos, todosNetos, sumNeto, resumen };
+}
+
+// ── Pantalla: Recipientes y tara ──
+let rcTaraManual = false;
+function abrirRecipientes() { rcNuevo(); rcRender(); openModal('modal-recipientes'); }
+function rcProveedoresBotes() {
+  const s = new Set();
+  (db.esencias || []).forEach(e => (e.botes || []).forEach(b => { if (b.proveedor) s.add(b.proveedor); }));
+  return [...s];
+}
+function rcTipoChange() {
+  const tipo = document.getElementById('rc-tipo').value;
+  document.getElementById('rc-bote-box').style.display = tipo === 'bote' ? 'flex' : 'none';
+  const sel = document.getElementById('rc-proveedor'); const cur = sel.value;
+  sel.innerHTML = '<option value="">— cualquier proveedor —</option>' + rcProveedoresBotes().map(p => `<option value="${p}">${nombreCortoProveedor(p) || p}</option>`).join('');
+  sel.value = cur;
+}
+function rcRender() {
+  const rs = db.recipientes || [];
+  const tipoLbl = { bote: 'Bote de esencia', frasco: 'Frasco de maceración', taza: 'Taza medidora', otro: 'Otro' };
+  document.getElementById('rc-tabla').innerHTML = rs.length ? rs.map(r => {
+    const m = r.mediciones || [];
+    const rango = m.length ? `${Math.min(...m).toFixed(2)}–${Math.max(...m).toFixed(2)}` : '—';
+    const extra = r.tipo === 'bote' ? `${r.proveedor ? nombreCortoProveedor(r.proveedor) + ' · ' : ''}${r.presentacion === '0.5oz' ? '½ oz' : '1 oz'}` : '';
+    return `<tr><td>${r.nombre}${extra ? `<div style="font-size:11px;opacity:0.6;">${extra}</div>` : ''}</td><td>${tipoLbl[r.tipo] || r.tipo}</td><td class="cell-num">${r.tara.toFixed(2)}</td><td>${m.length} · ${rango}</td><td style="white-space:nowrap;"><button class="btn btn-outline btn-sm" onclick="rcEditar(${r.id})">Editar</button> <button class="btn btn-danger btn-sm" onclick="rcEliminar(${r.id})">✕</button></td></tr>`;
+  }).join('') : '<tr><td colspan="5"><div class="empty-state"><div class="es-icon">⚖️</div><p>Aún no hay recipientes. Agrega el primero abajo.</p></div></td></tr>';
+}
+function rcNuevo() {
+  ['rc-id', 'rc-nombre', 'rc-med', 'rc-tara', 'rc-nota'].forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('rc-tipo').value = 'bote';
+  document.getElementById('rc-presentacion').value = '1oz';
+  rcTaraManual = false; rcTipoChange(); document.getElementById('rc-proveedor').value = '';
+  document.getElementById('rc-form-titulo').textContent = '➕ Nuevo recipiente';
+}
+function rcEditar(id) {
+  const r = (db.recipientes || []).find(x => x.id === id); if (!r) return;
+  document.getElementById('rc-id').value = r.id; document.getElementById('rc-nombre').value = r.nombre;
+  document.getElementById('rc-tipo').value = r.tipo; rcTipoChange();
+  document.getElementById('rc-proveedor').value = r.proveedor || ''; document.getElementById('rc-presentacion').value = r.presentacion || '1oz';
+  document.getElementById('rc-med').value = (r.mediciones || []).join(', ');
+  document.getElementById('rc-tara').value = r.tara; document.getElementById('rc-nota').value = r.nota || '';
+  rcTaraManual = true; document.getElementById('rc-form-titulo').textContent = '✏️ Editar recipiente';
+}
+function rcParseMed() { return document.getElementById('rc-med').value.split(/[,;\s]+/).map(parseFloat).filter(n => !isNaN(n) && n > 0); }
+function rcOnMed() {
+  const m = rcParseMed();
+  if (m.length && !rcTaraManual) document.getElementById('rc-tara').value = (m.reduce((s, x) => s + x, 0) / m.length).toFixed(2);
+}
+function rcOnTara() { rcTaraManual = true; }
+function rcGuardar() {
+  const nombre = document.getElementById('rc-nombre').value.trim();
+  const tipo = document.getElementById('rc-tipo').value;
+  const m = rcParseMed();
+  let tara = parseFloat(document.getElementById('rc-tara').value);
+  if (!nombre) { alert('Escribe un nombre para el recipiente.'); return; }
+  if (isNaN(tara) || tara <= 0) { if (m.length) tara = m.reduce((s, x) => s + x, 0) / m.length; else { alert('Escribe el peso vacío (tara) o al menos una medición.'); return; } }
+  if (m.length > 1 && Math.max(...m) - Math.min(...m) > 0.3) {
+    if (!confirm(`Las mediciones varían ${(Math.max(...m) - Math.min(...m)).toFixed(2)} g entre la menor y la mayor. ¿Guardar igual?`)) return;
+  }
+  db.recipientes = db.recipientes || [];
+  const id = parseFloat(document.getElementById('rc-id').value);
+  const obj = { id: id || Date.now(), nombre, tipo, tara: +tara.toFixed(2), mediciones: m, nota: document.getElementById('rc-nota').value.trim() };
+  if (tipo === 'bote') { obj.proveedor = document.getElementById('rc-proveedor').value; obj.presentacion = document.getElementById('rc-presentacion').value; }
+  const idx = db.recipientes.findIndex(x => x.id === obj.id);
+  if (idx >= 0) db.recipientes[idx] = obj; else db.recipientes.push(obj);
+  saveToDrive(); rcNuevo(); rcRender(); psRefrescarPantallasAbiertas();
+}
+function rcEliminar(id) {
+  const r = (db.recipientes || []).find(x => x.id === id); if (!r) return;
+  if (!confirm(`¿Eliminar el recipiente "${r.nombre}"? Los pesajes ya guardados conservan su tara.`)) return;
+  db.recipientes = db.recipientes.filter(x => x.id !== id);
+  saveToDrive(); rcRender(); psRefrescarPantallasAbiertas();
+}
+function psRefrescarPantallasAbiertas() {
+  try { renderPesajeBotesLote(); } catch (e) {}
+  try { if (psAbierta && psLote) { psRender(); psActualizar(); } } catch (e) {}
+}
+
+// ── Nuevo Lote: calculadora de esencia neta (peso del bote lleno − tara) ──
+function renderPesajeBotesLote() {
+  const box = document.getElementById('l-pesaje-botes'); if (!box) return;
+  const esencia = db.esencias.find(e => e.id === parseInt(document.getElementById('l-esencia').value));
+  if (!esencia || !lBotesSeleccionados.length) { box.innerHTML = ''; return; }
+  const filas = lBotesSeleccionados.map((id, i) => {
+    const b = (esencia.botes || []).find(x => x.id === id); if (!b) return '';
+    const st = lPesajeBotes[id] = lPesajeBotes[id] || { taraId: '', taraManual: null, bruto: null };
+    if (!st.taraId && (st.taraManual === null || st.taraManual === undefined)) { const sug = psTaraSugeridaBote(b); if (sug) st.taraId = sug.id; }
+    const opts = psRecipientes('bote').map(r => `<option value="${r.id}" ${String(r.id) === String(st.taraId) ? 'selected' : ''}>${r.nombre} · ${r.tara.toFixed(2)} g</option>`).join('');
+    const taraVal = psTaraDeEstado(st);
+    return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;">
+      <span style="min-width:56px;">Bote ${i + 1}</span>
+      <input type="number" step="0.01" inputmode="decimal" placeholder="Bote lleno (g)" style="width:130px;" value="${st.bruto === null || st.bruto === undefined ? '' : st.bruto}" oninput="psOnBruto(${id}, this.value)">
+      <select style="width:190px;" onchange="psOnTaraSel(${id}, this.value)"><option value="">— tara a mano —</option>${opts}</select>
+      <input type="number" step="0.01" inputmode="decimal" placeholder="Tara (g)" style="width:90px;" id="lpb-tara-${i}" value="${taraVal === null ? '' : taraVal}" oninput="psOnTaraManual(${id}, this.value)">
+      <span>→ neta <strong id="lpb-neto-${i}">—</strong></span>
+    </div>`;
+  }).join('');
+  box.innerHTML = `<div class="alert alert-info" style="font-size:12px;"><div style="margin-bottom:8px;">⚖️ <strong>Esencia neta desde la báscula</strong> — escribe el peso del bote lleno y elige su tara (se arma en <a href="#" onclick="abrirRecipientes();return false;" style="color:var(--gold-light);">⚖️ Recipientes</a>). Si lo haces aquí, la Hoja de pesaje ya tendrá ese dato.</div>${filas}<div id="lpb-total" style="margin-top:4px;"></div></div>`;
+  psActualizarPesajeBotes();
+}
+function psOnBruto(id, v) { (lPesajeBotes[id] = lPesajeBotes[id] || {}).bruto = psNum(v); psActualizarPesajeBotes(); }
+function psOnTaraSel(id, v) {
+  const st = lPesajeBotes[id] = lPesajeBotes[id] || {}; const r = psRecPorId(v);
+  st.taraId = r ? r.id : ''; st.taraManual = r ? null : st.taraManual;
+  const i = lBotesSeleccionados.indexOf(id); const el = document.getElementById('lpb-tara-' + i);
+  if (el && r) el.value = r.tara;
+  psActualizarPesajeBotes();
+}
+function psOnTaraManual(id, v) {
+  const st = lPesajeBotes[id] = lPesajeBotes[id] || {}; st.taraManual = psNum(v); st.taraId = '';
+  const i = lBotesSeleccionados.indexOf(id); const sel = document.querySelectorAll('#l-pesaje-botes select')[i]; if (sel) sel.value = '';
+  psActualizarPesajeBotes();
+}
+function psActualizarPesajeBotes() {
+  let total = 0, todos = lBotesSeleccionados.length > 0;
+  lBotesSeleccionados.forEach((id, i) => {
+    const st = lPesajeBotes[id] || {}; const tara = psTaraDeEstado(st);
+    const neto = (st.bruto !== null && st.bruto !== undefined && tara !== null) ? st.bruto - tara : null;
+    const el = document.getElementById('lpb-neto-' + i);
+    if (el) el.textContent = neto === null ? '—' : neto.toFixed(2) + ' g';
+    if (neto === null || neto <= 0) todos = false; else total += neto;
+  });
+  const t = document.getElementById('lpb-total');
+  if (t) t.innerHTML = todos ? `✓ Esencia neta total: <strong>${total.toFixed(2)} g</strong> — ya quedó aplicada en "Gramos de esencia".` : 'Escribe el peso de cada bote lleno y elige su tara.';
+  if (todos) { document.getElementById('l-gramos-esencia').value = total.toFixed(2); lGramosTocadoManual = true; actualizarCostoLotePreview(); }
+}
+function psPesajeInicialDesdeModal(botes) {
+  const lista = (botes || []).map((b, i) => {
+    const st = lPesajeBotes[b.id]; if (!st || st.bruto === null || st.bruto === undefined) return null;
+    const tara = psTaraDeEstado(st);
+    return { boteId: b.id, etiqueta: `Bote ${i + 1}${b.proveedor ? ' · ' + nombreCortoProveedor(b.proveedor) : ''}`, taraId: st.taraId || '', tara: tara === undefined ? null : tara, bruto: st.bruto };
+  }).filter(Boolean);
+  return lista.length ? { botes: lista, tol: db.pesajeTol || 0.09 } : undefined;
+}
+
+// ── Hoja de pesaje (modal) ──
+let psLote = null, psTimer = null, psAbierta = false;
+function psReg(k, i) { const p = psLote.pesaje; if (k === 'bote') return p.botes[i]; if (k === 'pg') return p.botes[i].pg; return p[k]; }
+function abrirHojaPesaje(loteId) {
+  const lote = db.lotes.find(l => l.id === loteId); if (!lote) return;
+  psLote = lote; psAsegurar(lote); psAbierta = true;
+  document.getElementById('ps-titulo').textContent = `${lote.codigo} · ${lote.esenciaNombre}`;
+  document.getElementById('ps-guardado').textContent = '';
+  psRender(); openModal('modal-pesaje'); psActualizar();
+}
+function psRender() {
+  const lote = psLote, p = lote.pesaje, f = lote.formula || {};
+  const optsTara = (tipo, sel) => '<option value="">— a mano —</option>' + psRecipientes(tipo).map(r => `<option value="${r.id}" ${String(r.id) === String(sel) ? 'selected' : ''}>${r.nombre} · ${r.tara.toFixed(2)} g</option>`).join('');
+  const val = (k, i, fld) => { const v = psReg(k, i)[fld]; return (v === null || v === undefined) ? '' : v; };
+  const inp = (k, i, fld, ph) => `<input class="ps-in" type="number" step="0.01" inputmode="decimal" placeholder="${ph || 'g'}" data-k="${k}" data-i="${i}" data-f="${fld}" value="${val(k, i, fld)}" oninput="psInput(this)">`;
+  const tareRow = (k, i, tipo, label) => `<div class="ps-fila"><span>${label}</span><select onchange="psSelTara('${k}',${i},this.value)">${optsTara(tipo, psReg(k, i).taraId)}</select><input class="ps-in" type="number" step="0.01" inputmode="decimal" id="ps-tara-${k}-${i}" data-k="${k}" data-i="${i}" data-f="tara" style="width:90px;" value="${val(k, i, 'tara')}" oninput="psInput(this)"> g</div>`;
+  const paso = (key, titulo, k, i) => `<div class="ps-paso"><div class="ps-tit">${titulo}</div>
+    <div class="ps-obj">Objetivo <b id="ps-obj-${key}">—</b> g · desde <b id="ps-base-${key}">—</b> g · llena hasta que marque <b id="ps-bo-${key}">—</b> g</div>
+    <div class="ps-ins"><label>Báscula (bruto)${inp(k, i, 'bruto')}</label><label>Agregado (báscula en 0)${inp(k, i, 'agregado')}</label></div>
+    <div class="ps-res" id="ps-res-${key}"></div></div>`;
+  const botesHtml = p.botes.map((b, i) => `<div class="ps-bloque"><div class="ps-bt">① Recipiente A — ${b.etiqueta}</div>
+    ${tareRow('bote', i, 'bote', 'Tara del bote')}
+    <div class="ps-fila"><span>Bote lleno (báscula)</span>${inp('bote', i, 'bruto')}<span>→ esencia neta <b id="ps-neto-${i}">—</b> g</span></div>
+    ${paso('pg' + i, `Propilenglicol — ${b.etiqueta}`, 'pg', i)}</div>`).join('');
+  document.getElementById('ps-contenido').innerHTML = `
+    <div class="alert alert-info" style="font-size:12px;">Escribe <strong>solo lo que marca la báscula</strong>: en cada paso puedes poner el peso bruto, lo agregado con la báscula en 0, o ambos (la app compara y avisa si no cuadran). Enter pasa al siguiente campo. Fórmula del lote: esencia ${(f.esencia || 0).toFixed(2)} g · alcohol ${(f.alcohol || 0).toFixed(2)} g · PG ${(f.pg || 0).toFixed(2)} g · IPADEO ${(f.ipadeo || 0).toFixed(2)} g · Cimalide ${(f.cimalide || 0).toFixed(2)} g.</div>
+    <div class="ps-fila"><span>Tolerancia aceptada (g)</span><input type="number" step="0.01" id="ps-tol" style="width:90px;" value="${p.tol}" oninput="psOnTol(this.value)"><span style="opacity:0.7;">(compara cada peso real con su objetivo)</span></div>
+    <div id="ps-aviso" style="font-size:12px;margin-bottom:10px;"></div>
+    ${botesHtml}
+    <div class="ps-bloque"><div class="ps-bt">② Recipiente B — frasco de maceración</div>
+      ${tareRow('frasco', 0, 'frasco', 'Frasco (tara de la tabla)')}
+      <div class="ps-fila"><span>Frasco vacío pesado hoy (opcional)</span>${inp('frasco', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('frasco')" title="Suma este peso a las mediciones del recipiente elegido">➕ Sumar a la tabla</button></div>
+      ${paso('ipadeo', 'IPADEO', 'ipadeo', 0)}${paso('cimalide', 'Cimalide 50', 'cimalide', 0)}</div>
+    <div class="ps-bloque"><div class="ps-bt">③ Taza medidora — alcohol</div>
+      ${tareRow('taza', 0, 'taza', 'Taza (tara de la tabla)')}
+      <div class="ps-fila"><span>Taza vacía pesada hoy (opcional)</span>${inp('taza', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('taza')">➕ Sumar a la tabla</button></div>
+      ${paso('alcA', 'Alcohol 95° — Recipiente A (predilución)', 'alcA', 0)}
+      ${paso('alcR', 'Alcohol restante (al unir A + B) — si no cabe en la taza, pésalo por tandas y escribe el total en "Agregado"', 'alcR', 0)}</div>
+    <div class="ps-bloque"><div class="ps-bt">④ Resumen: fórmula vs real</div><div id="ps-resumen"></div></div>`;
+}
+function psActualizar() {
+  if (!psLote) return;
+  const c = psCalcular(psLote), p = psLote.pesaje, f = psLote.formula || {};
+  const set = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+  c.netos.forEach((n, i) => set('ps-neto-' + i, psFmt(n)));
+  c.rows.forEach(r => {
+    set('ps-obj-' + r.key, psFmt(r.objetivo)); set('ps-base-' + r.key, psFmt(r.base)); set('ps-bo-' + r.key, psFmt(r.brutoObj));
+    const el = document.getElementById('ps-res-' + r.key); if (!el) return;
+    let t = '';
+    if (r.real !== null) {
+      const col = r.ok === null ? '#56CCF2' : (r.ok ? '#7CB87C' : '#FF2D2D');
+      t += `<span style="color:${col};">Real <b>${psFmt(r.real)}</b> g · desviación ${psSigno(r.desv)} g${r.desvPct !== null ? ` (${psSigno(r.desvPct, 1)} %)` : ''} ${r.ok === null ? '' : (r.ok ? '✓' : '⚠️')}</span>`;
+    }
+    if (r.cuadra) t += r.cuadra.ok ? ` <span style="color:#7CB87C;">· ✓ báscula y agregado cuadran</span>` : ` <span style="color:#FF2D2D;">· ⚠️ no cuadra: la báscula marca ${psFmt(r.bruto)} g y base + agregado = ${psFmt(r.base + r.agregado)} g (diferencia ${psSigno(r.cuadra.dif)} g)</span>`;
+    el.innerHTML = t;
+  });
+  const av = document.getElementById('ps-aviso');
+  if (av) av.innerHTML = (c.todosNetos && Math.abs(c.sumNeto - (f.esencia || 0)) > 0.1)
+    ? `<span style="color:#FF2D2D;">⚠️ La esencia neta pesada (${c.sumNeto.toFixed(2)} g) difiere de la esencia con que se creó el lote (${(f.esencia || 0).toFixed(2)} g): los objetivos de abajo siguen la fórmula del lote.</span>` : '';
+  const rs = document.getElementById('ps-resumen');
+  if (rs) rs.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Ingrediente</th><th class="cell-num">Fórmula (g)</th><th class="cell-num">Real (g)</th><th class="cell-num">Desviación (g)</th><th class="cell-num">%</th></tr></thead><tbody>' +
+    c.resumen.map(x => `<tr><td>${x.etiqueta}</td><td class="cell-num">${psFmt(x.formula)}</td><td class="cell-num">${psFmt(x.real)}</td><td class="cell-num">${psSigno(x.desv)}</td><td class="cell-num">${psSigno(x.desvPct, 1)}</td></tr>`).join('') + '</tbody></table></div>';
+}
+function psInput(el) {
+  const k = el.dataset.k, i = +el.dataset.i || 0, fld = el.dataset.f;
+  const reg = psReg(k, i); reg[fld] = psNum(el.value);
+  if (fld === 'tara') { reg.taraId = ''; const fila = el.closest('.ps-fila'); const sel = fila && fila.querySelector('select'); if (sel) sel.value = ''; }
+  psActualizar(); psProgramarGuardado();
+}
+function psSelTara(k, i, v) {
+  const reg = psReg(k, i), rec = psRecPorId(v);
+  reg.taraId = rec ? rec.id : ''; if (rec) reg.tara = rec.tara;
+  const el = document.getElementById(`ps-tara-${k}-${i}`); if (el && rec) el.value = rec.tara;
+  psActualizar(); psProgramarGuardado();
+}
+function psOnTol(v) { const n = psNum(v); if (n === null || n < 0) return; psLote.pesaje.tol = n; db.pesajeTol = n; psActualizar(); psProgramarGuardado(); }
+function psSumarMedicion(k) {
+  const reg = psReg(k, 0), rec = psRecPorId(reg.taraId);
+  if (!rec) { alert('Primero elige en la lista el recipiente al que pertenece este peso (o créalo en ⚖️ Recipientes).'); return; }
+  if (reg.vacio === null || reg.vacio === undefined) { alert('Escribe primero el peso del recipiente vacío.'); return; }
+  rec.mediciones = rec.mediciones || []; rec.mediciones.push(reg.vacio);
+  rec.tara = +(rec.mediciones.reduce((s, x) => s + x, 0) / rec.mediciones.length).toFixed(2);
+  reg.tara = rec.tara; saveToDrive(); psRender(); psActualizar();
+}
+function psKey(e) {
+  if (e.key !== 'Enter' || !e.target.classList || !e.target.classList.contains('ps-in')) return;
+  e.preventDefault();
+  const todos = [...document.querySelectorAll('#ps-contenido .ps-in')]; const i = todos.indexOf(e.target);
+  if (i >= 0 && todos[i + 1]) todos[i + 1].focus();
+}
+function psProgramarGuardado() { clearTimeout(psTimer); psTimer = setTimeout(() => psGuardar(true), 4000); }
+function psGuardar(silencioso) {
+  if (!psLote) return;
+  clearTimeout(psTimer);
+  psLote.pesaje.actualizado = new Date().toISOString();
+  const p = saveToDrive();
+  const el = document.getElementById('ps-guardado');
+  if (el) { const d = new Date(); el.textContent = `✓ Guardado ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
+  return p;
+}
+function psCerrar() { psGuardar(true); psAbierta = false; closeModal('modal-pesaje'); try { renderAll(); } catch (e) {} }
+function psExportarCSV() {
+  if (!psLote) return;
+  const c = psCalcular(psLote), p = psLote.pesaje;
+  const q = (s) => '"' + String(s === null || s === undefined ? '' : s).replace(/"/g, '""') + '"';
+  const n = (v) => (v === null || v === undefined || isNaN(v)) ? '' : (+v).toFixed(2);
+  const L = [['Lote', 'Concepto', 'Base (g)', 'Objetivo (g)', 'Bruto báscula (g)', 'Agregado (g)', 'Real (g)', 'Desviación (g)', 'Desviación (%)'].map(q).join(',')];
+  p.botes.forEach((b, i) => L.push([psLote.codigo, `${b.etiqueta}: lleno ${n(b.bruto)} − tara ${n(b.tara)} = neta`, '', '', n(b.bruto), '', n(c.netos[i]), '', ''].map(q).join(',')));
+  c.rows.forEach(r => L.push([psLote.codigo, r.etiqueta, n(r.base), n(r.objetivo), n(r.bruto), n(r.agregado), n(r.real), n(r.desv), r.desvPct === null ? '' : r.desvPct.toFixed(1)].map(q).join(',')));
+  const blob = new Blob(['\ufeff' + L.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Pesaje ${psLote.codigo}.csv`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function psHtmlResumenHistorial(lote) {
+  const c = psCalcular(lote);
+  const fila = (t, v) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-soft);"><span style="opacity:0.65;">${t}</span><span style="text-align:right;">${v}</span></div>`;
+  const botes = lote.pesaje.botes.map((b, i) => (b.bruto === null || b.bruto === undefined) ? '' : fila(`${b.etiqueta} — esencia neta`, `lleno ${psFmt(b.bruto)} − tara ${psFmt(b.tara)} = <strong>${psFmt(c.netos[i])} g</strong>`)).join('');
+  const pasos = c.rows.filter(r => r.real !== null).map(r => fila(r.etiqueta, `objetivo ${psFmt(r.objetivo)} g · real <strong>${psFmt(r.real)} g</strong> (${psSigno(r.desv)} g) ${r.ok ? '✓' : '⚠️'}`)).join('');
+  return `<div class="card" style="margin-bottom:14px;"><div class="card-title" style="font-size:14px;">⚖️ Registro de pesaje</div>${botes}${pasos}<div style="font-size:11px;opacity:0.6;margin-top:6px;">Tolerancia usada: ${psFmt(lote.pesaje.tol)} g</div></div>`;
 }
 
 function addDays(dateStr, days) {
@@ -13839,14 +14437,7 @@ function advertirSiAntesDeTiempo(fechaReal, fechaSugerida, nombreEtapa) {
   return confirm(`⚠️ La ${nombreEtapa} no ha alcanzado el tiempo planificado.\n\nFecha sugerida de finalización: ${formatFecha(fechaSugerida)} (faltan ${diasFaltantes} día${diasFaltantes!==1?'s':''}).\n\n¿Deseas continuar de todos modos?`);
 }
 
-function confirmarFinPrediluccion(loteId) {
-  const lote = db.lotes.find(l => l.id === loteId);
-  if (!lote) return;
-  const alcoholFaltante = Math.max(0, (lote.formula?.alcohol||0) - 20);
-  alert(`🧪 Al unir los recipientes A + B para iniciar la Maceración, agrega ${alcoholFaltante.toFixed(2)}g más de Alcohol 95° (el recipiente A ya lleva 20g, y la fórmula de este lote necesita ${(lote.formula?.alcohol||0).toFixed(2)}g en total).`);
-  const fechaFinReal = prompt('Fecha en que terminó la predilución y comenzó la mezcla completa (AAAA-MM-DD):', hoyISO());
-  if (!fechaFinReal) return;
-  if (!advertirSiAntesDeTiempo(fechaFinReal, lote.estados.prediluccion.fechaFinSugerida, 'Predilución')) return;
+function finalizarPrediluccion(lote, fechaFinReal) {
   lote.estados.prediluccion.fechaFinReal = fechaFinReal;
   lote.estados.prediluccion.confirmado = true;
   lote.estados.maceracion.fechaInicio = fechaFinReal;
@@ -13854,6 +14445,88 @@ function confirmarFinPrediluccion(loteId) {
   lote.estadoActual = 'maceracion';
   saveToDrive();
   renderAll();
+}
+
+function confirmarFinPrediluccion(loteId) {
+  const lote = db.lotes.find(l => l.id === loteId);
+  if (!lote) return;
+  const restante = alcoholRestanteLote(lote);
+  // V106: el alcohol restante se descuenta del stock AHORA (al unir A + B), no al crear el lote.
+  if (alcoholPendienteDescontar(lote) && restante > 0.01) { abrirModalAlcoholRestante(loteId); return; }
+  alert(`🧪 Al unir los recipientes A + B para iniciar la Maceración, agrega ${restante.toFixed(2)}g más de Alcohol 95° (el recipiente A ya lleva ${alcoholALote(lote).toFixed(2)}g, y la fórmula de este lote necesita ${(lote.formula?.alcohol||0).toFixed(2)}g en total).`);
+  const fechaFinReal = prompt('Fecha en que terminó la predilución y comenzó la mezcla completa (AAAA-MM-DD):', hoyISO());
+  if (!fechaFinReal) return;
+  if (!advertirSiAntesDeTiempo(fechaFinReal, lote.estados.prediluccion.fechaFinSugerida, 'Predilución')) return;
+  finalizarPrediluccion(lote, fechaFinReal);
+}
+
+// ── V106: pantalla del alcohol restante (se elige el registro y recién ahí se descuenta) ──
+let arSeleccionados = [];
+function abrirModalAlcoholRestante(loteId) {
+  const lote = db.lotes.find(l => l.id === loteId); if (!lote) return;
+  const rest = alcoholRestanteLote(lote);
+  arSeleccionados = [];
+  document.getElementById('ar-lote-id').value = loteId;
+  document.getElementById('ar-resumen').innerHTML = `Al unir A + B agrega <strong>${rest.toFixed(2)}g</strong> más de Alcohol 95° (el recipiente A ya lleva ${alcoholALote(lote).toFixed(2)}g de los ${(lote.formula?.alcohol||0).toFixed(2)}g que necesita <strong>${lote.codigo}</strong>). Elige de qué registro salió: al confirmar se descuenta del stock.`;
+  document.getElementById('ar-fecha').value = hoyISO();
+  const act = gruposActivosInsumo('Alcohol 95°').filter(g => (g.stock||0) > 0.001).sort((a,b) => (a.fechaRegistro||'').localeCompare(b.fechaRegistro||''));
+  if (act.length) arSeleccionados.push({ grupoId: act[0].id, gramos: +Math.min(act[0].stock, rest).toFixed(2) });
+  renderModalAlcoholRestante();
+  openModal('modal-alcohol-restante');
+}
+function renderModalAlcoholRestante() {
+  const lote = db.lotes.find(l => l.id === parseFloat(document.getElementById('ar-lote-id').value)); if (!lote) return;
+  const rest = alcoholRestanteLote(lote);
+  const usadosIds = arSeleccionados.map(s => s.grupoId);
+  const disp = gruposActivosInsumo('Alcohol 95°').filter(g => !usadosIds.includes(g.id));
+  document.getElementById('ar-lista').innerHTML = arSeleccionados.length
+    ? arSeleccionados.map((s, idx) => {
+        const g = gruposActivosInsumo('Alcohol 95°').find(x => x.id === s.grupoId);
+        const label = g ? `Alcohol — ${nombreCortoProveedor(g.proveedor)||'Sin proveedor'} · Stock: ${(g.stock||0).toFixed(2)}g` : '(registro no encontrado)';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:6px;margin-bottom:6px;font-size:12px;"><span>${label} — usando <strong>${s.gramos.toFixed(2)}g</strong></span><button type="button" class="btn btn-danger btn-sm" title="Quitar este registro (para elegir otro)" onclick="quitarRegistroAlcoholRestante(${idx})">✕</button></div>`;
+      }).join('')
+    : '<div style="font-size:12px;color:#56CCF2;opacity:0.85;padding:4px 0;">Aún no has seleccionado ningún registro.</div>';
+  const total = arSeleccionados.reduce((s,x) => s + x.gramos, 0);
+  const falta = Math.max(0, rest - total);
+  const cubierto = arSeleccionados.length > 0 && total >= rest - 0.2;
+  document.getElementById('ar-agregar').style.display = cubierto ? 'none' : 'flex';
+  document.getElementById('ar-nuevo').innerHTML = disp.length
+    ? disp.map(g => `<option value="${g.id}">Alcohol — ${nombreCortoProveedor(g.proveedor)||'Sin proveedor'} · Stock: ${(g.stock||0).toFixed(2)}g</option>`).join('')
+    : '<option value="">— Sin más registros disponibles —</option>';
+  document.getElementById('ar-nuevo-gramos').value = falta > 0 ? falta.toFixed(2) : '';
+  const diff = Math.abs(total - rest);
+  document.getElementById('ar-check').innerHTML = !arSeleccionados.length ? '' : (diff <= 0.2
+    ? `<span style="color:#7CB87C;">✓ Cubierto: ${total.toFixed(2)}g de ${rest.toFixed(2)}g</span>`
+    : `<span style="color:#FF2D2D;">⚠️ ${total.toFixed(2)}g seleccionados de ${rest.toFixed(2)}g necesarios (diferencia: ${diff.toFixed(2)}g)</span>`);
+}
+function usarRegistroAlcoholRestante() {
+  const grupoId = parseFloat(document.getElementById('ar-nuevo').value);
+  const gramos = parseFloat(document.getElementById('ar-nuevo-gramos').value);
+  if (!grupoId) { alert('No hay más registros de alcohol disponibles.'); return; }
+  if (!gramos || gramos <= 0) { alert('Ingresa cuántos gramos usarás de este registro.'); return; }
+  const g = gruposActivosInsumo('Alcohol 95°').find(x => x.id === grupoId);
+  if (g && gramos > (g.stock||0) + 0.001) { alert(`Este registro solo tiene ${(g.stock||0).toFixed(2)}g disponibles.`); return; }
+  arSeleccionados.push({ grupoId, gramos });
+  renderModalAlcoholRestante();
+}
+function quitarRegistroAlcoholRestante(idx) { arSeleccionados.splice(idx, 1); renderModalAlcoholRestante(); }
+function confirmarAlcoholRestante() {
+  const lote = db.lotes.find(l => l.id === parseFloat(document.getElementById('ar-lote-id').value)); if (!lote) return;
+  const rest = alcoholRestanteLote(lote);
+  const fecha = document.getElementById('ar-fecha').value;
+  if (!fecha) { alert('Ingresa la fecha en que terminó la predilución.'); return; }
+  const total = arSeleccionados.reduce((s,x) => s + x.gramos, 0);
+  if (!arSeleccionados.length || Math.abs(total - rest) > 0.2) {
+    if (!confirm(`⚠️ Seleccionaste ${total.toFixed(2)}g de Alcohol 95° y este paso necesita ${rest.toFixed(2)}g.\n\n¿Continuar igual?`)) return;
+  }
+  if (!advertirSiAntesDeTiempo(fecha, lote.estados.prediluccion.fechaFinSugerida, 'Predilución')) return;
+  const detalle = descontarDeGruposInsumoManual('Alcohol 95°', arSeleccionados, fecha);
+  lote.insumosUsados = lote.insumosUsados || {};
+  lote.insumosUsados.alcoholRestante = detalle;
+  lote.alcoholRestanteDescontado = true;
+  actualizarCostoLoteReal(lote);
+  closeModal('modal-alcohol-restante');
+  finalizarPrediluccion(lote, fecha);
 }
 
 // ── Avanzar de Maceración a Refrigerado (o directo a Enfrascado si no aplica refrigeración) ──
@@ -13954,7 +14627,15 @@ function revertirUltimoProceso(loteId) {
   }
 
   if (actual === 'maceracion') {
-    if (!confirm('¿Revertir este lote de "Enfrascado de Maceración" de vuelta a "Predilución"?\n\nSe perderá la fecha de fin de predilución registrada. Esta acción no se puede deshacer.')) return;
+    const devolverAlcohol = lote.alcoholRestanteDescontado === true && ((lote.insumosUsados && lote.insumosUsados.alcoholRestante) || []).length > 0;
+    const extraAlc = devolverAlcohol ? `\n\nTambién se devolverán al stock los ${lote.insumosUsados.alcoholRestante.reduce((s,d) => s + (d.gramos||0), 0).toFixed(2)}g de alcohol restante que se descontaron al terminar la predilución.` : '';
+    if (!confirm('¿Revertir este lote de "Enfrascado de Maceración" de vuelta a "Predilución"?\n\nSe perderá la fecha de fin de predilución registrada.' + extraAlc + ' Esta acción no se puede deshacer.')) return;
+    if (devolverAlcohol) {
+      devolverGramosAGrupos('Alcohol 95°', lote.insumosUsados.alcoholRestante);
+      delete lote.insumosUsados.alcoholRestante;
+      lote.alcoholRestanteDescontado = false;
+      actualizarCostoLoteReal(lote);
+    }
     lote.estados.prediluccion.confirmado = false;
     lote.estados.prediluccion.fechaFinReal = null;
     lote.estados.maceracion.fechaInicio = null;
@@ -14099,6 +14780,9 @@ function eliminarLote(id) {
     return;
   }
   if (!confirm('¿Eliminar este lote?')) return;
+  if (lote && !lote.loteMadreId && !(lote.estados && lote.estados.enfrascado && lote.estados.enfrascado.confirmado) && (lote.insumosUsados || (lote.botesEsenciaIds || []).length)) {
+    if (confirm('¿Devolver al stock los insumos y el/los bote(s) de esencia que este lote ya descontó?\n\nAceptar = se devuelven (úsalo si el lote fue una prueba o error y NO se preparó físicamente).\nCancelar = se eliminan sin devolver (úsalo si el perfume sí se preparó).')) devolverStockLote(lote);
+  }
   if (lote && lote.loteMadreId) {
     const madre = db.lotes.find(m => m.id === lote.loteMadreId);
     if (madre) {
@@ -14208,15 +14892,16 @@ function construirHistorialLoteHtml(lote) {
     <div class="card-title" style="font-size:14px;">🧪 Insumos usados (fórmula)</div>
     ${fila('Esencia', `${formula.esencia||0}g`)}
     ${botes.length ? botes.map((b,idx) => fila(`Bote de esencia usado${botes.length>1?' #'+(idx+1):''}`, `${b.presentacion} · ${b.proveedor || 'Sin proveedor'} · $${b.costo.toFixed(2)} · comprado el ${formatFecha(b.fechaRegistro)}`)).join('') : fila('Bote de esencia usado', '—')}
-    ${fila('Alcohol 95°', `${(formula.alcohol||0).toFixed(2)}g${detalleInsumo(iu.alcohol) ? ' · ' + detalleInsumo(iu.alcohol) : ''}`)}
+    ${fila('Alcohol 95°', `${(formula.alcohol||0).toFixed(2)}g${detalleInsumo(alcoholDetalleTotal(iu)) ? ' · ' + detalleInsumo(alcoholDetalleTotal(iu)) : ''}`)}
     ${fila('IPADEO', `${(formula.ipadeo||0).toFixed(2)}g${detalleInsumo(iu.ipadeo) ? ' · ' + detalleInsumo(iu.ipadeo) : ''}`)}
     ${fila('Cimalide 50', `${(formula.cimalide||0).toFixed(2)}g${detalleInsumo(iu.cimalide) ? ' · ' + detalleInsumo(iu.cimalide) : ''}`)}
     ${fila('Propilenglicol', `${(formula.pg||0).toFixed(2)}g${detalleInsumo(iu.pg) ? ' · ' + detalleInsumo(iu.pg) : ''}`)}
     ${fila('Volumen real del batch (referencia)', `~${(formula.volumenMl||0).toFixed(2)}ml`)}
     ${fila('Volumen nominal (base para repartir costo)', `${(formula.volumenNominal||formula.volumenMl||0).toFixed(0)}ml`)}
-    ${fila('Alcohol restante por agregar al iniciar Maceración', `<strong style="color:var(--gold);">${Math.max(0,(formula.alcohol||0)-20).toFixed(2)}g</strong> (Recipiente A ya lleva 20g)`)}
+    ${fila('Alcohol restante por agregar al iniciar Maceración', `<strong style="color:var(--gold);">${alcoholRestanteLote(lote).toFixed(2)}g</strong> (Recipiente A ya lleva ${alcoholALote(lote).toFixed(2)}g${alcoholPendienteDescontar(lote) ? ' · aún sin descontar del stock' : ''})`)}
   </div>`;
 
+  if (lote.pesaje && psTieneDatos(lote)) html += psHtmlResumenHistorial(lote);
   const costoTotalMostrar = lote.estados.enfrascado?.confirmado ? lote.estados.enfrascado.costoTotal : lote.costoMaterialesBatch;
   const costoLabel = lote.estados.enfrascado?.confirmado ? 'Costo de producción total (final)' : 'Costo de materiales (estimado — aún sin enfrascar)';
   html += `<div class="card" style="margin-bottom:14px;">
@@ -14324,8 +15009,8 @@ function renderLotes() {
     // Botón de acción según estado actual
     let accionHtml = '';
     if (actual === 'prediluccion') {
-      const alcoholFaltanteCard = Math.max(0, (lote.formula?.alcohol||0) - 20);
-      accionHtml = `<div style="color:#56CCF2;font-size:11px;opacity:0.6;margin-bottom:6px;">🧪 Al unir A+B, agregar ${alcoholFaltanteCard.toFixed(2)}g más de Alcohol 95°</div><button class="btn btn-primary btn-sm" onclick="confirmarFinPrediluccion(${lote.id})">✓ Confirmar fin de predilución → pasar a Enfrascado de Maceración</button>`;
+      const alcoholFaltanteCard = alcoholRestanteLote(lote);
+      accionHtml = `<div style="color:#56CCF2;font-size:11px;opacity:0.6;margin-bottom:6px;">🧪 Al unir A+B, agregar ${alcoholFaltanteCard.toFixed(2)}g más de Alcohol 95°</div><button class="btn btn-outline btn-sm" style="margin-right:6px;" onclick="abrirHojaPesaje(${lote.id})">⚖️ Hoja de pesaje</button><button class="btn btn-primary btn-sm" onclick="confirmarFinPrediluccion(${lote.id})">✓ Confirmar fin de predilución → pasar a Enfrascado de Maceración</button>`;
     } else if (actual === 'maceracion') {
       accionHtml = `<button class="btn btn-primary btn-sm" onclick="confirmarFinMaceracion(${lote.id})">✓ Confirmar fin de maceración</button>`;
     } else if (actual === 'refrigerado') {
@@ -14351,7 +15036,7 @@ function renderLotes() {
     if (actual !== 'venta') {
       accionHtml += `<button class="btn btn-outline btn-sm" style="margin-left:6px;" onclick="revertirUltimoProceso(${lote.id})" title="Regresar este lote al proceso anterior">↩️ Revertir último proceso</button>`;
     }
-    accionHtml += `<button class="btn btn-outline btn-sm" style="margin-left:6px;" onclick="exportarFichaLotePDF(${lote.id})" title="Descargar un PDF con todos los datos de este lote, útil como respaldo si aún no está guardado en Drive">📄 Ficha del Lote (PDF)</button>`;
+    accionHtml += `<button class="btn btn-outline btn-sm" style="margin-left:6px;" onclick="exportarFichaLotePDF(${lote.id})" title="Descargar un PDF con todos los datos de este lote, útil como respaldo si aún no está guardado en Drive">📄 Descargar Ficha del Lote (PDF)</button>`;
 
     // Resumen de fechas según estado activo (solo lo relevante, no todo el historial)
     let fechasHtml = '';
@@ -14377,31 +15062,36 @@ function renderLotes() {
     const costoTotalMostrar = lote.estados.enfrascado?.confirmado ? lote.estados.enfrascado.costoTotal : lote.costoMaterialesBatch;
     const costoLabel = lote.estados.enfrascado?.confirmado ? 'Costo producción total' : 'Costo materiales (estimado)';
 
+    const nombreEstadoDias = { prediluccion: 'Predilución', maceracion: 'Maceración', refrigerado: 'Refrigerado y Filtrado', enfrascado: 'Envasado Final', venta: 'Venta' }[actual] || 'este paso';
+    const barColor = (est.pct !== undefined && est.fechaFinSugerida) ? (est.pct < 40 ? '#E5484D' : (est.pct < 90 ? '#E8B931' : '#4CAF50')) : null;
+    const macTxt = nivelLabel || (lote.diasMaceracionSugeridos ? `${lote.diasMaceracionSugeridos} días` : '');
+    const pedidoCodigoHtml = (() => { if (!lote.pedidoId) return ''; const pv = db.pedidos.find(x => x.id === lote.pedidoId); return pv?.codigo ? `<span style="font-size:11px;color:var(--gold-bright);opacity:0.85;font-family:monospace;" title="Pedido vinculado">${pv.codigo}</span>` : ''; })();
+    const desprendidoHtml = lote.loteMadreId ? (() => { const madreRef = db.lotes.find(m => m.id === lote.loteMadreId); return `<span class="badge badge-warn" title="Este lote nació al desprender una porción de otro">↳ Desprendido de ${madreRef ? madreRef.codigo : '—'}</span>`; })() : '';
+
     return `<div class="card" style="${vendido?'opacity:0.5;':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
         <div>
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
             <div style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold-light);">${lote.esenciaNombre}</div>
-            ${lote.codigo ? `<span style="font-size:11px;color:#56CCF2;opacity:0.85;font-family:monospace;">${lote.codigo}</span>` : ''}
-          </div>
-          <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
-            <span class="badge badge-${lote.estandar.toLowerCase()}">Std ${lote.estandar}</span>
-            <span class="badge ${est.badge}">${est.label}</span>
-            ${lote.clienteNombre ? `<span style="font-size:12px;opacity:0.6;">👤 ${lote.clienteNombre}</span>` : '<span style="font-size:12px;opacity:0.4;">Para stock</span>'}
-            ${(() => { if (!lote.pedidoId) return ''; const pv = db.pedidos.find(x => x.id === lote.pedidoId); return pv?.codigo ? `<span style="font-size:11px;color:var(--gold-bright);opacity:0.85;font-family:monospace;" title="Pedido vinculado">${pv.codigo}</span>` : ''; })()}
+            ${lote.clienteNombre ? `<span style="font-size:13px;color:var(--gold-light);">👤 ${lote.clienteNombre}</span>` : '<span style="font-size:13px;opacity:0.5;">Para stock</span>'}
+            ${pedidoCodigoHtml}
             ${!vendido ? `<span style="font-size:11px;color:var(--gold-light);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;" onclick="editarPedidoVinculadoLote(${lote.id})" title="Cambiar a qué pedido está vinculado este lote">✏️ cambiar</span>` : ''}
-            ${lote.loteMadreId ? (() => { const madreRef = db.lotes.find(m => m.id === lote.loteMadreId); return `<span class="badge badge-warn" title="Este lote nació al desprender una porción de otro">↳ Desprendido de ${madreRef ? madreRef.codigo : '—'}</span>`; })() : ''}
+            ${desprendidoHtml}
           </div>
-          ${fechasHtml}
+          <div style="margin-top:4px;font-size:12px;color:#56CCF2;">${lote.codigo ? `<span style="font-family:monospace;">${lote.codigo}</span> · ` : ''}Volumen del batch: <strong>${volumenLote}</strong></div>
+          <div style="margin-top:3px;font-size:12px;color:var(--gold-light);">${lote.familia || '—'}${macTxt ? ` · Maceración sugerida: ${macTxt}` : ''}</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+            <span class="badge ${est.badge}">${est.label}</span>
+            ${fechasHtml}
+          </div>
         </div>
         <div style="text-align:right;">
           <div class="stock-num" style="color:var(--gold);font-size:30px;">${Math.max(0,est.dias)}</div>
-          <div style="font-size:11px;color:#56CCF2;opacity:0.9;">días en este paso${pctTexto}</div>
+          <div style="font-size:11px;color:#56CCF2;opacity:0.9;">días en ${nombreEstadoDias}${pctTexto}</div>
         </div>
       </div>
-      ${est.pct !== undefined ? `<div class="progress-wrap" style="margin:14px 0 8px;"><div class="progress-bar" style="width:${Math.min(100,est.pct)}%"></div></div>` : ''}
+      ${est.pct !== undefined ? `<div class="progress-wrap" style="margin:14px 0 10px;height:14px;"><div class="progress-bar" style="width:${Math.max(2, Math.min(100, est.pct))}%;${barColor ? `background:${barColor};` : ''}"></div></div>` : ''}
       <div class="timeline">${pasosHtml}</div>
-      <div style="font-size:12px;color:#56CCF2;opacity:0.9;margin-top:10px;">Volumen del batch: ${volumenLote}</div>
       ${(lote.loteHijoIds && lote.loteHijoIds.length) ? `<div style="font-size:11px;color:#56CCF2;opacity:0.9;margin-top:6px;">Derivados: ${lote.loteHijoIds.map(hid => {
         const h = db.lotes.find(x => x.id === hid);
         if (!h) return '';
@@ -14412,7 +15102,7 @@ function renderLotes() {
         💰 ${costoLabel}: $${(costoTotalMostrar||0).toFixed(2)} <span style="opacity:0.5;font-size:11px;">(ver detalle)</span>
       </div>
       <div style="display:flex;gap:6px;margin-top:12px;align-items:center;flex-wrap:wrap;">
-        <div style="flex:1;">${accionHtml}</div>
+        <div style="flex:1;">${actual !== 'prediluccion' && lote.pesaje && psTieneDatos(lote) ? `<button class="btn btn-outline btn-sm" style="margin-right:6px;" onclick="abrirHojaPesaje(${lote.id})">⚖️ Ver pesaje</button>` : ''}${accionHtml}</div>
         <button class="btn btn-outline btn-sm" onclick="mostrarHistorialLote(${lote.id})" title="Ver todo el historial registrado de este lote">📜 Historial completo</button>
         ${p27LoteFinalizado(lote) ? `<button class="btn btn-outline btn-sm" onclick="abrirObservaciones(${lote.id})" title="Anota cómo salió este lote: positivo, negativo o neutro">📝 Observaciones${(lote.observaciones || []).length ? ` (${lote.observaciones.length})` : ''}</button>` : ''}
         ${editarBtn}
@@ -15651,6 +16341,10 @@ function poblarFiltrosMaterialUsado() {
   if (selProveedor) { const val = selProveedor.value; selProveedor.innerHTML = '<option value="">Todos</option>' + proveedoresUnicos.map(p => `<option value="${p}">${p}</option>`).join(''); selProveedor.value = val; }
 }
 
+const MU_TIPOS_INSUMO = ['insumo', 'insumoAditivo'];
+function muPrecioValido(r) { return !(MU_TIPOS_INSUMO.includes(r.tipo) && r.precioEsTotal !== true); }
+function muPrecioTxt(r) { return muPrecioValido(r) ? '$' + (r.precio || 0).toFixed(2) : '—'; }
+function muCostoGTxt(r) { return MU_TIPOS_INSUMO.includes(r.tipo) && r.costoPorGramo ? fmtCostoG(r.costoPorGramo) : '—'; }
 function renderMaterialUsado() {
   const tb = document.getElementById('tabla-material-usado');
   if (!tb) return;
@@ -15673,12 +16367,12 @@ function renderMaterialUsado() {
   if (totalesEl) {
     totalesEl.innerHTML = `
       <div class="ft-item"><div class="ft-num">${filtrado.length}</div><div class="ft-label">Registros</div></div>
-      <div class="ft-item"><div class="ft-num">$${filtrado.reduce((s,r) => s + (r.precio||0), 0).toFixed(2)}</div><div class="ft-label">Valor histórico</div></div>
+      <div class="ft-item"><div class="ft-num">$${filtrado.reduce((s,r) => s + (muPrecioValido(r) ? (r.precio||0) : 0), 0).toFixed(2)}</div><div class="ft-label">Valor histórico</div></div>
     `;
   }
 
   if (!filtrado.length) {
-    tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="es-icon">🗄️</div><p>Sin registros que coincidan con los filtros</p></div></td></tr>';
+    tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="es-icon">🗄️</div><p>Sin registros que coincidan con los filtros</p></div></td></tr>';
     return;
   }
   // Más reciente primero (por fecha de agotado)
@@ -15688,7 +16382,8 @@ function renderMaterialUsado() {
       <td><strong>${r.nombre}</strong></td>
       <td>${r.proveedor || '—'}</td>
       <td>${r.presentacion || '—'}</td>
-      <td class="cell-num">$${(r.precio||0).toFixed(2)}</td>
+      <td class="cell-num">${muPrecioTxt(r)}</td>
+      <td class="cell-num">${muCostoGTxt(r)}</td>
       <td>${formatFecha(r.fechaCompra)}</td>
       <td>${formatFecha(r.fechaAgotado)}</td>
     </tr>`).join('');
