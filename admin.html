@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V107 -->
+<!-- Admin V108 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -2547,26 +2547,26 @@
   </div></div>
 </div>
 
-<!-- MODAL RECIPIENTES Y TARA (V107) -->
+<!-- MODAL RECIPIENTES (V107) -->
 <div class="modal-overlay" id="modal-recipientes" style="z-index:270;">
   <div class="modal" style="max-width:760px;">
     <button type="button" class="modal-close-x" onclick="closeModal('modal-recipientes')" aria-label="Cerrar">✕</button>
     <div class="modal-body">
-    <div class="modal-title">⚖️ Recipientes y tara</div>
-    <div class="alert alert-info" style="font-size:12px;">Pesa cada recipiente <strong>vacío y seco</strong> y anota las mediciones: la tara es su promedio (puedes corregirla a mano). Los botes se enlazan con el proveedor y el tamaño (1 oz / ½ oz) de la esencia para elegir su tara solos. La tabla se va armando con tus primeros lotes.</div>
-    <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Tipo</th><th class="cell-num">Tara (g)</th><th>Mediciones</th><th></th></tr></thead><tbody id="rc-tabla"></tbody></table></div>
+    <div class="modal-title">⚖️ Recipientes (peso vacío)</div>
+    <div class="alert alert-info" style="font-size:12px;"><div>Pesa cada recipiente <strong>vacío y seco</strong> y anota las mediciones: el peso vacío es su promedio (puedes corregirlo a mano). Los botes se enlazan con el proveedor y el tamaño (1 oz / ½ oz) de la esencia, así la app elige sola el peso del bote vacío. La tabla se va armando con tus primeros lotes.</div></div>
+    <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Tipo</th><th class="cell-num">Peso vacío (g)</th><th>Mediciones</th><th></th></tr></thead><tbody id="rc-tabla"></tbody></table></div>
     <div class="card" style="margin-top:14px;">
       <div class="card-title" style="font-size:14px;" id="rc-form-titulo">➕ Nuevo recipiente</div>
       <input type="hidden" id="rc-id">
       <div class="field"><label>Nombre</label><input id="rc-nombre" type="text" placeholder="Ej: Bote 1 oz RQuímica, Frasco ámbar 240 ml, Taza 100 ml"></div>
       <div class="field"><label>Tipo</label>
         <select id="rc-tipo" onchange="rcTipoChange()"><option value="bote">Bote de esencia</option><option value="frasco">Frasco de maceración</option><option value="taza">Taza medidora</option><option value="otro">Otro</option></select></div>
-      <div class="field" id="rc-bote-box" style="display:flex;gap:10px;">
-        <div style="flex:1;"><label>Proveedor del bote</label><select id="rc-proveedor"></select></div>
-        <div style="flex:1;"><label>Tamaño</label><select id="rc-presentacion"><option value="1oz">1 oz</option><option value="0.5oz">½ oz</option></select></div>
+      <div id="rc-bote-box">
+        <div class="field"><label>Proveedor del bote</label><select id="rc-proveedor"></select></div>
+        <div class="field"><label>Tamaño del bote</label><select id="rc-presentacion"><option value="1oz">1 oz</option><option value="0.5oz">½ oz</option></select></div>
       </div>
       <div class="field"><label>Mediciones del recipiente vacío (g), separadas por coma</label><input id="rc-med" type="text" placeholder="10.42, 10.38, 10.45" oninput="rcOnMed()"></div>
-      <div class="field"><label>Tara (g) — promedio de las mediciones, editable</label><input id="rc-tara" type="number" step="0.01" min="0" oninput="rcOnTara()"></div>
+      <div class="field"><label>Peso del recipiente vacío (g) — promedio de las mediciones, editable</label><input id="rc-tara" type="number" step="0.01" min="0" oninput="rcOnTara()"></div>
       <div class="field"><label>Nota (opcional)</label><input id="rc-nota" type="text"></div>
       <div class="modal-actions"><button class="btn btn-outline" onclick="rcNuevo()">Limpiar</button><button class="btn btn-primary" onclick="rcGuardar()">Guardar recipiente</button></div>
     </div>
@@ -13879,6 +13879,9 @@ function guardarLote() {
   if (confirm(`Lote ${lote.codigo} creado.\n\n¿Quieres descargar de una vez su Ficha del Lote en PDF? Es un respaldo con todos sus datos (fórmula, fechas, cliente) por si necesitas consultarlos sin depender de que la app haya guardado correctamente en Drive.`)) {
     exportarFichaLotePDF(lote.id);
   }
+  if (confirm(`¿Abrir ahora la Hoja de pesaje de ${lote.codigo}?\n\nAhí se pesan el bote, el PG, el frasco de maceración (IPADEO y Cimalide) y el alcohol. Si prefieres, también la encuentras después en la tarjeta del lote: botón "⚖️ Hoja de pesaje".`)) {
+    abrirHojaPesaje(lote.id);
+  }
 }
 
 // Ficha de Lote en PDF: una "foto" de todos los datos con los que nació el lote (fórmula en
@@ -13963,7 +13966,7 @@ function exportarFichaLotePDF(loteId) {
   if (lote.pesaje && psTieneDatos(lote)) {
     const c = psCalcular(lote);
     seccion('Registro de pesaje (evidencia)');
-    lote.pesaje.botes.forEach((b, i) => { if (b.bruto !== null && b.bruto !== undefined) linea(`${b.etiqueta} — esencia`, `lleno ${psFmt(b.bruto)} g − tara ${psFmt(b.tara)} g = ${psFmt(c.netos[i])} g neta`); });
+    lote.pesaje.botes.forEach((b, i) => { if (b.bruto !== null && b.bruto !== undefined) linea(`${b.etiqueta} — esencia`, `bote lleno ${psFmt(b.bruto)} g − bote vacío ${psFmt(b.tara)} g = ${psFmt(c.netos[i])} g de esencia neta`); });
     c.rows.forEach(r => { if (r.real !== null) linea(r.etiqueta, `objetivo ${psFmt(r.objetivo)} g · real ${psFmt(r.real)} g · desv. ${psSigno(r.desv)} g${r.desvPct !== null ? ` (${psSigno(r.desvPct, 1)} %)` : ''}`); });
     linea('Tolerancia usada', `${psFmt(lote.pesaje.tol)} g`);
     y += 6;
@@ -14073,10 +14076,14 @@ function rcProveedoresBotes() {
 }
 function rcTipoChange() {
   const tipo = document.getElementById('rc-tipo').value;
-  document.getElementById('rc-bote-box').style.display = tipo === 'bote' ? 'flex' : 'none';
+  document.getElementById('rc-bote-box').style.display = tipo === 'bote' ? 'block' : 'none';
   const sel = document.getElementById('rc-proveedor'); const cur = sel.value;
-  sel.innerHTML = '<option value="">— cualquier proveedor —</option>' + rcProveedoresBotes().map(p => `<option value="${p}">${nombreCortoProveedor(p) || p}</option>`).join('');
-  sel.value = cur;
+  const lista = [...new Set([...listaProveedores(), ...rcProveedoresBotes()])];
+  sel.innerHTML = '';
+  sel.appendChild(new Option('— cualquier proveedor —', ''));
+  lista.forEach(p => sel.appendChild(new Option(nombreCortoProveedor(p) || p, p)));
+  sel.selectedIndex = 0;
+  if (cur && lista.includes(cur)) sel.value = cur;
 }
 function rcRender() {
   const rs = db.recipientes || [];
@@ -14116,7 +14123,7 @@ function rcGuardar() {
   const m = rcParseMed();
   let tara = parseFloat(document.getElementById('rc-tara').value);
   if (!nombre) { alert('Escribe un nombre para el recipiente.'); return; }
-  if (isNaN(tara) || tara <= 0) { if (m.length) tara = m.reduce((s, x) => s + x, 0) / m.length; else { alert('Escribe el peso vacío (tara) o al menos una medición.'); return; } }
+  if (isNaN(tara) || tara <= 0) { if (m.length) tara = m.reduce((s, x) => s + x, 0) / m.length; else { alert('Escribe el peso vacío del recipiente o al menos una medición.'); return; } }
   if (m.length > 1 && Math.max(...m) - Math.min(...m) > 0.3) {
     if (!confirm(`Las mediciones varían ${(Math.max(...m) - Math.min(...m)).toFixed(2)} g entre la menor y la mayor. ¿Guardar igual?`)) return;
   }
@@ -14130,7 +14137,7 @@ function rcGuardar() {
 }
 function rcEliminar(id) {
   const r = (db.recipientes || []).find(x => x.id === id); if (!r) return;
-  if (!confirm(`¿Eliminar el recipiente "${r.nombre}"? Los pesajes ya guardados conservan su tara.`)) return;
+  if (!confirm(`¿Eliminar el recipiente "${r.nombre}"? Los pesajes ya guardados conservan su peso vacío.`)) return;
   db.recipientes = db.recipientes.filter(x => x.id !== id);
   saveToDrive(); rcRender(); psRefrescarPantallasAbiertas();
 }
@@ -14153,12 +14160,12 @@ function renderPesajeBotesLote() {
     return `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;">
       <span style="min-width:56px;">Bote ${i + 1}</span>
       <input type="number" step="0.01" inputmode="decimal" placeholder="Bote lleno (g)" style="width:130px;" value="${st.bruto === null || st.bruto === undefined ? '' : st.bruto}" oninput="psOnBruto(${id}, this.value)">
-      <select style="width:190px;" onchange="psOnTaraSel(${id}, this.value)"><option value="">— tara a mano —</option>${opts}</select>
-      <input type="number" step="0.01" inputmode="decimal" placeholder="Tara (g)" style="width:90px;" id="lpb-tara-${i}" value="${taraVal === null ? '' : taraVal}" oninput="psOnTaraManual(${id}, this.value)">
+      <select style="width:190px;" onchange="psOnTaraSel(${id}, this.value)"><option value="">— escribir el peso a mano —</option>${opts}</select>
+      <input type="number" step="0.01" inputmode="decimal" placeholder="Bote vacío (g)" style="width:90px;" id="lpb-tara-${i}" value="${taraVal === null ? '' : taraVal}" oninput="psOnTaraManual(${id}, this.value)">
       <span>→ neta <strong id="lpb-neto-${i}">—</strong></span>
     </div>`;
   }).join('');
-  box.innerHTML = `<div class="alert alert-info" style="font-size:12px;"><div style="margin-bottom:8px;">⚖️ <strong>Esencia neta desde la báscula</strong> — escribe el peso del bote lleno y elige su tara (se arma en <a href="#" onclick="abrirRecipientes();return false;" style="color:var(--gold-light);">⚖️ Recipientes</a>). Si lo haces aquí, la Hoja de pesaje ya tendrá ese dato.</div>${filas}<div id="lpb-total" style="margin-top:4px;"></div></div>`;
+  box.innerHTML = `<div class="alert alert-info" style="font-size:12px;"><div style="width:100%;"><div style="margin-bottom:10px;">⚖️ <strong>Esencia neta desde la báscula</strong> — escribe lo que marca la báscula con el <strong>bote lleno</strong> y el peso de ese mismo <strong>bote vacío</strong> (elígelo de la lista o escríbelo; la lista se arma en <a href="#" onclick="abrirRecipientes();return false;" style="color:var(--gold-light);">⚖️ Recipientes</a>). La app resta y te da la esencia neta. Si lo haces aquí, la Hoja de pesaje ya tendrá ese dato.</div>${filas}<div id="lpb-total" style="margin-top:4px;"></div></div></div>`;
   psActualizarPesajeBotes();
 }
 function psOnBruto(id, v) { (lPesajeBotes[id] = lPesajeBotes[id] || {}).bruto = psNum(v); psActualizarPesajeBotes(); }
@@ -14184,7 +14191,7 @@ function psActualizarPesajeBotes() {
     if (neto === null || neto <= 0) todos = false; else total += neto;
   });
   const t = document.getElementById('lpb-total');
-  if (t) t.innerHTML = todos ? `✓ Esencia neta total: <strong>${total.toFixed(2)} g</strong> — ya quedó aplicada en "Gramos de esencia".` : 'Escribe el peso de cada bote lleno y elige su tara.';
+  if (t) t.innerHTML = todos ? `✓ Esencia neta total: <strong>${total.toFixed(2)} g</strong> — ya quedó aplicada en "Gramos de esencia".` : 'Escribe el peso de cada bote lleno y el de su bote vacío.';
   if (todos) { document.getElementById('l-gramos-esencia').value = total.toFixed(2); lGramosTocadoManual = true; actualizarCostoLotePreview(); }
 }
 function psPesajeInicialDesdeModal(botes) {
@@ -14208,7 +14215,7 @@ function abrirHojaPesaje(loteId) {
 }
 function psRender() {
   const lote = psLote, p = lote.pesaje, f = lote.formula || {};
-  const optsTara = (tipo, sel) => '<option value="">— a mano —</option>' + psRecipientes(tipo).map(r => `<option value="${r.id}" ${String(r.id) === String(sel) ? 'selected' : ''}>${r.nombre} · ${r.tara.toFixed(2)} g</option>`).join('');
+  const optsTara = (tipo, sel) => '<option value="">— escribir el peso a mano —</option>' + psRecipientes(tipo).map(r => `<option value="${r.id}" ${String(r.id) === String(sel) ? 'selected' : ''}>${r.nombre} · ${r.tara.toFixed(2)} g</option>`).join('');
   const val = (k, i, fld) => { const v = psReg(k, i)[fld]; return (v === null || v === undefined) ? '' : v; };
   const inp = (k, i, fld, ph) => `<input class="ps-in" type="number" step="0.01" inputmode="decimal" placeholder="${ph || 'g'}" data-k="${k}" data-i="${i}" data-f="${fld}" value="${val(k, i, fld)}" oninput="psInput(this)">`;
   const tareRow = (k, i, tipo, label) => `<div class="ps-fila"><span>${label}</span><select onchange="psSelTara('${k}',${i},this.value)">${optsTara(tipo, psReg(k, i).taraId)}</select><input class="ps-in" type="number" step="0.01" inputmode="decimal" id="ps-tara-${k}-${i}" data-k="${k}" data-i="${i}" data-f="tara" style="width:90px;" value="${val(k, i, 'tara')}" oninput="psInput(this)"> g</div>`;
@@ -14217,20 +14224,20 @@ function psRender() {
     <div class="ps-ins"><label>Báscula (bruto)${inp(k, i, 'bruto')}</label><label>Agregado (báscula en 0)${inp(k, i, 'agregado')}</label></div>
     <div class="ps-res" id="ps-res-${key}"></div></div>`;
   const botesHtml = p.botes.map((b, i) => `<div class="ps-bloque"><div class="ps-bt">① Recipiente A — ${b.etiqueta}</div>
-    ${tareRow('bote', i, 'bote', 'Tara del bote')}
+    ${tareRow('bote', i, 'bote', 'Peso del bote vacío')}
     <div class="ps-fila"><span>Bote lleno (báscula)</span>${inp('bote', i, 'bruto')}<span>→ esencia neta <b id="ps-neto-${i}">—</b> g</span></div>
     ${paso('pg' + i, `Propilenglicol — ${b.etiqueta}`, 'pg', i)}</div>`).join('');
   document.getElementById('ps-contenido').innerHTML = `
-    <div class="alert alert-info" style="font-size:12px;">Escribe <strong>solo lo que marca la báscula</strong>: en cada paso puedes poner el peso bruto, lo agregado con la báscula en 0, o ambos (la app compara y avisa si no cuadran). Enter pasa al siguiente campo. Fórmula del lote: esencia ${(f.esencia || 0).toFixed(2)} g · alcohol ${(f.alcohol || 0).toFixed(2)} g · PG ${(f.pg || 0).toFixed(2)} g · IPADEO ${(f.ipadeo || 0).toFixed(2)} g · Cimalide ${(f.cimalide || 0).toFixed(2)} g.</div>
+    <div class="alert alert-info" style="font-size:12px;"><div><div style="margin-bottom:6px;">Escribe <strong>solo lo que marca la báscula</strong>: en cada paso puedes poner el peso bruto, lo agregado con la báscula en 0, o ambos (la app compara y avisa si no cuadran). Enter pasa al siguiente campo.</div><div style="margin-bottom:6px;"><strong>Orden:</strong> ① Bote de esencia (+ Propilenglicol) → ② Frasco de maceración (IPADEO y Cimalide 50) → ③ Taza medidora (alcohol) → ④ Resumen. Baja por la ventana para ver cada paso.</div><div>Fórmula del lote: esencia ${(f.esencia || 0).toFixed(2)} g · alcohol ${(f.alcohol || 0).toFixed(2)} g · PG ${(f.pg || 0).toFixed(2)} g · IPADEO ${(f.ipadeo || 0).toFixed(2)} g · Cimalide ${(f.cimalide || 0).toFixed(2)} g.</div></div></div>
     <div class="ps-fila"><span>Tolerancia aceptada (g)</span><input type="number" step="0.01" id="ps-tol" style="width:90px;" value="${p.tol}" oninput="psOnTol(this.value)"><span style="opacity:0.7;">(compara cada peso real con su objetivo)</span></div>
     <div id="ps-aviso" style="font-size:12px;margin-bottom:10px;"></div>
     ${botesHtml}
     <div class="ps-bloque"><div class="ps-bt">② Recipiente B — frasco de maceración</div>
-      ${tareRow('frasco', 0, 'frasco', 'Frasco (tara de la tabla)')}
+      ${tareRow('frasco', 0, 'frasco', 'Frasco: peso vacío de la tabla')}
       <div class="ps-fila"><span>Frasco vacío pesado hoy (opcional)</span>${inp('frasco', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('frasco')" title="Suma este peso a las mediciones del recipiente elegido">➕ Sumar a la tabla</button></div>
       ${paso('ipadeo', 'IPADEO', 'ipadeo', 0)}${paso('cimalide', 'Cimalide 50', 'cimalide', 0)}</div>
     <div class="ps-bloque"><div class="ps-bt">③ Taza medidora — alcohol</div>
-      ${tareRow('taza', 0, 'taza', 'Taza (tara de la tabla)')}
+      ${tareRow('taza', 0, 'taza', 'Taza: peso vacío de la tabla')}
       <div class="ps-fila"><span>Taza vacía pesada hoy (opcional)</span>${inp('taza', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('taza')">➕ Sumar a la tabla</button></div>
       ${paso('alcA', 'Alcohol 95° — Recipiente A (predilución)', 'alcA', 0)}
       ${paso('alcR', 'Alcohol restante (al unir A + B) — si no cabe en la taza, pésalo por tandas y escribe el total en "Agregado"', 'alcR', 0)}</div>
@@ -14274,7 +14281,7 @@ function psSelTara(k, i, v) {
 function psOnTol(v) { const n = psNum(v); if (n === null || n < 0) return; psLote.pesaje.tol = n; db.pesajeTol = n; psActualizar(); psProgramarGuardado(); }
 function psSumarMedicion(k) {
   const reg = psReg(k, 0), rec = psRecPorId(reg.taraId);
-  if (!rec) { alert('Primero elige en la lista el recipiente al que pertenece este peso (o créalo en ⚖️ Recipientes).'); return; }
+  if (!rec) { alert('Primero elige en la lista el recipiente al que pertenece este peso vacío (o créalo en ⚖️ Recipientes).'); return; }
   if (reg.vacio === null || reg.vacio === undefined) { alert('Escribe primero el peso del recipiente vacío.'); return; }
   rec.mediciones = rec.mediciones || []; rec.mediciones.push(reg.vacio);
   rec.tara = +(rec.mediciones.reduce((s, x) => s + x, 0) / rec.mediciones.length).toFixed(2);
@@ -14303,7 +14310,7 @@ function psExportarCSV() {
   const q = (s) => '"' + String(s === null || s === undefined ? '' : s).replace(/"/g, '""') + '"';
   const n = (v) => (v === null || v === undefined || isNaN(v)) ? '' : (+v).toFixed(2);
   const L = [['Lote', 'Concepto', 'Base (g)', 'Objetivo (g)', 'Bruto báscula (g)', 'Agregado (g)', 'Real (g)', 'Desviación (g)', 'Desviación (%)'].map(q).join(',')];
-  p.botes.forEach((b, i) => L.push([psLote.codigo, `${b.etiqueta}: lleno ${n(b.bruto)} − tara ${n(b.tara)} = neta`, '', '', n(b.bruto), '', n(c.netos[i]), '', ''].map(q).join(',')));
+  p.botes.forEach((b, i) => L.push([psLote.codigo, `${b.etiqueta}: bote lleno ${n(b.bruto)} − bote vacío ${n(b.tara)} = esencia neta`, '', '', n(b.bruto), '', n(c.netos[i]), '', ''].map(q).join(',')));
   c.rows.forEach(r => L.push([psLote.codigo, r.etiqueta, n(r.base), n(r.objetivo), n(r.bruto), n(r.agregado), n(r.real), n(r.desv), r.desvPct === null ? '' : r.desvPct.toFixed(1)].map(q).join(',')));
   const blob = new Blob(['\ufeff' + L.join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Pesaje ${psLote.codigo}.csv`;
@@ -14312,7 +14319,7 @@ function psExportarCSV() {
 function psHtmlResumenHistorial(lote) {
   const c = psCalcular(lote);
   const fila = (t, v) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-soft);"><span style="opacity:0.65;">${t}</span><span style="text-align:right;">${v}</span></div>`;
-  const botes = lote.pesaje.botes.map((b, i) => (b.bruto === null || b.bruto === undefined) ? '' : fila(`${b.etiqueta} — esencia neta`, `lleno ${psFmt(b.bruto)} − tara ${psFmt(b.tara)} = <strong>${psFmt(c.netos[i])} g</strong>`)).join('');
+  const botes = lote.pesaje.botes.map((b, i) => (b.bruto === null || b.bruto === undefined) ? '' : fila(`${b.etiqueta} — esencia neta`, `bote lleno ${psFmt(b.bruto)} − bote vacío ${psFmt(b.tara)} = <strong>${psFmt(c.netos[i])} g</strong>`)).join('');
   const pasos = c.rows.filter(r => r.real !== null).map(r => fila(r.etiqueta, `objetivo ${psFmt(r.objetivo)} g · real <strong>${psFmt(r.real)} g</strong> (${psSigno(r.desv)} g) ${r.ok ? '✓' : '⚠️'}`)).join('');
   return `<div class="card" style="margin-bottom:14px;"><div class="card-title" style="font-size:14px;">⚖️ Registro de pesaje</div>${botes}${pasos}<div style="font-size:11px;opacity:0.6;margin-top:6px;">Tolerancia usada: ${psFmt(lote.pesaje.tol)} g</div></div>`;
 }
@@ -14467,7 +14474,7 @@ function abrirModalAlcoholRestante(loteId) {
   const rest = alcoholRestanteLote(lote);
   arSeleccionados = [];
   document.getElementById('ar-lote-id').value = loteId;
-  document.getElementById('ar-resumen').innerHTML = `Al unir A + B agrega <strong>${rest.toFixed(2)}g</strong> más de Alcohol 95° (el recipiente A ya lleva ${alcoholALote(lote).toFixed(2)}g de los ${(lote.formula?.alcohol||0).toFixed(2)}g que necesita <strong>${lote.codigo}</strong>). Elige de qué registro salió: al confirmar se descuenta del stock.`;
+  document.getElementById('ar-resumen').innerHTML = `<div>Al unir A + B agrega <strong>${rest.toFixed(2)}g</strong> más de Alcohol 95° (el recipiente A ya lleva ${alcoholALote(lote).toFixed(2)}g de los ${(lote.formula?.alcohol||0).toFixed(2)}g que necesita <strong>${lote.codigo}</strong>). Elige de qué registro salió: al confirmar se descuenta del stock.</div>`;
   document.getElementById('ar-fecha').value = hoyISO();
   const act = gruposActivosInsumo('Alcohol 95°').filter(g => (g.stock||0) > 0.001).sort((a,b) => (a.fechaRegistro||'').localeCompare(b.fechaRegistro||''));
   if (act.length) arSeleccionados.push({ grupoId: act[0].id, gramos: +Math.min(act[0].stock, rest).toFixed(2) });
