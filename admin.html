@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V110 -->
+<!-- Admin V111 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -1005,7 +1005,7 @@
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
       <div>
         <div class="section-title">📜 Materia Prima Usada</div>
-        <div class="section-sub">Historial de esencias, insumos, envases y viñetas ya consumidos o retirados del inventario activo</div>
+        <div class="section-sub">Historial de esencias, insumos, envases y viñetas ya consumidos o retirados del inventario activo, e insumos en uso con lo consumido hasta hoy</div>
       </div>
     </div>
     <div class="filter-bar">
@@ -1037,9 +1037,9 @@
     <div class="table-wrap">
       <table>
         <thead><tr>
-          <th>Tipo</th><th>Nombre del producto</th><th>Proveedor</th><th>Presentación</th><th class="cell-num">Precio de compra</th><th class="cell-num">Costo por g</th><th>Fecha de compra</th><th>Fecha de agotado</th>
+          <th>Tipo</th><th>Nombre del producto</th><th>Proveedor</th><th>Presentación</th><th class="cell-num">Precio de compra</th><th class="cell-num">Valor consumido</th><th class="cell-num">Costo por g</th><th>Fecha de compra</th><th>Fecha de agotado</th>
         </tr></thead>
-        <tbody id="tabla-material-usado"><tr><td colspan="8"><div class="empty-state"><div class="es-icon">🗄️</div><p>Aún no hay materia prima usada o agotada registrada</p></div></td></tr></tbody>
+        <tbody id="tabla-material-usado"><tr><td colspan="9"><div class="empty-state"><div class="es-icon">🗄️</div><p>Aún no hay materia prima usada o agotada registrada</p></div></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -2449,24 +2449,29 @@
       <div class="grid-2">
         <div class="alert alert-info" style="font-size:12px;">
           <div>
-            <strong>Recipiente A</strong>
-            <div class="formula-row" style="border:none;padding:4px 0 0;font-size:12px;"><span class="ing">IPADEO</span><span class="val" id="fp-ipadeo-a">—</span></div>
-            <div class="formula-row" style="border:none;padding:0;font-size:12px;"><span class="ing">Cimalide 50</span><span class="val" id="fp-cimalide-a">—</span></div>
-            <div class="formula-row" style="border:none;padding:0;font-size:12px;"><span class="ing">Alcohol 95°</span><span class="val" id="fp-alcohol-a">20.00g</span></div>
-          </div>
-        </div>
-        <div class="alert alert-info" style="font-size:12px;">
-          <div>
-            <strong>Recipiente B</strong>
+            <strong>Recipiente A — bote de esencia</strong>
             <div class="formula-row" style="border:none;padding:4px 0 0;font-size:12px;"><span class="ing">Esencia</span><span class="val" id="fp-esencia-b">—</span></div>
             <div class="formula-row" style="border:none;padding:0;font-size:12px;"><span class="ing">Propilenglicol</span><span class="val" id="fp-pg-b">—</span></div>
           </div>
         </div>
+        <div class="alert alert-info" style="font-size:12px;">
+          <div>
+            <strong>Recipiente B — frasco de maceración</strong>
+            <div class="formula-row" style="border:none;padding:4px 0 0;font-size:12px;"><span class="ing">IPADEO</span><span class="val" id="fp-ipadeo-a">—</span></div>
+            <div class="formula-row" style="border:none;padding:0;font-size:12px;"><span class="ing">Cimalide 50</span><span class="val" id="fp-cimalide-a">—</span></div>
+            <div class="formula-row" style="border:none;padding:0;font-size:12px;"><span class="ing">Alcohol 95° (primera parte)</span><span class="val" id="fp-alcohol-a">20.00g</span></div>
+          </div>
+        </div>
       </div>
       <div class="alert alert-info" style="font-size:12px;margin-top:10px;">
-        <strong>Enfrascado de Maceración (unir A + B)</strong>
-        <div class="formula-row" style="border:none;padding:6px 0 0;">
-          <span class="ing">Recipiente A + Recipiente B + Alcohol restante</span><span class="val" id="fp-alcohol-faltante" style="color:var(--gold-light);">50.00g</span>
+        <div style="width:100%;">
+          <strong>Al terminar la predilución (Enfrascado de Maceración)</strong>
+          <div class="formula-row" style="border:none;padding:6px 0 0;">
+            <span class="ing">1. Al Recipiente B (frasco) agrégale el alcohol restante</span><span class="val" id="fp-alcohol-faltante" style="color:var(--gold-light);">50.00g</span>
+          </div>
+          <div class="formula-row" style="border:none;padding:4px 0 0;">
+            <span class="ing">2. Después mezcla el Recipiente A (esencia + PG)</span><span class="val" style="color:var(--gold-light);">—</span>
+          </div>
         </div>
       </div>
       <div style="color:#56CCF2;font-size:11px;opacity:0.55;margin-top:8px;">Reposo de 24–48h, tapado y en oscuridad, durante todo el proceso: Recipiente A, Recipiente B y la Maceración final.</div>
@@ -13212,10 +13217,10 @@ function htmlSelectorInsumoLote(cfg, gramosNecesarios) {
   const esAlcohol = cfg.key === 'alcohol';
   const comp = esAlcohol ? alcoholComprometido() : 0;
   const nota = esAlcohol
-    ? `<div style="font-size:11px;color:#56CCF2;opacity:0.8;margin:0 0 6px;">Solo el alcohol del Recipiente A. El resto se descuenta al confirmar el fin de la predilución.${comp > 0.01 ? ` Ya comprometidos para completar otros lotes en predilución: <strong>${comp.toFixed(2)}g</strong>.` : ''}</div>`
+    ? `<div style="font-size:11px;color:#56CCF2;opacity:0.8;margin:0 0 6px;">Solo el alcohol que va en el Recipiente B (frasco), la primera parte. El resto se descuenta al terminar la predilución.${comp > 0.01 ? ` Ya comprometidos para completar otros lotes en predilución: <strong>${comp.toFixed(2)}g</strong>.` : ''}</div>`
     : '';
   return `<div class="field">
-    <label>${cfg.label} <span style="opacity:0.5;font-weight:400;">— necesita ~${(gramosNecesarios||0).toFixed(2)}g${esAlcohol ? ' (Recipiente A)' : ''}</span></label>
+    <label>${cfg.label} <span style="opacity:0.5;font-weight:400;">— necesita ~${(gramosNecesarios||0).toFixed(2)}g${esAlcohol ? ' (Recipiente B)' : ''}</span></label>
     ${nota}
     <div id="ins-${cfg.key}-lista" style="margin-bottom:6px;"></div>
     <div id="ins-${cfg.key}-agregar" style="display:flex;gap:6px;align-items:flex-end;">
@@ -13794,7 +13799,7 @@ function guardarLote() {
     if (!seleccionados.length) {
       faltantes.push(`${cfg.label}: no has elegido de cuál registro se descuenta`);
     } else if (Math.abs(totalUsado - gramosNecesariosInsumoLote(cfg, formula)) > 0.2) {
-      faltantes.push(`${cfg.label}: seleccionaste ${totalUsado.toFixed(2)}g, ${cfg.key === 'alcohol' ? 'el Recipiente A necesita' : 'la fórmula necesita'} ${gramosNecesariosInsumoLote(cfg, formula).toFixed(2)}g`);
+      faltantes.push(`${cfg.label}: seleccionaste ${totalUsado.toFixed(2)}g, ${cfg.key === 'alcohol' ? 'el Recipiente B necesita' : 'la fórmula necesita'} ${gramosNecesariosInsumoLote(cfg, formula).toFixed(2)}g`);
     }
   });
   if (faltantes.length) {
@@ -14057,8 +14062,8 @@ function psCalcular(lote) {
   const ip = paso('ipadeo', 'IPADEO', baseFrasco, f.ipadeo || 0, p.ipadeo);
   paso('cimalide', 'Cimalide 50', ip.brutoFinal !== null ? ip.brutoFinal : null, f.cimalide || 0, p.cimalide);
   const baseTaza = (p.taza.vacio !== null && p.taza.vacio !== undefined) ? p.taza.vacio : (p.taza.tara === undefined ? null : p.taza.tara);
-  paso('alcA', 'Alcohol 95° — Recipiente A (predilución)', baseTaza, alcoholALote(lote), p.alcA);
-  paso('alcR', 'Alcohol restante (al unir A + B)', baseTaza, alcoholRestanteLote(lote), p.alcR);
+  paso('alcA', 'Alcohol 95° → Recipiente B (primera parte)', baseTaza, alcoholALote(lote), p.alcA);
+  paso('alcR', 'Alcohol restante (al terminar la predilución)', baseTaza, alcoholRestanteLote(lote), p.alcR);
   const suma = (pref) => { const rr = rows.filter(r => r.key.indexOf(pref) === 0 && r.real !== null); return rr.length ? rr.reduce((s, r) => s + r.real, 0) : null; };
   const get = (k) => { const r = rows.find(x => x.key === k); return r ? r.real : null; };
   const resumen = [
@@ -14066,7 +14071,7 @@ function psCalcular(lote) {
     { etiqueta: 'Propilenglicol', formula: f.pg || 0, real: suma('pg') },
     { etiqueta: 'IPADEO', formula: f.ipadeo || 0, real: get('ipadeo') },
     { etiqueta: 'Cimalide 50', formula: f.cimalide || 0, real: get('cimalide') },
-    { etiqueta: 'Alcohol — Recipiente A', formula: alcoholALote(lote), real: get('alcA') },
+    { etiqueta: 'Alcohol — Recipiente B (primera parte)', formula: alcoholALote(lote), real: get('alcA') },
     { etiqueta: 'Alcohol restante', formula: alcoholRestanteLote(lote), real: get('alcR') },
   ].map(x => ({ ...x, desv: x.real !== null ? x.real - x.formula : null, desvPct: (x.real !== null && x.formula > 0) ? (x.real - x.formula) / x.formula * 100 : null }));
   return { rows, netos, todosNetos, sumNeto, resumen };
@@ -14287,30 +14292,30 @@ function psRender() {
   const inp = (k, i, fld, ph) => `<input class="ps-in" type="number" step="0.01" inputmode="decimal" placeholder="${ph || 'g'}" data-k="${k}" data-i="${i}" data-f="${fld}" value="${val(k, i, fld)}" oninput="psInput(this)">`;
   const tareRow = (k, i, tipo, label) => `<div class="ps-fila"><span>${label}</span><select onchange="psSelTara('${k}',${i},this.value)">${optsTara(tipo, psReg(k, i).taraId)}</select><input class="ps-in" type="number" step="0.01" inputmode="decimal" id="ps-tara-${k}-${i}" data-k="${k}" data-i="${i}" data-f="tara" style="width:90px;" value="${val(k, i, 'tara')}" oninput="psInput(this)"> g</div>`;
   const paso = (key, titulo, k, i) => `<div class="ps-paso"><div class="ps-tit">${titulo}</div>
-    <div class="ps-obj">Objetivo <b id="ps-obj-${key}">—</b> g · desde <b id="ps-base-${key}">—</b> g · llena hasta que marque <b id="ps-bo-${key}">—</b> g</div>
-    <div class="ps-ins"><label>Báscula (bruto)${inp(k, i, 'bruto')}</label><label>Agregado (báscula en 0)${inp(k, i, 'agregado')}</label></div>
+    <div class="ps-obj">Objetivo <b id="ps-obj-${key}">—</b> g agregados · peso en conjunto: desde <b id="ps-base-${key}">—</b> hasta <b id="ps-bo-${key}">—</b> g</div>
+    <div class="ps-ins"><label>Peso agregado desde 0${inp(k, i, 'agregado')}</label><label>Peso en conjunto${inp(k, i, 'bruto')}</label></div>
     <div class="ps-res" id="ps-res-${key}"></div></div>`;
   const filasBote = (b, i) => psLote.esBorrador
     ? `<div class="ps-fila"><span>Bote lleno: <b>${psFmt(b.bruto)}</b> g · bote vacío: <b>${psFmt(b.tara)}</b> g → esencia neta <b id="ps-neto-${i}">—</b> g <span style="opacity:0.6;">(estos dos pesos se escriben en Nuevo Lote)</span></span></div>`
     : `${tareRow('bote', i, 'bote', 'Peso del bote vacío')}
     <div class="ps-fila"><span>Bote lleno (báscula)</span>${inp('bote', i, 'bruto')}<span>→ esencia neta <b id="ps-neto-${i}">—</b> g</span></div>`;
-  const botesHtml = p.botes.map((b, i) => `<div class="ps-bloque"><div class="ps-bt">① Recipiente A — ${b.etiqueta}</div>
+  const botesHtml = p.botes.map((b, i) => `<div class="ps-bloque"><div class="ps-bt">① Recipiente A — bote de esencia + PG · ${b.etiqueta}</div>
     ${filasBote(b, i)}
     ${paso('pg' + i, `Propilenglicol — ${b.etiqueta}`, 'pg', i)}</div>`).join('');
   document.getElementById('ps-contenido').innerHTML = `
-    <div class="alert alert-info" style="font-size:12px;"><div><div style="margin-bottom:6px;">Escribe <strong>solo lo que marca la báscula</strong>: en cada paso puedes poner el peso bruto, lo agregado con la báscula en 0, o ambos (la app compara y avisa si no cuadran). Enter pasa al siguiente campo.</div><div style="margin-bottom:6px;"><strong>Orden:</strong> ① Bote de esencia (+ Propilenglicol) → ② Frasco de maceración (IPADEO y Cimalide 50) → ③ Taza medidora (alcohol) → ④ Resumen. Baja por la ventana para ver cada paso.</div><div>Fórmula del lote: esencia ${(f.esencia || 0).toFixed(2)} g · alcohol ${(f.alcohol || 0).toFixed(2)} g · PG ${(f.pg || 0).toFixed(2)} g · IPADEO ${(f.ipadeo || 0).toFixed(2)} g · Cimalide ${(f.cimalide || 0).toFixed(2)} g.</div></div></div>
+    <div class="alert alert-info" style="font-size:12px;"><div><div style="margin-bottom:6px;">Escribe <strong>solo lo que marca la báscula</strong>: en cada paso puedes poner el peso agregado desde 0, el peso en conjunto, o ambos (la app compara y avisa si no cuadran). Enter pasa al siguiente campo.</div><div style="margin-bottom:6px;"><strong>Orden:</strong> ① Bote de esencia (+ Propilenglicol) → ② Frasco de maceración (IPADEO y Cimalide 50) → ③ Taza medidora (alcohol) → ④ Resumen. Baja por la ventana para ver cada paso.</div><div>Fórmula del lote: esencia ${(f.esencia || 0).toFixed(2)} g · alcohol ${(f.alcohol || 0).toFixed(2)} g · PG ${(f.pg || 0).toFixed(2)} g · IPADEO ${(f.ipadeo || 0).toFixed(2)} g · Cimalide ${(f.cimalide || 0).toFixed(2)} g.</div></div></div>
     <div class="ps-fila"><span>Tolerancia aceptada (g)</span><input type="number" step="0.01" id="ps-tol" style="width:90px;" value="${p.tol}" oninput="psOnTol(this.value)"><span style="opacity:0.7;">(compara cada peso real con su objetivo)</span></div>
     <div id="ps-aviso" style="font-size:12px;margin-bottom:10px;"></div>
     ${botesHtml}
-    <div class="ps-bloque"><div class="ps-bt">② Recipiente B — frasco de maceración</div>
+    <div class="ps-bloque"><div class="ps-bt">② Recipiente B — frasco de maceración (IPADEO, Cimalide y primera parte del alcohol)</div>
       ${tareRow('frasco', 0, 'frasco', 'Frasco: peso vacío de la tabla')}
       <div class="ps-fila"><span>Frasco vacío pesado hoy (opcional)</span>${inp('frasco', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('frasco')" title="Suma este peso a las mediciones del recipiente elegido">➕ Sumar a la tabla</button></div>
       ${paso('ipadeo', 'IPADEO', 'ipadeo', 0)}${paso('cimalide', 'Cimalide 50', 'cimalide', 0)}</div>
     <div class="ps-bloque"><div class="ps-bt">③ Taza medidora — alcohol</div>
       ${tareRow('taza', 0, 'taza', 'Taza: peso vacío de la tabla')}
       <div class="ps-fila"><span>Taza vacía pesada hoy (opcional)</span>${inp('taza', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('taza')">➕ Sumar a la tabla</button></div>
-      ${paso('alcA', 'Alcohol 95° — Recipiente A (predilución)', 'alcA', 0)}
-      ${paso('alcR', 'Alcohol restante (al unir A + B) — se pesa al terminar la predilución, no hace falta para iniciar. Si no cabe en la taza, pésalo por tandas y escribe el total en "Agregado"', 'alcR', 0)}</div>
+      ${paso('alcA', 'Alcohol 95° → Recipiente B (primera parte)', 'alcA', 0)}
+      ${paso('alcR', 'Alcohol restante — se agrega al Recipiente B al terminar la predilución; no hace falta para iniciar. Si no cabe en la taza, pésalo por tandas y escribe el total en "Agregado"', 'alcR', 0)}</div>
     <div class="ps-bloque"><div class="ps-bt">④ Resumen: fórmula vs real</div><div id="ps-resumen"></div></div>`;
 }
 function psActualizar() {
@@ -14326,7 +14331,7 @@ function psActualizar() {
       const col = r.ok === null ? '#56CCF2' : (r.ok ? '#7CB87C' : '#FF2D2D');
       t += `<span style="color:${col};">Real <b>${psFmt(r.real)}</b> g · desviación ${psSigno(r.desv)} g${r.desvPct !== null ? ` (${psSigno(r.desvPct, 1)} %)` : ''} ${r.ok === null ? '' : (r.ok ? '✓' : '⚠️')}</span>`;
     }
-    if (r.cuadra) t += r.cuadra.ok ? ` <span style="color:#7CB87C;">· ✓ báscula y agregado cuadran</span>` : ` <span style="color:#FF2D2D;">· ⚠️ no cuadra: la báscula marca ${psFmt(r.bruto)} g y base + agregado = ${psFmt(r.base + r.agregado)} g (diferencia ${psSigno(r.cuadra.dif)} g)</span>`;
+    if (r.cuadra) t += r.cuadra.ok ? ` <span style="color:#7CB87C;">· ✓ peso en conjunto y agregado cuadran</span>` : ` <span style="color:#FF2D2D;">· ⚠️ no cuadra: el peso en conjunto marca ${psFmt(r.bruto)} g y base + agregado = ${psFmt(r.base + r.agregado)} g (diferencia ${psSigno(r.cuadra.dif)} g)</span>`;
     el.innerHTML = t;
   });
   const av = document.getElementById('ps-aviso');
@@ -14383,7 +14388,7 @@ function psExportarCSV() {
   const c = psCalcular(psLote), p = psLote.pesaje;
   const q = (s) => '"' + String(s === null || s === undefined ? '' : s).replace(/"/g, '""') + '"';
   const n = (v) => (v === null || v === undefined || isNaN(v)) ? '' : (+v).toFixed(2);
-  const L = [['Lote', 'Concepto', 'Base (g)', 'Objetivo (g)', 'Bruto báscula (g)', 'Agregado (g)', 'Real (g)', 'Desviación (g)', 'Desviación (%)'].map(q).join(',')];
+  const L = [['Lote', 'Concepto', 'Base (g)', 'Objetivo (g)', 'Peso en conjunto (g)', 'Peso agregado desde 0 (g)', 'Real (g)', 'Desviación (g)', 'Desviación (%)'].map(q).join(',')];
   p.botes.forEach((b, i) => L.push([psLote.codigo, `${b.etiqueta}: bote lleno ${n(b.bruto)} − bote vacío ${n(b.tara)} = esencia neta`, '', '', n(b.bruto), '', n(c.netos[i]), '', ''].map(q).join(',')));
   c.rows.forEach(r => L.push([psLote.codigo, r.etiqueta, n(r.base), n(r.objetivo), n(r.bruto), n(r.agregado), n(r.real), n(r.desv), r.desvPct === null ? '' : r.desvPct.toFixed(1)].map(q).join(',')));
   const blob = new Blob(['\ufeff' + L.join('\r\n')], { type: 'text/csv;charset=utf-8' });
@@ -14532,9 +14537,9 @@ function confirmarFinPrediluccion(loteId) {
   const lote = db.lotes.find(l => l.id === loteId);
   if (!lote) return;
   const restante = alcoholRestanteLote(lote);
-  // V106: el alcohol restante se descuenta del stock AHORA (al unir A + B), no al crear el lote.
+  // V106: el alcohol restante se descuenta del stock AHORA (al terminar la predilución), no al crear el lote.
   if (alcoholPendienteDescontar(lote) && restante > 0.01) { abrirModalAlcoholRestante(loteId); return; }
-  alert(`🧪 Al unir los recipientes A + B para iniciar la Maceración, agrega ${restante.toFixed(2)}g más de Alcohol 95° (el recipiente A ya lleva ${alcoholALote(lote).toFixed(2)}g, y la fórmula de este lote necesita ${(lote.formula?.alcohol||0).toFixed(2)}g en total).`);
+  alert(`🧪 Para terminar la predilución, en este orden:\n\n1) Al Recipiente B (el frasco con los aceites fijadores y el alcohol) agrégale ${restante.toFixed(2)}g más de Alcohol 95° (el frasco ya lleva ${alcoholALote(lote).toFixed(2)}g y la fórmula de este lote necesita ${(lote.formula?.alcohol||0).toFixed(2)}g en total).\n2) Después mezcla el Recipiente A (el bote con la esencia y el PG).`);
   const fechaFinReal = prompt('Fecha en que terminó la predilución y comenzó la mezcla completa (AAAA-MM-DD):', hoyISO());
   if (!fechaFinReal) return;
   if (!advertirSiAntesDeTiempo(fechaFinReal, lote.estados.prediluccion.fechaFinSugerida, 'Predilución')) return;
@@ -14548,7 +14553,7 @@ function abrirModalAlcoholRestante(loteId) {
   const rest = alcoholRestanteLote(lote);
   arSeleccionados = [];
   document.getElementById('ar-lote-id').value = loteId;
-  document.getElementById('ar-resumen').innerHTML = `<div>Al unir A + B agrega <strong>${rest.toFixed(2)}g</strong> más de Alcohol 95° (el recipiente A ya lleva ${alcoholALote(lote).toFixed(2)}g de los ${(lote.formula?.alcohol||0).toFixed(2)}g que necesita <strong>${lote.codigo}</strong>). Elige de qué registro salió: al confirmar se descuenta del stock.</div>`;
+  document.getElementById('ar-resumen').innerHTML = `<div>Para terminar la predilución: agrega <strong>${rest.toFixed(2)}g</strong> más de Alcohol 95° al <strong>Recipiente B</strong> (el frasco ya lleva ${alcoholALote(lote).toFixed(2)}g de los ${(lote.formula?.alcohol||0).toFixed(2)}g que necesita <strong>${lote.codigo}</strong>) y después mezcla el <strong>Recipiente A</strong> (esencia + PG). Elige de qué registro salió el alcohol: al confirmar se descuenta del stock.</div>`;
   document.getElementById('ar-fecha').value = hoyISO();
   const act = gruposActivosInsumo('Alcohol 95°').filter(g => (g.stock||0) > 0.001).sort((a,b) => (a.fechaRegistro||'').localeCompare(b.fechaRegistro||''));
   if (act.length) arSeleccionados.push({ grupoId: act[0].id, gramos: +Math.min(act[0].stock, rest).toFixed(2) });
@@ -14979,7 +14984,7 @@ function construirHistorialLoteHtml(lote) {
     ${fila('Propilenglicol', `${(formula.pg||0).toFixed(2)}g${detalleInsumo(iu.pg) ? ' · ' + detalleInsumo(iu.pg) : ''}`)}
     ${fila('Volumen real del batch (referencia)', `~${(formula.volumenMl||0).toFixed(2)}ml`)}
     ${fila('Volumen nominal (base para repartir costo)', `${(formula.volumenNominal||formula.volumenMl||0).toFixed(0)}ml`)}
-    ${fila('Alcohol restante por agregar al iniciar Maceración', `<strong style="color:var(--gold);">${alcoholRestanteLote(lote).toFixed(2)}g</strong> (Recipiente A ya lleva ${alcoholALote(lote).toFixed(2)}g${alcoholPendienteDescontar(lote) ? ' · aún sin descontar del stock' : ''})`)}
+    ${fila('Alcohol restante por agregar al Recipiente B al terminar la predilución', `<strong style="color:var(--gold);">${alcoholRestanteLote(lote).toFixed(2)}g</strong> (Recipiente B ya lleva ${alcoholALote(lote).toFixed(2)}g${alcoholPendienteDescontar(lote) ? ' · aún sin descontar del stock' : ''})`)}
   </div>`;
 
   if (lote.pesaje && psTieneDatos(lote)) html += psHtmlResumenHistorial(lote);
@@ -15091,7 +15096,7 @@ function renderLotes() {
     let accionHtml = '';
     if (actual === 'prediluccion') {
       const alcoholFaltanteCard = alcoholRestanteLote(lote);
-      accionHtml = `<div style="color:#56CCF2;font-size:11px;opacity:0.6;margin-bottom:6px;">🧪 Al unir A+B, agregar ${alcoholFaltanteCard.toFixed(2)}g más de Alcohol 95°</div><button class="btn btn-outline btn-sm" style="margin-right:6px;" onclick="abrirHojaPesaje(${lote.id})">⚖️ Hoja de pesaje</button><button class="btn btn-primary btn-sm" onclick="confirmarFinPrediluccion(${lote.id})">✓ Confirmar fin de predilución → pasar a Enfrascado de Maceración</button>`;
+      accionHtml = `<div style="color:#56CCF2;font-size:11px;opacity:0.6;margin-bottom:6px;">🧪 Al terminar la predilución: agregar ${alcoholFaltanteCard.toFixed(2)}g más de Alcohol 95° al Recipiente B (frasco) y luego mezclar el Recipiente A (esencia)</div><button class="btn btn-outline btn-sm" style="margin-right:6px;" onclick="abrirHojaPesaje(${lote.id})">⚖️ Hoja de pesaje</button><button class="btn btn-primary btn-sm" onclick="confirmarFinPrediluccion(${lote.id})">✓ Confirmar fin de predilución → pasar a Enfrascado de Maceración</button>`;
     } else if (actual === 'maceracion') {
       accionHtml = `<button class="btn btn-primary btn-sm" onclick="confirmarFinMaceracion(${lote.id})">✓ Confirmar fin de maceración</button>`;
     } else if (actual === 'refrigerado') {
@@ -16412,7 +16417,7 @@ function limpiarFiltrosMaterialUsado() {
 }
 
 function poblarFiltrosMaterialUsado() {
-  const log = db.materialUsado || [];
+  const log = (db.materialUsado || []).concat(muFilasEnUso());
   const nombresUnicos = [...new Set(log.map(r => r.nombre).filter(Boolean))].sort();
   const proveedoresUnicos = [...new Set(log.map(r => r.proveedor).filter(Boolean))].sort();
 
@@ -16426,6 +16431,28 @@ const MU_TIPOS_INSUMO = ['insumo', 'insumoAditivo'];
 function muPrecioValido(r) { return !(MU_TIPOS_INSUMO.includes(r.tipo) && r.precioEsTotal !== true); }
 function muPrecioTxt(r) { return muPrecioValido(r) ? '$' + (r.precio || 0).toFixed(2) : '—'; }
 function muCostoGTxt(r) { return MU_TIPOS_INSUMO.includes(r.tipo) && r.costoPorGramo ? fmtCostoG(r.costoPorGramo) : '—'; }
+// Insumos que ya se empezaron a usar pero NO se han agotado: se muestran con lo consumido hasta hoy (según el stock de cada registro).
+function muFilasEnUso() {
+  const filas = [];
+  const recorre = (tipo, col) => Object.keys(col || {}).forEach(nombre => {
+    ((col[nombre] && col[nombre].grupos) || []).forEach(g => {
+      const peso = g.pesoOriginal || 0, cpg = g.costoPorGramo || 0;
+      if (g.agotado || !peso) return;
+      const consumido = +(peso - (g.stock || 0)).toFixed(4);
+      if (consumido <= 0.005) return;
+      let cant = ''; try { cant = etiquetaCantidadCompradaInsumo(nombre, peso); } catch (e) { cant = ''; }
+      if (cant && !/g$/.test(cant)) cant += ` (${peso.toFixed(2)}g)`;
+      filas.push({ tipo, nombre, proveedor: g.proveedor || '', enUso: true, pctUso: Math.min(100, consumido / peso * 100), consumido,
+        presentacion: `Compra · ${cant || peso.toFixed(2) + 'g'} · en uso: ${consumido.toFixed(2)}g consumidos`,
+        precioCompra: +(peso * cpg).toFixed(2), precio: +(consumido * cpg).toFixed(2), precioEsTotal: true, costoPorGramo: cpg,
+        fechaCompra: g.fechaRegistro || '', fechaAgotado: '' });
+    });
+  });
+  recorre('insumo', db.insumos); recorre('insumoAditivo', db.insumosAditivos);
+  return filas;
+}
+function muValorConsumido(r) { return (r.enUso || muPrecioValido(r)) ? (r.precio || 0) : 0; }
+function muPrecioCompraTxt(r) { return r.enUso ? '$' + (r.precioCompra || 0).toFixed(2) : muPrecioTxt(r); }
 function renderMaterialUsado() {
   const tb = document.getElementById('tabla-material-usado');
   if (!tb) return;
@@ -16437,7 +16464,7 @@ function renderMaterialUsado() {
   const fDesde = document.getElementById('mu-filtro-desde')?.value || '';
   const fHasta = document.getElementById('mu-filtro-hasta')?.value || '';
 
-  let filtrado = (db.materialUsado || []).slice();
+  let filtrado = (db.materialUsado || []).concat(muFilasEnUso());
   if (fTipo) filtrado = filtrado.filter(r => r.tipo === fTipo);
   if (fNombre) filtrado = filtrado.filter(r => r.nombre === fNombre);
   if (fProveedor) filtrado = filtrado.filter(r => r.proveedor === fProveedor);
@@ -16448,12 +16475,12 @@ function renderMaterialUsado() {
   if (totalesEl) {
     totalesEl.innerHTML = `
       <div class="ft-item"><div class="ft-num">${filtrado.length}</div><div class="ft-label">Registros</div></div>
-      <div class="ft-item"><div class="ft-num">$${filtrado.reduce((s,r) => s + (muPrecioValido(r) ? (r.precio||0) : 0), 0).toFixed(2)}</div><div class="ft-label">Valor histórico</div></div>
+      <div class="ft-item"><div class="ft-num">$${filtrado.reduce((s,r) => s + muValorConsumido(r), 0).toFixed(2)}</div><div class="ft-label">Valor histórico</div></div>
     `;
   }
 
   if (!filtrado.length) {
-    tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="es-icon">🗄️</div><p>Sin registros que coincidan con los filtros</p></div></td></tr>';
+    tb.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="es-icon">🗄️</div><p>Sin registros que coincidan con los filtros</p></div></td></tr>';
     return;
   }
   // Más reciente primero (por fecha de agotado)
@@ -16463,10 +16490,11 @@ function renderMaterialUsado() {
       <td><strong>${r.nombre}</strong></td>
       <td>${r.proveedor || '—'}</td>
       <td>${r.presentacion || '—'}</td>
-      <td class="cell-num">${muPrecioTxt(r)}</td>
+      <td class="cell-num">${muPrecioCompraTxt(r)}</td>
+      <td class="cell-num">${muPrecioValido(r) || r.enUso ? '$' + (r.precio || 0).toFixed(2) : '—'}</td>
       <td class="cell-num">${muCostoGTxt(r)}</td>
       <td>${formatFecha(r.fechaCompra)}</td>
-      <td>${formatFecha(r.fechaAgotado)}</td>
+      <td>${r.enUso ? `<span style="color:#FFD60A;">En uso · ${r.pctUso.toFixed(0)} %</span>` : formatFecha(r.fechaAgotado)}</td>
     </tr>`).join('');
 }
 
