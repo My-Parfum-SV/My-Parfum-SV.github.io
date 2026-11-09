@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V109 -->
+<!-- Admin V110 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -2482,10 +2482,11 @@
       </select>
     </div>
     <div id="maceracion-recomendacion" class="alert alert-info" style="display:none;"></div>
+    <div class="alert alert-info" id="l-pesaje-estado" style="font-size:12px;margin-top:8px;"><div style="width:100%;">⚖️ Elige la esencia y los botes; luego escribe el peso del bote lleno y de su bote vacío para calcular la esencia neta. Después aparecerán aquí los pesajes de inicio.</div></div>
     <div class="field" style="margin-top:8px;"><label>Notas (opcional)</label><textarea id="l-notas" rows="2" placeholder="Observaciones del lote..."></textarea></div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeModal('modal-lote')">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarLote()">Iniciar Predilución</button>
+      <button class="btn btn-primary" id="l-btn-iniciar" disabled style="opacity:0.45;" title="Primero completa los pesajes de inicio" onclick="guardarLote()">Iniciar Predilución</button>
     </div>
   </div></div>
 </div>
@@ -2584,7 +2585,7 @@
       <span id="ps-guardado" style="font-size:11px;opacity:0.7;margin-right:auto;"></span>
       <button class="btn btn-outline" onclick="abrirRecipientes()">⚖️ Recipientes</button>
       <button class="btn btn-outline" onclick="psExportarCSV()">⬇️ CSV</button>
-      <button class="btn btn-primary" onclick="psCerrar()">💾 Guardar y cerrar</button>
+      <button class="btn btn-primary" id="ps-btn-cerrar" onclick="psCerrar()">💾 Guardar y cerrar</button>
     </div>
   </div></div>
 </div>
@@ -13169,6 +13170,7 @@ function crearLoteDesdePedido(pedidoId) {
 
 let lBotesSeleccionados = [];
 let lPesajeBotes = {};
+let lPesajeDraft = null;
 let lGramosTocadoManual = false; // true en cuanto Kike edita el campo de gramos a mano
 
 // ═══════════════ SELECCIÓN MANUAL DE INSUMOS (Fase 3) ═══════════════
@@ -13293,7 +13295,7 @@ function onEsenciaLoteChange() {
   const preview = document.getElementById('formula-preview');
   const info = document.getElementById('lote-familia-info');
   const boteBox = document.getElementById('lote-bote-selector');
-  lBotesSeleccionados = []; lPesajeBotes = {};
+  lBotesSeleccionados = []; lPesajeBotes = {}; lPesajeDraft = null;
   lGramosTocadoManual = false;
   lVolumenNominalTocadoManual = false;
   resetInsumosLoteSeleccionados();
@@ -13691,6 +13693,7 @@ function calcularFormulaLote() {
 }
 
 function actualizarCostoLotePreview() {
+  try { setTimeout(actualizarEstadoPesajeLote, 0); } catch (e) {}
   const id = parseInt(document.getElementById('l-esencia').value);
   const esencia = db.esencias.find(e => e.id === id);
   const out = document.getElementById('costo-lote-preview');
@@ -13778,6 +13781,11 @@ function guardarLote() {
   formula.volumenNominal = parseFloat(document.getElementById('l-volumen-nominal').value) || sugerirVolumenNominal(formula.volumenMl);
   const costoMateriales = calcularCostoMaterialesLote(esencia, std, gramosEsencia, botes);
 
+  // V109b: los pesajes de inicio deben estar hechos antes de iniciar la predilución
+  const borradorPes = psBorradorLote();
+  const penPes = borradorPes ? psPendientesInicio(borradorPes) : { ok: false, faltan: ['esencia neta de los botes'] };
+  if (!penPes.ok) { alert('Antes de iniciar la predilución haz los pesajes de inicio en la Hoja de pesaje.\n\nFaltan: ' + penPes.faltan.join(', ') + '.'); return; }
+
   // ── Validación: cada insumo debe tener al menos un registro específico seleccionado ──
   const faltantes = [];
   INSUMOS_LOTE_CONFIG.forEach(cfg => {
@@ -13824,7 +13832,7 @@ function guardarLote() {
     alcoholPredilucion: alcoholRecipienteA(formula.volumenNominal, formula.alcohol),
     alcoholRestanteDescontado: (formula.alcohol - alcoholRecipienteA(formula.volumenNominal, formula.alcohol)) <= 0.01,
     costeoRegistros: true,
-    pesaje: psPesajeInicialDesdeModal(botes),
+    pesaje: psPesajeFinal(botes),
     // Disponible para "desprender" en Envasado Final — arrancan iguales al total/nominal del batch
     // y se van descontando con cada lote hijo que se envasa, sin importar el orden en que se haga.
     volumenNominalDisponible: formula.volumenNominal,
@@ -13871,16 +13879,14 @@ function guardarLote() {
   // asociada por loteId — esto es lo que permite que su estado se sincronice automáticamente
   // (antes este campo solo guardaba un nombre de cliente en texto libre, sin vínculo real).
   if (pedidoVinculado) { pedidoVinculado.loteId = lote.id; }
+  lPesajeDraft = null; lPesajeBotes = {};
   saveToDrive();
   closeModal('modal-lote');
   document.getElementById('l-notas').value = '';
   resetInsumosLoteSeleccionados();
   renderAll();
-  if (confirm(`Lote ${lote.codigo} creado.\n\n¿Quieres descargar de una vez su Ficha del Lote en PDF? Es un respaldo con todos sus datos (fórmula, fechas, cliente) por si necesitas consultarlos sin depender de que la app haya guardado correctamente en Drive.`)) {
+  if (confirm(`Lote ${lote.codigo} creado.\n\n¿Quieres descargar de una vez su Ficha del Lote en PDF? Es un respaldo con todos sus datos (fórmula, pesajes, fechas, cliente) por si necesitas consultarlos sin depender de que la app haya guardado correctamente en Drive.`)) {
     exportarFichaLotePDF(lote.id);
-  }
-  if (confirm(`¿Abrir ahora la Hoja de pesaje de ${lote.codigo}?\n\nAhí se pesan el bote, el PG, el frasco de maceración (IPADEO y Cimalide) y el alcohol. Si prefieres, también la encuentras después en la tarjeta del lote: botón "⚖️ Hoja de pesaje".`)) {
-    abrirHojaPesaje(lote.id);
   }
 }
 
@@ -14009,7 +14015,7 @@ function psAsegurar(lote) {
   p.tol = p.tol || db.pesajeTol || 0.09;
   const esencia = db.esencias.find(e => e.id === lote.esenciaId);
   const ids = lote.botesEsenciaIds || (lote.boteEsenciaId ? [lote.boteEsenciaId] : []);
-  p.botes = p.botes || [];
+  p.botes = (p.botes || []).filter(b => ids.includes(b.boteId));
   ids.forEach((id, i) => {
     let pb = p.botes.find(x => x.boteId === id);
     if (!pb) {
@@ -14150,7 +14156,7 @@ function psRefrescarPantallasAbiertas() {
 function renderPesajeBotesLote() {
   const box = document.getElementById('l-pesaje-botes'); if (!box) return;
   const esencia = db.esencias.find(e => e.id === parseInt(document.getElementById('l-esencia').value));
-  if (!esencia || !lBotesSeleccionados.length) { box.innerHTML = ''; return; }
+  if (!esencia || !lBotesSeleccionados.length) { box.innerHTML = ''; actualizarEstadoPesajeLote(); return; }
   const filas = lBotesSeleccionados.map((id, i) => {
     const b = (esencia.botes || []).find(x => x.id === id); if (!b) return '';
     const st = lPesajeBotes[id] = lPesajeBotes[id] || { taraId: '', taraManual: null, bruto: null };
@@ -14193,6 +14199,7 @@ function psActualizarPesajeBotes() {
   const t = document.getElementById('lpb-total');
   if (t) t.innerHTML = todos ? `✓ Esencia neta total: <strong>${total.toFixed(2)} g</strong> — ya quedó aplicada en "Gramos de esencia".` : 'Escribe el peso de cada bote lleno y el de su bote vacío.';
   if (todos) { document.getElementById('l-gramos-esencia').value = total.toFixed(2); lGramosTocadoManual = true; actualizarCostoLotePreview(); }
+  actualizarEstadoPesajeLote();
 }
 function psPesajeInicialDesdeModal(botes) {
   const lista = (botes || []).map((b, i) => {
@@ -14203,6 +14210,65 @@ function psPesajeInicialDesdeModal(botes) {
   return lista.length ? { botes: lista, tol: db.pesajeTol || 0.09 } : undefined;
 }
 
+
+// ── V109b: los pesajes de inicio se hacen ANTES de iniciar la predilución ──
+// Lote "borrador" con lo que hay en el modal de Nuevo Lote (aún no existe en db.lotes).
+function psBorradorLote() {
+  const esId = parseInt(document.getElementById('l-esencia').value);
+  const esencia = db.esencias.find(e => e.id === esId);
+  if (!esencia || !lBotesSeleccionados.length) return null;
+  const gramos = parseFloat(document.getElementById('l-gramos-esencia').value) || 0;
+  if (!gramos) return null;
+  const std = familiaCfg(esencia.familia);
+  const formula = calcularGramosFormula(std, gramos);
+  formula.volumenNominal = parseFloat(document.getElementById('l-volumen-nominal').value) || sugerirVolumenNominal(formula.volumenMl);
+  const botes = lBotesSeleccionados.map(id => (esencia.botes || []).find(b => b.id === id)).filter(Boolean);
+  const p = lPesajeDraft = lPesajeDraft || { tol: db.pesajeTol || 0.09 };
+  const base = psPesajeInicialDesdeModal(botes);       // el bote lleno y el bote vacío vienen de la calculadora de Nuevo Lote
+  const previos = p.botes || [];
+  p.botes = (base ? base.botes : []).map(b => { const old = previos.find(x => x.boteId === b.boteId); return { ...b, pg: (old && old.pg) || { bruto: null, agregado: null } }; });
+  return { esBorrador: true, id: null, codigo: 'Lote nuevo', esenciaId: esId, esenciaNombre: esencia.nombre, botesEsenciaIds: botes.map(b => b.id), formula, alcoholPredilucion: alcoholRecipienteA(formula.volumenNominal, formula.alcohol), pesaje: p };
+}
+function psPendientesInicio(lote) {
+  const c = psCalcular(lote);
+  if (!c.todosNetos) return { ok: false, faltan: ['esencia neta de los botes (bote lleno y bote vacío)'] };
+  const faltan = c.rows.filter(r => r.key !== 'alcR' && r.real === null).map(r => r.etiqueta);
+  return { ok: faltan.length === 0, faltan };
+}
+function actualizarEstadoPesajeLote() {
+  const caja = document.getElementById('l-pesaje-estado'); const btn = document.getElementById('l-btn-iniciar');
+  if (!caja) return;
+  let d = null; try { d = psBorradorLote(); } catch (e) { d = null; }
+  let ok = false, html;
+  if (!d) html = 'Elige la esencia y los botes; luego escribe el peso del bote lleno y de su bote vacío para calcular la esencia neta. Después aparecerán aquí los pesajes de inicio.';
+  else {
+    const c = psCalcular(d);
+    if (!c.todosNetos) html = 'Escribe el peso del bote lleno y de su bote vacío (en "Esencia neta desde la báscula") para calcular la esencia neta de cada bote.';
+    else {
+      const pe = psPendientesInicio(d); ok = pe.ok;
+      html = ok ? '✓ <strong>Pesajes de inicio completos.</strong> Ya puedes iniciar la predilución: se guardan con el lote y podrás editarlos después desde su tarjeta.'
+                : `⚠️ <strong>Faltan pesajes de inicio:</strong> ${pe.faltan.join(', ')}.`;
+      html += ` <button type="button" class="btn btn-outline btn-sm" style="margin-left:6px;" onclick="abrirHojaPesajeBorrador()">⚖️ ${ok ? 'Revisar' : 'Hacer'} la Hoja de pesaje</button>`;
+    }
+  }
+  caja.innerHTML = `<div style="width:100%;">⚖️ ${html}</div>`;
+  if (btn) { btn.disabled = !ok; btn.style.opacity = ok ? '' : '0.45'; btn.title = ok ? '' : 'Primero completa los pesajes de inicio'; }
+}
+function abrirHojaPesajeBorrador() {
+  let d = null; try { d = psBorradorLote(); } catch (e) { d = null; }
+  if (!d || !psCalcular(d).todosNetos) { alert('Primero elige la esencia y los botes, y escribe el peso del bote lleno y de su bote vacío (en "Esencia neta desde la báscula") para tener la esencia neta.'); return; }
+  psLote = d; psAsegurar(d); psAbierta = true;
+  document.getElementById('ps-titulo').textContent = `Lote nuevo · ${d.esenciaNombre}`;
+  document.getElementById('ps-guardado').textContent = 'Se guarda con el lote al iniciar la predilución';
+  document.getElementById('ps-btn-cerrar').textContent = '✓ Listo, volver al lote';
+  psRender(); openModal('modal-pesaje'); psActualizar();
+}
+function psPesajeFinal(botes) {
+  const d = psBorradorLote();
+  if (!d) return psPesajeInicialDesdeModal(botes);
+  return JSON.parse(JSON.stringify(d.pesaje));
+}
+
 // ── Hoja de pesaje (modal) ──
 let psLote = null, psTimer = null, psAbierta = false;
 function psReg(k, i) { const p = psLote.pesaje; if (k === 'bote') return p.botes[i]; if (k === 'pg') return p.botes[i].pg; return p[k]; }
@@ -14211,6 +14277,7 @@ function abrirHojaPesaje(loteId) {
   psLote = lote; psAsegurar(lote); psAbierta = true;
   document.getElementById('ps-titulo').textContent = `${lote.codigo} · ${lote.esenciaNombre}`;
   document.getElementById('ps-guardado').textContent = '';
+  document.getElementById('ps-btn-cerrar').textContent = '💾 Guardar y cerrar';
   psRender(); openModal('modal-pesaje'); psActualizar();
 }
 function psRender() {
@@ -14223,9 +14290,12 @@ function psRender() {
     <div class="ps-obj">Objetivo <b id="ps-obj-${key}">—</b> g · desde <b id="ps-base-${key}">—</b> g · llena hasta que marque <b id="ps-bo-${key}">—</b> g</div>
     <div class="ps-ins"><label>Báscula (bruto)${inp(k, i, 'bruto')}</label><label>Agregado (báscula en 0)${inp(k, i, 'agregado')}</label></div>
     <div class="ps-res" id="ps-res-${key}"></div></div>`;
+  const filasBote = (b, i) => psLote.esBorrador
+    ? `<div class="ps-fila"><span>Bote lleno: <b>${psFmt(b.bruto)}</b> g · bote vacío: <b>${psFmt(b.tara)}</b> g → esencia neta <b id="ps-neto-${i}">—</b> g <span style="opacity:0.6;">(estos dos pesos se escriben en Nuevo Lote)</span></span></div>`
+    : `${tareRow('bote', i, 'bote', 'Peso del bote vacío')}
+    <div class="ps-fila"><span>Bote lleno (báscula)</span>${inp('bote', i, 'bruto')}<span>→ esencia neta <b id="ps-neto-${i}">—</b> g</span></div>`;
   const botesHtml = p.botes.map((b, i) => `<div class="ps-bloque"><div class="ps-bt">① Recipiente A — ${b.etiqueta}</div>
-    ${tareRow('bote', i, 'bote', 'Peso del bote vacío')}
-    <div class="ps-fila"><span>Bote lleno (báscula)</span>${inp('bote', i, 'bruto')}<span>→ esencia neta <b id="ps-neto-${i}">—</b> g</span></div>
+    ${filasBote(b, i)}
     ${paso('pg' + i, `Propilenglicol — ${b.etiqueta}`, 'pg', i)}</div>`).join('');
   document.getElementById('ps-contenido').innerHTML = `
     <div class="alert alert-info" style="font-size:12px;"><div><div style="margin-bottom:6px;">Escribe <strong>solo lo que marca la báscula</strong>: en cada paso puedes poner el peso bruto, lo agregado con la báscula en 0, o ambos (la app compara y avisa si no cuadran). Enter pasa al siguiente campo.</div><div style="margin-bottom:6px;"><strong>Orden:</strong> ① Bote de esencia (+ Propilenglicol) → ② Frasco de maceración (IPADEO y Cimalide 50) → ③ Taza medidora (alcohol) → ④ Resumen. Baja por la ventana para ver cada paso.</div><div>Fórmula del lote: esencia ${(f.esencia || 0).toFixed(2)} g · alcohol ${(f.alcohol || 0).toFixed(2)} g · PG ${(f.pg || 0).toFixed(2)} g · IPADEO ${(f.ipadeo || 0).toFixed(2)} g · Cimalide ${(f.cimalide || 0).toFixed(2)} g.</div></div></div>
@@ -14240,7 +14310,7 @@ function psRender() {
       ${tareRow('taza', 0, 'taza', 'Taza: peso vacío de la tabla')}
       <div class="ps-fila"><span>Taza vacía pesada hoy (opcional)</span>${inp('taza', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('taza')">➕ Sumar a la tabla</button></div>
       ${paso('alcA', 'Alcohol 95° — Recipiente A (predilución)', 'alcA', 0)}
-      ${paso('alcR', 'Alcohol restante (al unir A + B) — si no cabe en la taza, pésalo por tandas y escribe el total en "Agregado"', 'alcR', 0)}</div>
+      ${paso('alcR', 'Alcohol restante (al unir A + B) — se pesa al terminar la predilución, no hace falta para iniciar. Si no cabe en la taza, pésalo por tandas y escribe el total en "Agregado"', 'alcR', 0)}</div>
     <div class="ps-bloque"><div class="ps-bt">④ Resumen: fórmula vs real</div><div id="ps-resumen"></div></div>`;
 }
 function psActualizar() {
@@ -14297,13 +14367,17 @@ function psProgramarGuardado() { clearTimeout(psTimer); psTimer = setTimeout(() 
 function psGuardar(silencioso) {
   if (!psLote) return;
   clearTimeout(psTimer);
+  if (psLote.esBorrador) return;
   psLote.pesaje.actualizado = new Date().toISOString();
   const p = saveToDrive();
   const el = document.getElementById('ps-guardado');
   if (el) { const d = new Date(); el.textContent = `✓ Guardado ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
   return p;
 }
-function psCerrar() { psGuardar(true); psAbierta = false; closeModal('modal-pesaje'); try { renderAll(); } catch (e) {} }
+function psCerrar() {
+  if (psLote && psLote.esBorrador) { lPesajeDraft = psLote.pesaje; psAbierta = false; closeModal('modal-pesaje'); actualizarEstadoPesajeLote(); return; }
+  psGuardar(true); psAbierta = false; closeModal('modal-pesaje'); try { renderAll(); } catch (e) {}
+}
 function psExportarCSV() {
   if (!psLote) return;
   const c = psCalcular(psLote), p = psLote.pesaje;
