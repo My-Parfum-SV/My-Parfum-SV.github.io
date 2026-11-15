@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V111 -->
+<!-- Admin V112 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -2467,7 +2467,7 @@
         <div style="width:100%;">
           <strong>Al terminar la predilución (Enfrascado de Maceración)</strong>
           <div class="formula-row" style="border:none;padding:6px 0 0;">
-            <span class="ing">1. Al Recipiente B (frasco) agrégale el alcohol restante</span><span class="val" id="fp-alcohol-faltante" style="color:var(--gold-light);">50.00g</span>
+            <span class="ing">1. Al Recipiente B (frasco) agrégale el alcohol restante</span><span class="val" id="fp-alcohol-faltante" style="color:#FFD60A;font-size:16px;font-weight:700;">50.00g</span>
           </div>
           <div class="formula-row" style="border:none;padding:4px 0 0;">
             <span class="ing">2. Después mezcla el Recipiente A (esencia + PG)</span><span class="val" style="color:var(--gold-light);">—</span>
@@ -2479,6 +2479,7 @@
     <div id="costo-lote-preview" style="font-size:12px;color:#56CCF2;opacity:0.9;margin:8px 0;"></div>
     <div id="lote-insumos-selector" style="display:none;"></div>
     <div class="field"><label>Fecha de Predilución (inicio)</label><input id="l-fecha" type="date"></div>
+    <div class="field"><label>Hora de inicio (vacío = la hora actual)</label><input id="l-hora" type="time"></div>
     <div class="field"><label>Nivel de maceración planeado</label>
       <select id="l-nivel-maceracion" onchange="actualizarRecomendacionMaceracion()">
         <option value="express">Express — 14 días</option>
@@ -13129,6 +13130,7 @@ function populateLoteSelect(preseleccionarPedidoId) {
   document.getElementById('l-volumen-nominal').value = '';
   lVolumenNominalTocadoManual = false;
   document.getElementById('l-fecha').value = hoyISO();
+  document.getElementById('l-hora').value = '';
 
   // Solo se listan Solicitudes en estado Aprobado y que aún no tengan otro lote vinculado,
   // para no duplicar el vínculo y mantener la sincronización de estados correcta.
@@ -13846,7 +13848,7 @@ function guardarLote() {
     notas: document.getElementById('l-notas').value,
     estadoActual: 'prediluccion',
     estados: {
-      prediluccion: { fechaInicio: fecha, fechaFinSugerida: addDays(fecha, 2), fechaFinReal: null, confirmado: false },
+      prediluccion: { fechaInicio: fecha, horaInicio: document.getElementById('l-hora').value || horaActualHHMM(), fechaFinSugerida: addDays(fecha, 2), fechaFinReal: null, confirmado: false },
       maceracion:   { fechaInicio: null, fechaFinSugerida: fechaFinMaceracionSugerida, fechaFinReal: null, confirmado: false },
       refrigerado:  { fechaInicio: null, fechaFinReal: null, diasRefrigerado: 0, filtrado: false, confirmado: false, aplica: necesitaRefrig },
       enfrascado:   { fecha: null, frascos: [], costoTotal: 0, confirmado: false },
@@ -14033,7 +14035,7 @@ function psAsegurar(lote) {
   });
   p.frasco = p.frasco || { taraId: '', tara: null, vacio: null };
   p.taza = p.taza || { taraId: '', tara: null, vacio: null };
-  ['ipadeo', 'cimalide', 'alcA', 'alcR'].forEach(k => { p[k] = p[k] || { bruto: null, agregado: null }; });
+  ['ipadeo', 'cimalide', 'alcA', 'alcR', 'frascoAlc', 'frascoFinal'].forEach(k => { p[k] = p[k] || { bruto: null, agregado: null }; });
   return p;
 }
 // Calcula TODO a partir de lo que Kike digitó (pesos de la báscula): netos, objetivos, reales, desviaciones y verificaciones.
@@ -14060,10 +14062,20 @@ function psCalcular(lote) {
   });
   const baseFrasco = (p.frasco.vacio !== null && p.frasco.vacio !== undefined) ? p.frasco.vacio : (p.frasco.tara === undefined ? null : p.frasco.tara);
   const ip = paso('ipadeo', 'IPADEO', baseFrasco, f.ipadeo || 0, p.ipadeo);
-  paso('cimalide', 'Cimalide 50', ip.brutoFinal !== null ? ip.brutoFinal : null, f.cimalide || 0, p.cimalide);
+  const cm = paso('cimalide', 'Cimalide 50', ip.brutoFinal !== null ? ip.brutoFinal : null, f.cimalide || 0, p.cimalide);
   const baseTaza = (p.taza.vacio !== null && p.taza.vacio !== undefined) ? p.taza.vacio : (p.taza.tara === undefined ? null : p.taza.tara);
-  paso('alcA', 'Alcohol 95° → Recipiente B (primera parte)', baseTaza, alcoholALote(lote), p.alcA);
-  paso('alcR', 'Alcohol restante (al terminar la predilución)', baseTaza, alcoholRestanteLote(lote), p.alcR);
+  const alcARow = paso('alcA', 'Alcohol 95° → Recipiente B (primera parte)', baseTaza, alcoholALote(lote), p.alcA);
+  const alcAReal = alcARow.real !== null ? alcARow.real : alcoholALote(lote);
+  // el frasco (Recipiente B) con IPADEO, Cimalide y la primera parte del alcohol ya vertida
+  const frAlc = paso('frascoAlc', 'Frasco con la primera parte del alcohol', cm.brutoFinal, alcAReal, p.frascoAlc);
+  const alcRRow = paso('alcR', 'Alcohol restante (al terminar la predilución)', baseTaza, alcoholRestanteLote(lote), p.alcR);
+  const alcRReal = alcRRow.real !== null ? alcRRow.real : alcoholRestanteLote(lote);
+  // frasco final: Recipiente B + alcohol restante + Recipiente A (esencia neta + PG)
+  const pgRows = rows.filter(r => r.key.indexOf('pg') === 0);
+  const pgMasa = (pgRows.length && pgRows.every(r => r.real !== null)) ? pgRows.reduce((s, r) => s + r.real, 0) : (f.pg || 0);
+  const esenciaMasa = todosNetos ? sumNeto : (f.esencia || 0);
+  const baseFinal = frAlc.brutoFinal !== null ? frAlc.brutoFinal : frAlc.brutoObj;
+  paso('frascoFinal', 'Frasco final con toda la fórmula unida', baseFinal, alcRReal + esenciaMasa + pgMasa, p.frascoFinal);
   const suma = (pref) => { const rr = rows.filter(r => r.key.indexOf(pref) === 0 && r.real !== null); return rr.length ? rr.reduce((s, r) => s + r.real, 0) : null; };
   const get = (k) => { const r = rows.find(x => x.key === k); return r ? r.real : null; };
   const resumen = [
@@ -14237,7 +14249,7 @@ function psBorradorLote() {
 function psPendientesInicio(lote) {
   const c = psCalcular(lote);
   if (!c.todosNetos) return { ok: false, faltan: ['esencia neta de los botes (bote lleno y bote vacío)'] };
-  const faltan = c.rows.filter(r => r.key !== 'alcR' && r.real === null).map(r => r.etiqueta);
+  const faltan = c.rows.filter(r => r.key !== 'alcR' && r.key !== 'frascoFinal' && r.real === null).map(r => r.etiqueta);
   return { ok: faltan.length === 0, faltan };
 }
 function actualizarEstadoPesajeLote() {
@@ -14291,10 +14303,17 @@ function psRender() {
   const val = (k, i, fld) => { const v = psReg(k, i)[fld]; return (v === null || v === undefined) ? '' : v; };
   const inp = (k, i, fld, ph) => `<input class="ps-in" type="number" step="0.01" inputmode="decimal" placeholder="${ph || 'g'}" data-k="${k}" data-i="${i}" data-f="${fld}" value="${val(k, i, fld)}" oninput="psInput(this)">`;
   const tareRow = (k, i, tipo, label) => `<div class="ps-fila"><span>${label}</span><select onchange="psSelTara('${k}',${i},this.value)">${optsTara(tipo, psReg(k, i).taraId)}</select><input class="ps-in" type="number" step="0.01" inputmode="decimal" id="ps-tara-${k}-${i}" data-k="${k}" data-i="${i}" data-f="tara" style="width:90px;" value="${val(k, i, 'tara')}" oninput="psInput(this)"> g</div>`;
-  const paso = (key, titulo, k, i) => `<div class="ps-paso"><div class="ps-tit">${titulo}</div>
-    <div class="ps-obj">Objetivo <b id="ps-obj-${key}">—</b> g agregados · peso en conjunto: desde <b id="ps-base-${key}">—</b> hasta <b id="ps-bo-${key}">—</b> g</div>
-    <div class="ps-ins"><label>Peso agregado desde 0${inp(k, i, 'agregado')}</label><label>Peso en conjunto${inp(k, i, 'bruto')}</label></div>
-    <div class="ps-res" id="ps-res-${key}"></div></div>`;
+  const paso = (key, titulo, k, i, soloConjunto) => {
+    const big = key === 'alcR' ? ' style="font-size:20px;font-weight:700;color:#FFD60A;"' : '';
+    const bigBo = key === 'frascoFinal' ? ' style="font-size:20px;font-weight:700;color:#FFD60A;"' : '';
+    const obj = soloConjunto
+      ? `Debe marcar <b id="ps-bo-${key}"${bigBo}>—</b> g · parte de <b id="ps-base-${key}">—</b> g y se agregan <b id="ps-obj-${key}">—</b> g`
+      : `Objetivo <b id="ps-obj-${key}"${big}>—</b> g agregados · peso en conjunto: desde <b id="ps-base-${key}">—</b> hasta <b id="ps-bo-${key}">—</b> g`;
+    const ins = soloConjunto
+      ? `<label>Peso en conjunto${inp(k, i, 'bruto')}</label>`
+      : `<label>Peso agregado desde 0${inp(k, i, 'agregado')}</label><label>Peso en conjunto${inp(k, i, 'bruto')}</label>`;
+    return `<div class="ps-paso"><div class="ps-tit">${titulo}</div><div class="ps-obj">${obj}</div><div class="ps-ins">${ins}</div><div class="ps-res" id="ps-res-${key}"></div></div>`;
+  };
   const filasBote = (b, i) => psLote.esBorrador
     ? `<div class="ps-fila"><span>Bote lleno: <b>${psFmt(b.bruto)}</b> g · bote vacío: <b>${psFmt(b.tara)}</b> g → esencia neta <b id="ps-neto-${i}">—</b> g <span style="opacity:0.6;">(estos dos pesos se escriben en Nuevo Lote)</span></span></div>`
     : `${tareRow('bote', i, 'bote', 'Peso del bote vacío')}
@@ -14303,7 +14322,7 @@ function psRender() {
     ${filasBote(b, i)}
     ${paso('pg' + i, `Propilenglicol — ${b.etiqueta}`, 'pg', i)}</div>`).join('');
   document.getElementById('ps-contenido').innerHTML = `
-    <div class="alert alert-info" style="font-size:12px;"><div><div style="margin-bottom:6px;">Escribe <strong>solo lo que marca la báscula</strong>: en cada paso puedes poner el peso agregado desde 0, el peso en conjunto, o ambos (la app compara y avisa si no cuadran). Enter pasa al siguiente campo.</div><div style="margin-bottom:6px;"><strong>Orden:</strong> ① Bote de esencia (+ Propilenglicol) → ② Frasco de maceración (IPADEO y Cimalide 50) → ③ Taza medidora (alcohol) → ④ Resumen. Baja por la ventana para ver cada paso.</div><div>Fórmula del lote: esencia ${(f.esencia || 0).toFixed(2)} g · alcohol ${(f.alcohol || 0).toFixed(2)} g · PG ${(f.pg || 0).toFixed(2)} g · IPADEO ${(f.ipadeo || 0).toFixed(2)} g · Cimalide ${(f.cimalide || 0).toFixed(2)} g.</div></div></div>
+    <div class="alert alert-info" style="font-size:12px;"><div><div style="margin-bottom:6px;">Escribe <strong>solo lo que marca la báscula</strong>: en cada paso puedes poner el peso agregado desde 0, el peso en conjunto, o ambos (la app compara y avisa si no cuadran). Enter pasa al siguiente campo.</div><div style="margin-bottom:6px;"><strong>Orden:</strong> ① Bote de esencia (+ Propilenglicol) → ② Frasco de maceración (IPADEO y Cimalide 50) → ③ Taza medidora (primera parte del alcohol) y pesar el frasco → ④ Al terminar la predilución: alcohol restante y peso final del frasco → ⑤ Resumen. Baja por la ventana para ver cada paso.</div><div>Fórmula del lote: esencia ${(f.esencia || 0).toFixed(2)} g · alcohol ${(f.alcohol || 0).toFixed(2)} g · PG ${(f.pg || 0).toFixed(2)} g · IPADEO ${(f.ipadeo || 0).toFixed(2)} g · Cimalide ${(f.cimalide || 0).toFixed(2)} g.</div></div></div>
     <div class="ps-fila"><span>Tolerancia aceptada (g)</span><input type="number" step="0.01" id="ps-tol" style="width:90px;" value="${p.tol}" oninput="psOnTol(this.value)"><span style="opacity:0.7;">(compara cada peso real con su objetivo)</span></div>
     <div id="ps-aviso" style="font-size:12px;margin-bottom:10px;"></div>
     ${botesHtml}
@@ -14311,12 +14330,16 @@ function psRender() {
       ${tareRow('frasco', 0, 'frasco', 'Frasco: peso vacío de la tabla')}
       <div class="ps-fila"><span>Frasco vacío pesado hoy (opcional)</span>${inp('frasco', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('frasco')" title="Suma este peso a las mediciones del recipiente elegido">➕ Sumar a la tabla</button></div>
       ${paso('ipadeo', 'IPADEO', 'ipadeo', 0)}${paso('cimalide', 'Cimalide 50', 'cimalide', 0)}</div>
-    <div class="ps-bloque"><div class="ps-bt">③ Taza medidora — alcohol</div>
+    <div class="ps-bloque"><div class="ps-bt">③ Taza medidora — primera parte del alcohol, y el frasco con ese alcohol</div>
       ${tareRow('taza', 0, 'taza', 'Taza: peso vacío de la tabla')}
       <div class="ps-fila"><span>Taza vacía pesada hoy (opcional)</span>${inp('taza', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('taza')">➕ Sumar a la tabla</button></div>
       ${paso('alcA', 'Alcohol 95° → Recipiente B (primera parte)', 'alcA', 0)}
-      ${paso('alcR', 'Alcohol restante — se agrega al Recipiente B al terminar la predilución; no hace falta para iniciar. Si no cabe en la taza, pésalo por tandas y escribe el total en "Agregado"', 'alcR', 0)}</div>
-    <div class="ps-bloque"><div class="ps-bt">④ Resumen: fórmula vs real</div><div id="ps-resumen"></div></div>`;
+      ${paso('frascoAlc', 'Vierte ese alcohol en el frasco (Recipiente B) y pesa el frasco con IPADEO, Cimalide y la primera parte del alcohol', 'frascoAlc', 0, true)}</div>
+    <div class="ps-bloque"><div class="ps-bt">④ Al terminar la predilución (a las 48 h) — no hace falta para iniciar</div>
+      ${paso('alcR', 'Alcohol restante: se agrega al frasco (Recipiente B). Si no cabe en la taza, pésalo por tandas y escribe el total en "Peso agregado desde 0"', 'alcR', 0)}
+      ${paso('frascoFinal', 'Frasco con toda la fórmula unida: Recipiente B + alcohol restante + Recipiente A (esencia + PG)', 'frascoFinal', 0, true)}
+      <div style="font-size:11px;opacity:0.65;margin-top:6px;">Puede faltar una pequeña cantidad de esencia o PG que queda pegada en las paredes del bote (Recipiente A): revisa la diferencia antes de preocuparte.</div></div>
+    <div class="ps-bloque"><div class="ps-bt">⑤ Resumen: fórmula vs real</div><div id="ps-resumen"></div></div>`;
 }
 function psActualizar() {
   if (!psLote) return;
@@ -14327,7 +14350,10 @@ function psActualizar() {
     set('ps-obj-' + r.key, psFmt(r.objetivo)); set('ps-base-' + r.key, psFmt(r.base)); set('ps-bo-' + r.key, psFmt(r.brutoObj));
     const el = document.getElementById('ps-res-' + r.key); if (!el) return;
     let t = '';
-    if (r.real !== null) {
+    if ((r.key === 'frascoAlc' || r.key === 'frascoFinal') && r.real !== null) {
+      const col = r.ok ? '#7CB87C' : '#FF2D2D';
+      t += `<span style="color:${col};">Diferencia contra lo esperado: ${psSigno(r.desv)} g ${r.ok ? '✓' : '⚠️'}</span>`;
+    } else if (r.real !== null) {
       const col = r.ok === null ? '#56CCF2' : (r.ok ? '#7CB87C' : '#FF2D2D');
       t += `<span style="color:${col};">Real <b>${psFmt(r.real)}</b> g · desviación ${psSigno(r.desv)} g${r.desvPct !== null ? ` (${psSigno(r.desvPct, 1)} %)` : ''} ${r.ok === null ? '' : (r.ok ? '✓' : '⚠️')}</span>`;
     }
@@ -14401,6 +14427,24 @@ function psHtmlResumenHistorial(lote) {
   const botes = lote.pesaje.botes.map((b, i) => (b.bruto === null || b.bruto === undefined) ? '' : fila(`${b.etiqueta} — esencia neta`, `bote lleno ${psFmt(b.bruto)} − bote vacío ${psFmt(b.tara)} = <strong>${psFmt(c.netos[i])} g</strong>`)).join('');
   const pasos = c.rows.filter(r => r.real !== null).map(r => fila(r.etiqueta, `objetivo ${psFmt(r.objetivo)} g · real <strong>${psFmt(r.real)} g</strong> (${psSigno(r.desv)} g) ${r.ok ? '✓' : '⚠️'}`)).join('');
   return `<div class="card" style="margin-bottom:14px;"><div class="card-title" style="font-size:14px;">⚖️ Registro de pesaje</div>${botes}${pasos}<div style="font-size:11px;opacity:0.6;margin-top:6px;">Tolerancia usada: ${psFmt(lote.pesaje.tol)} g</div></div>`;
+}
+
+// ═══════════════ V112: PREDILUCIÓN EN HORAS ═══════════════
+const PREDILUCION_HORAS = 48;
+function horaActualHHMM() { const d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function inicioPrediluccionMs(lote) {
+  const i = lote.estados && lote.estados.prediluccion;
+  if (!i || !i.fechaInicio) return null;
+  return new Date(i.fechaInicio + 'T' + (i.horaInicio || '00:00') + ':00').getTime();
+}
+function horasPrediluccion(lote) { const t = inicioPrediluccionMs(lote); return t === null ? null : Math.max(0, (Date.now() - t) / 36e5); }
+function fmtFechaHoraMs(ms) {
+  const d = new Date(ms);
+  return d.toLocaleDateString('es-SV', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + d.toLocaleTimeString('es-SV', { hour: 'numeric', minute: '2-digit' });
+}
+function psFrascoFinalEsperado(lote) {
+  if (!lote || !lote.pesaje) return null;
+  try { const r = psCalcular(lote).rows.find(x => x.key === 'frascoFinal'); return (r && r.brutoObj !== null) ? r.brutoObj : null; } catch (e) { return null; }
 }
 
 function addDays(dateStr, days) {
@@ -14503,7 +14547,14 @@ function getEstadoLote(lote) {
     pct = totalDias > 0 ? Math.min(100, (dias / totalDias) * 100) : 0;
   }
 
-  const vencido = fechaFinSugerida && hoyISO() > fechaFinSugerida;
+  let vencido = fechaFinSugerida && hoyISO() > fechaFinSugerida;
+  if (actual === 'prediluccion') {
+    // V112: la predilución dura 48 horas, así que su avance se mide en horas
+    const horas = horasPrediluccion(lote);
+    if (horas !== null) {
+      return { label, badge: horas >= PREDILUCION_HORAS ? 'badge-warn' : 'badge-ok', dias, pct: Math.min(100, horas / PREDILUCION_HORAS * 100), fechaInicio, fechaFinSugerida, esHoras: true, horas };
+    }
+  }
   return { label, badge: vencido ? 'badge-warn' : 'badge-ok', dias, pct, fechaInicio, fechaFinSugerida };
 }
 
@@ -14539,7 +14590,7 @@ function confirmarFinPrediluccion(loteId) {
   const restante = alcoholRestanteLote(lote);
   // V106: el alcohol restante se descuenta del stock AHORA (al terminar la predilución), no al crear el lote.
   if (alcoholPendienteDescontar(lote) && restante > 0.01) { abrirModalAlcoholRestante(loteId); return; }
-  alert(`🧪 Para terminar la predilución, en este orden:\n\n1) Al Recipiente B (el frasco con los aceites fijadores y el alcohol) agrégale ${restante.toFixed(2)}g más de Alcohol 95° (el frasco ya lleva ${alcoholALote(lote).toFixed(2)}g y la fórmula de este lote necesita ${(lote.formula?.alcohol||0).toFixed(2)}g en total).\n2) Después mezcla el Recipiente A (el bote con la esencia y el PG).`);
+  alert(`🧪 Para terminar la predilución, en este orden:\n\n1) Al Recipiente B (el frasco con los aceites fijadores y el alcohol) agrégale ${restante.toFixed(2)}g más de Alcohol 95° (el frasco ya lleva ${alcoholALote(lote).toFixed(2)}g y la fórmula de este lote necesita ${(lote.formula?.alcohol||0).toFixed(2)}g en total).\n2) Después mezcla el Recipiente A (el bote con la esencia y el PG).${psFrascoFinalEsperado(lote) !== null ? `\n\n⚖️ El frasco debe pesar ${psFrascoFinalEsperado(lote).toFixed(2)} g con toda la fórmula unida.` : ''}`);
   const fechaFinReal = prompt('Fecha en que terminó la predilución y comenzó la mezcla completa (AAAA-MM-DD):', hoyISO());
   if (!fechaFinReal) return;
   if (!advertirSiAntesDeTiempo(fechaFinReal, lote.estados.prediluccion.fechaFinSugerida, 'Predilución')) return;
@@ -14551,9 +14602,10 @@ let arSeleccionados = [];
 function abrirModalAlcoholRestante(loteId) {
   const lote = db.lotes.find(l => l.id === loteId); if (!lote) return;
   const rest = alcoholRestanteLote(lote);
+  const espFinal = psFrascoFinalEsperado(lote);
   arSeleccionados = [];
   document.getElementById('ar-lote-id').value = loteId;
-  document.getElementById('ar-resumen').innerHTML = `<div>Para terminar la predilución: agrega <strong>${rest.toFixed(2)}g</strong> más de Alcohol 95° al <strong>Recipiente B</strong> (el frasco ya lleva ${alcoholALote(lote).toFixed(2)}g de los ${(lote.formula?.alcohol||0).toFixed(2)}g que necesita <strong>${lote.codigo}</strong>) y después mezcla el <strong>Recipiente A</strong> (esencia + PG). Elige de qué registro salió el alcohol: al confirmar se descuenta del stock.</div>`;
+  document.getElementById('ar-resumen').innerHTML = `<div>Para terminar la predilución: agrega <span style="font-size:22px;font-weight:700;color:#FFD60A;">${rest.toFixed(2)} g</span> más de Alcohol 95° al <strong>Recipiente B</strong> (el frasco ya lleva ${alcoholALote(lote).toFixed(2)}g de los ${(lote.formula?.alcohol||0).toFixed(2)}g que necesita <strong>${lote.codigo}</strong>) y después mezcla el <strong>Recipiente A</strong> (esencia + PG). Elige de qué registro salió el alcohol: al confirmar se descuenta del stock.${espFinal !== null ? `<br><br>⚖️ El frasco debe pesar <span style="font-size:18px;font-weight:700;color:#FFD60A;">${espFinal.toFixed(2)} g</span> con toda la fórmula unida.` : ''}</div>`;
   document.getElementById('ar-fecha').value = hoyISO();
   const act = gruposActivosInsumo('Alcohol 95°').filter(g => (g.stock||0) > 0.001).sort((a,b) => (a.fechaRegistro||'').localeCompare(b.fechaRegistro||''));
   if (act.length) arSeleccionados.push({ grupoId: act[0].id, gramos: +Math.min(act[0].stock, rest).toFixed(2) });
@@ -14899,6 +14951,10 @@ function editarFechasEstado(loteId, estadoKey) {
   if (estadoKey === 'prediluccion' || estadoKey === 'maceracion') {
     const nuevaInicio = prompt(`Corregir fecha de INICIO de ${nombreProceso} (AAAA-MM-DD):`, info.fechaInicio || '');
     if (nuevaInicio) info.fechaInicio = nuevaInicio;
+    if (estadoKey === 'prediluccion') {
+      const nh = prompt('Hora de inicio de la Predilución (HH:MM, 24 horas). Déjalo vacío para no cambiarla:', info.horaInicio || '');
+      if (nh && /^\d{1,2}:\d{2}$/.test(nh.trim())) info.horaInicio = nh.trim().padStart(5, '0');
+    }
     const nuevaFin = prompt(`Corregir fecha de FIN de ${nombreProceso} (AAAA-MM-DD):`, info.fechaFinReal || info.fechaFinSugerida || '');
     if (nuevaFin) info.fechaFinReal = nuevaFin;
   } else if (estadoKey === 'refrigerado') {
@@ -15096,7 +15152,8 @@ function renderLotes() {
     let accionHtml = '';
     if (actual === 'prediluccion') {
       const alcoholFaltanteCard = alcoholRestanteLote(lote);
-      accionHtml = `<div style="color:#56CCF2;font-size:11px;opacity:0.6;margin-bottom:6px;">🧪 Al terminar la predilución: agregar ${alcoholFaltanteCard.toFixed(2)}g más de Alcohol 95° al Recipiente B (frasco) y luego mezclar el Recipiente A (esencia)</div><button class="btn btn-outline btn-sm" style="margin-right:6px;" onclick="abrirHojaPesaje(${lote.id})">⚖️ Hoja de pesaje</button><button class="btn btn-primary btn-sm" onclick="confirmarFinPrediluccion(${lote.id})">✓ Confirmar fin de predilución → pasar a Enfrascado de Maceración</button>`;
+      const espFinal = psFrascoFinalEsperado(lote);
+      accionHtml = `<div style="color:#56CCF2;font-size:12px;margin-bottom:8px;">🧪 Al terminar la predilución: agregar <span style="font-size:20px;font-weight:700;color:#FFD60A;">${alcoholFaltanteCard.toFixed(2)} g</span> más de Alcohol 95° al Recipiente B (frasco) y luego mezclar el Recipiente A (esencia)${espFinal !== null ? `<br>⚖️ El frasco debe pesar <span style="font-size:16px;font-weight:700;color:#FFD60A;">${espFinal.toFixed(2)} g</span> con toda la fórmula unida` : ''}</div><button class="btn btn-outline btn-sm" style="margin-right:6px;" onclick="abrirHojaPesaje(${lote.id})">⚖️ Hoja de pesaje</button><button class="btn btn-primary btn-sm" onclick="confirmarFinPrediluccion(${lote.id})">✓ Confirmar fin de predilución → pasar a Enfrascado de Maceración</button>`;
     } else if (actual === 'maceracion') {
       accionHtml = `<button class="btn btn-primary btn-sm" onclick="confirmarFinMaceracion(${lote.id})">✓ Confirmar fin de maceración</button>`;
     } else if (actual === 'refrigerado') {
@@ -15127,7 +15184,8 @@ function renderLotes() {
     // Resumen de fechas según estado activo (solo lo relevante, no todo el historial)
     let fechasHtml = '';
     if (actual === 'prediluccion') {
-      fechasHtml = `<div style="font-size:11px;color:#56CCF2;opacity:0.9;">Inicio: ${formatFecha(lote.estados.prediluccion.fechaInicio)} · Sugerido pasar a mezcla: ${formatFecha(lote.estados.prediluccion.fechaFinSugerida)}</div>`;
+      const iniMs = inicioPrediluccionMs(lote), conHora = !!lote.estados.prediluccion.horaInicio;
+      fechasHtml = `<div style="font-size:11px;color:#56CCF2;opacity:0.9;">Inicio: ${conHora && iniMs ? fmtFechaHoraMs(iniMs) : formatFecha(lote.estados.prediluccion.fechaInicio)} · Sugerido pasar a mezcla: ${conHora && iniMs ? fmtFechaHoraMs(iniMs + PREDILUCION_HORAS * 36e5) : formatFecha(lote.estados.prediluccion.fechaFinSugerida)} (${PREDILUCION_HORAS} h)</div>`;
     } else if (actual === 'maceracion') {
       fechasHtml = `<div style="font-size:11px;color:#56CCF2;opacity:0.9;">Inicio maceración: ${formatFecha(lote.estados.maceracion.fechaInicio)} · Sugerido terminar: ${formatFecha(lote.estados.maceracion.fechaFinSugerida)} (${nivelLabel})</div>`;
     } else if (actual === 'refrigerado') {
@@ -15142,7 +15200,7 @@ function renderLotes() {
       ? `<button class="btn btn-outline btn-sm" onclick="editarFechasEstado(${lote.id}, '${actual}')" title="Corregir fechas">✏️</button>` : '';
 
     // Porcentaje de tiempo transcurrido (solo aplica para estados con fechaFinSugerida)
-    const pctTexto = (est.pct !== undefined && est.fechaFinSugerida) ? ` (${Math.min(100,Math.round(est.pct))}%)` : '';
+    const pctTexto = (est.pct !== undefined && est.fechaFinSugerida) ? (est.esHoras ? ` (${Math.min(100,Math.round(est.pct))}% de ${PREDILUCION_HORAS} h)` : ` (${Math.min(100,Math.round(est.pct))}%)`) : '';
 
     const volumenLote = lote.formula?.volumenNominal ? `${lote.formula.volumenNominal}ml` : (lote.formula?.volumenMl ? `${lote.formula.volumenMl.toFixed(1)}ml` : '—');
     const costoTotalMostrar = lote.estados.enfrascado?.confirmado ? lote.estados.enfrascado.costoTotal : lote.costoMaterialesBatch;
@@ -15172,8 +15230,8 @@ function renderLotes() {
           </div>
         </div>
         <div style="text-align:right;">
-          <div class="stock-num" style="color:var(--gold);font-size:30px;">${Math.max(0,est.dias)}</div>
-          <div style="font-size:11px;color:#56CCF2;opacity:0.9;">días en ${nombreEstadoDias}${pctTexto}</div>
+          <div class="stock-num" style="color:var(--gold);font-size:30px;">${est.esHoras ? Math.floor(est.horas) : Math.max(0,est.dias)}</div>
+          <div style="font-size:11px;color:#56CCF2;opacity:0.9;">${est.esHoras ? 'horas' : 'días'} en ${nombreEstadoDias}${pctTexto}</div>
         </div>
       </div>
       ${est.pct !== undefined ? `<div class="progress-wrap" style="margin:14px 0 10px;height:14px;"><div class="progress-bar" style="width:${Math.max(2, Math.min(100, est.pct))}%;${barColor ? `background:${barColor};` : ''}"></div></div>` : ''}
@@ -17164,6 +17222,7 @@ if (!db.catalogoVitrina.some(e => e.genero === 'Mujer')) {
 }
 asegurarFamiliasCatalogoRegistradas();
 renderAll();
+setInterval(() => { try { const pl = document.getElementById('page-lotes'); if (pl && pl.classList.contains('active')) renderLotes(); } catch (e) {} }, 300000);
 </script>
 
 <div id="p27-sesion-banner">
