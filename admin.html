@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V112 -->
+<!-- Admin V114 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -809,12 +809,14 @@
 
     <div id="dash-pendientes-aviso"></div>
     <div id="dash-lealtad-aviso"></div>
+    <div id="dash-finanzas-aviso"></div>
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:20px 0;">
       <button id="btn-dash-pedidos" class="btn btn-outline" onclick="cambiarVistaDashboard('pedidos')">📋 Resumen de Pedidos</button>
       <button id="btn-dash-lotes" class="btn btn-outline" onclick="cambiarVistaDashboard('lotes')">⚗️ Resumen de Lotes</button>
       <button id="btn-dash-ventas" class="btn btn-outline" onclick="cambiarVistaDashboard('ventas')">💰 Estadísticas de Ventas</button>
       <button id="btn-dash-stock" class="btn btn-outline" onclick="cambiarVistaDashboard('stock')">📦 Stock de Materia Prima</button>
+      <button id="btn-dash-finanzas" class="btn btn-outline" onclick="cambiarVistaDashboard('finanzas')">💵 Finanzas</button>
     </div>
 
     <div id="dash-panel"></div>
@@ -1175,7 +1177,7 @@
       <table>
         <thead><tr>
           <th></th><th>Fecha</th><th>N° Lote</th><th>Cliente</th><th>Fragancia</th><th>Presentación</th><th>Nombre del Envase</th><th>Caja</th>
-          <th class="cell-num">N° Viñetas</th><th>Extras</th><th class="cell-num">Costo Producción</th><th class="cell-num">Monto Ventas</th><th class="cell-num">Ganancia Neta</th><th class="cell-num">Fondo Reinversión</th><th class="cell-num">Ganancia Libre</th><th></th>
+          <th class="cell-num">N° Viñetas</th><th>Extras</th><th class="cell-num">Costo Producción</th><th class="cell-num">Monto Ventas</th><th class="cell-num">Ganancia Neta</th><th class="cell-num">Fondo de Crecimiento</th><th class="cell-num">Ganancia Libre</th><th></th>
         </tr></thead>
         <tbody id="tabla-ventas"><tr><td colspan="16"><div class="empty-state"><div class="es-icon">💰</div><p>Sin ventas registradas</p></div></td></tr></tbody>
       </table>
@@ -1712,6 +1714,7 @@
       <div class="field"><label>Unidades a agregar</label><input id="env-cantidad" type="number" min="0" placeholder="0"></div>
       <div class="field"><label>Costo por unidad ($)</label><input id="env-costo" type="number" step="0.01" placeholder="0.00"></div>
     </div>
+    <div class="field"><label>Fecha de compra (si fue hace tiempo, cámbiala; vacío = hoy)</label><input id="env-fecha-compra" type="date"></div>
     <div class="field">
       <label>Proveedor</label>
       <div style="display:flex;gap:8px;">
@@ -2330,6 +2333,7 @@
       <div class="field"><label>Cantidad a agregar al stock</label><input id="vin-cantidad" type="number" min="0" placeholder="0" oninput="actualizarPreviewCostoVineta()"></div>
       <div class="field"><label id="vin-costo-label">Costo por conjunto ($)</label><input id="vin-costo" type="number" step="0.01" placeholder="0.00" oninput="actualizarPreviewCostoVineta()"></div>
     </div>
+    <div class="field"><label>Fecha de compra (vacío = hoy)</label><input id="vin-fecha-compra" type="date"></div>
     <div id="vin-costo-preview" style="font-size:12px;color:var(--gold-light);font-weight:600;margin:-6px 0 10px;"></div>
     <div class="alert alert-info" style="font-size:12px;" id="vin-tip-conjunto">
       💡 Ingresa lo que pagaste por todo el conjunto (ej. la hoja completa de stickers) y cuántas piezas salen de ahí — la app calcula el costo por unidad automáticamente.
@@ -7601,6 +7605,7 @@ function eliminarRegistroGrupoInsumo(nombre, grupoId) {
     proveedor: g.proveedor || '',
     presentacion: `${fmtCostoG(g.costoPorGramo)}/g`,
     precio: (g.costoPorGramo||0) * (g.stock||0),
+    montoCompra: (g.pesoOriginal||0) * (g.costoPorGramo||0) || undefined,
     cantidad: 1,
     fechaRegistro: g.fechaRegistro || '',
   }, () => {
@@ -7652,6 +7657,8 @@ function guardarInsumo() {
     let grupo = db.insumos[nombre].grupos.find(g => !g.agotado && g.proveedor === proveedor && +((g.costoPorGramo||0).toFixed(4)) === costoRedondeado);
 
     if (grupo) {
+      if (!grupo.compras) grupo.compras = [{ fecha: grupo.fechaRegistro || fechaCompra, gramos: grupo.pesoOriginal || 0 }];
+      grupo.compras.push({ fecha: fechaCompra, gramos: gramosTotal });   // V114: cada compra conserva su fecha
       grupo.stock = (grupo.stock||0) + gramosTotal;
       grupo.fechaRegistro = fechaCompra; // se actualiza a la fecha de la compra más reciente de este grupo
       grupo.pesoOriginal = (grupo.pesoOriginal||0) + gramosTotal;
@@ -7664,6 +7671,7 @@ function guardarInsumo() {
         costoPorGramo: costoRedondeado,
         stock: gramosTotal,
         pesoOriginal: gramosTotal,
+        compras: [{ fecha: fechaCompra, gramos: gramosTotal }],
         fechaRegistro: fechaCompra,
         foto: foto || '',
         nota: nota || '',
@@ -7827,6 +7835,8 @@ function guardarAditivo() {
     // Buscar grupo EXACTO existente (mismo proveedor + mismo costo por gramo) y no agotado, igual que Insumos Base
     let grupo = db.insumosAditivos[nombre].grupos.find(g => !g.agotado && g.proveedor === proveedor && +((g.costoPorGramo||0).toFixed(4)) === +(costoPorGramo.toFixed(4)));
     if (grupo) {
+      if (!grupo.compras) grupo.compras = [{ fecha: grupo.fechaRegistro || fecha, gramos: grupo.pesoOriginal || 0 }];
+      grupo.compras.push({ fecha, gramos: cantidadG });
       grupo.stock = (grupo.stock||0) + cantidadG;
       grupo.pesoOriginal = (grupo.pesoOriginal||0) + cantidadG;
       grupo.fechaRegistro = fecha;
@@ -7835,7 +7845,7 @@ function guardarAditivo() {
     } else {
       db.insumosAditivos[nombre].grupos.push({
         id: Date.now() + Math.random(), proveedor: proveedor || '', costoPorGramo,
-        stock: cantidadG, pesoOriginal: cantidadG, fechaRegistro: fecha, nota: nota || '', foto: foto || '', agotado: false,
+        stock: cantidadG, pesoOriginal: cantidadG, compras: [{ fecha, gramos: cantidadG }], fechaRegistro: fecha, nota: nota || '', foto: foto || '', agotado: false,
       });
     }
   }
@@ -7987,7 +7997,7 @@ function eliminarRegistroGrupoAditivo(nombre, grupoId) {
   if (!g) return;
   abrirModalMotivoBaja('insumoAditivo', {
     nombre, proveedor: g.proveedor || '', presentacion: `${fmtCostoG(g.costoPorGramo)}/g`,
-    precio: (g.costoPorGramo||0) * (g.stock||0), cantidad: 1, fechaRegistro: g.fechaRegistro || '',
+    precio: (g.costoPorGramo||0) * (g.stock||0), montoCompra: (g.pesoOriginal||0) * (g.costoPorGramo||0) || undefined, cantidad: 1, fechaRegistro: g.fechaRegistro || '',
   }, () => {
     ad.grupos = ad.grupos.filter(x => x.id !== grupoId);
     recalcularAgregadosAditivo(nombre);
@@ -8058,9 +8068,12 @@ function guardarEnvase() {
   const proveedor = resolverProveedor('env-proveedor', 'env-proveedor-nuevo');
   const costoRedondeado = +costo.toFixed(2);
 
+  let refEnv = null, costoLog = costoRedondeado;
+  const fechaCompraEnv = document.getElementById('env-fecha-compra').value || hoyISO();
   if (editandoEnvaseId) {
     const ev = db.envases.find(e => e.id === editandoEnvaseId);
     if (ev) {
+      refEnv = ev.id; costoLog = costo > 0 ? costo : (ev.costoUnitario || 0);
       ev.categoria = categoria;
       ev.nombre = nombre;
       ev.genero = genero;
@@ -8080,14 +8093,16 @@ function guardarEnvase() {
       +((e.costoUnitario||0).toFixed(2)) === costoRedondeado && (e.proveedor||'') === proveedor
     );
     if (existente) {
+      refEnv = existente.id; costoLog = costoRedondeado;
       existente.stock = (existente.stock||0) + cant;
       existente.fechaRegistro = hoyISO();
       if (foto) existente.foto = foto;
       if (nota) existente.nota = nota;
       if (volumenRealMl) existente.volumenRealMl = volumenRealMl;
     } else {
+      const nuevoEnvId = Date.now(); refEnv = nuevoEnvId; costoLog = costoRedondeado;
       db.envases.push({
-        id: Date.now(),
+        id: nuevoEnvId,
         categoria,
         nombre,
         genero,
@@ -8105,6 +8120,7 @@ function guardarEnvase() {
     }
   }
   encontrarOCrearConjuntoEnvase(nombre, categoria, color, genero);
+  if (cant > 0 && refEnv) registrarCompraLog('envase', refEnv, nombre, proveedor, fechaCompraEnv, cant, cant * costoLog);
   saveToDrive();
   closeModal('modal-envase');
   resetEnvaseForm();
@@ -8126,6 +8142,7 @@ function resetEnvaseForm() {
   document.getElementById('env-volumen-real').value = '';
   document.getElementById('env-cantidad').value = '';
   document.getElementById('env-costo').value = '';
+  document.getElementById('env-fecha-compra').value = '';
   document.getElementById('env-proveedor').value = '';
   document.getElementById('env-proveedor-nuevo').value = '';
   document.getElementById('env-proveedor-nuevo').style.display = 'none';
@@ -8212,6 +8229,10 @@ function confirmarBajaConMotivo() {
   if (!motivo) { alert('Selecciona el motivo de la baja.'); return; }
   if (!bajaPendiente) return;
   const { tipo, datosRegistro, onConfirmar } = bajaPendiente;
+  const colDe = () => ({ envase: db.envases, caja: db.cajas, vineta: db.vinetas }[tipo]);
+  const idsAntes = colDe() ? colDe().map(e => e.id) : [];
+  onConfirmar();
+  const quitados = colDe() ? idsAntes.filter(id => !colDe().some(e => e.id === id)) : [];
   if (motivo !== 'Error de Registro') {
     db.bajasInventario.push({
       id: Date.now() + Math.random(),
@@ -8220,13 +8241,17 @@ function confirmarBajaConMotivo() {
       proveedor: datosRegistro.proveedor || '',
       presentacion: datosRegistro.presentacion || '',
       precio: datosRegistro.precio || 0,
+      montoCompra: datosRegistro.montoCompra,
       cantidad: datosRegistro.cantidad || 1,
       fechaRegistro: datosRegistro.fechaRegistro || '',
       fechaBaja: hoyISO(),
       motivo,
+      refIds: quitados.length ? quitados : undefined,
     });
+  } else if (quitados.length) {
+    // un error de registro no es un gasto: se borra también su historial de compras
+    db.comprasLog = (db.comprasLog || []).filter(l => !(l.tipo === tipo && quitados.includes(l.refId)));
   }
-  onConfirmar();
   saveToDrive();
   closeModal('modal-motivo-baja');
   bajaPendiente = null;
@@ -8686,9 +8711,11 @@ function guardarCaja() {
   const fechaCompra = document.getElementById('caja-fecha-compra').value || hoyISO();
   const proveedor = resolverProveedor('caja-proveedor', 'caja-proveedor-nuevo');
 
+  let refCaja = null;
   if (editandoCajaId) {
     const c = db.cajas.find(x => x.id === editandoCajaId);
     if (c) {
+      refCaja = c.id;
       c.nombre = nombre;
       if (alto > 0) c.alto = alto;
       if (largo > 0) c.largo = largo;
@@ -8702,8 +8729,9 @@ function guardarCaja() {
       c.nota = nota;
     }
   } else {
+    const nuevaCajaId = Date.now(); refCaja = nuevaCajaId;
     db.cajas.push({
-      id: Date.now(),
+      id: nuevaCajaId,
       nombre, alto, largo, ancho, color,
       precioLote: +precioLote.toFixed(2),
       costoUnitario: +costo.toFixed(2),
@@ -8715,6 +8743,7 @@ function guardarCaja() {
     });
   }
   encontrarOCrearConjuntoCaja(nombre, color, alto, largo, ancho);
+  if (cantidad > 0 && refCaja) { const cj = db.cajas.find(x => x.id === refCaja) || {}; registrarCompraLog('caja', refCaja, nombre, proveedor, fechaCompra, cantidad, precioLote > 0 ? precioLote : cantidad * (costo > 0 ? costo : (cj.costoUnitario || 0))); }
   saveToDrive();
   closeModal('modal-caja');
   resetCajaForm();
@@ -12857,6 +12886,8 @@ function guardarVineta() {
   const cant = parseInt(document.getElementById('vin-cantidad').value) || 0;
   const costoIngresado = parseFloat(document.getElementById('vin-costo').value) || 0;
   const foto = document.getElementById('vin-foto-data').value;
+  const montoVin = costoIngresado > 0 ? costoIngresado : cant * (vin.costoUnitario || 0);
+  const fechaVin = document.getElementById('vin-fecha-compra').value || hoyISO();
   vin.stock = (vin.stock||0) + cant; // tanto ilustrativa como marca acumulan stock manualmente
   if (costoIngresado > 0) {
     if (cant <= 0) {
@@ -12866,6 +12897,8 @@ function guardarVineta() {
     vin.costoUnitario = +(costoIngresado / cant).toFixed(2);
   }
   if (foto) vin.foto = foto;
+  registrarCompraLog('vineta', vin.id, vin.tipo === 'ilustrativa' ? 'Viñeta de esencia — ' + (vin.esenciaNombre || '') : (vin.esenciaNombre || 'Viñeta'), '', fechaVin, cant, montoVin);
+  document.getElementById('vin-fecha-compra').value = '';
   saveToDrive();
   closeModal('modal-vineta');
   renderAll();
@@ -13602,6 +13635,8 @@ function devolverStockLote(lote) {
 function migrarV106() {
   try {
     if (!db.recipientes) db.recipientes = [];
+    if (!db.comprasLog) db.comprasLog = [];
+    finCfg();
     (db.lotes || []).forEach(l => {
       if (l.alcoholPredilucion === undefined) l.alcoholPredilucion = alcoholRecipienteA((l.formula && l.formula.volumenNominal) || 100, l.formula && l.formula.alcohol);
       if (l.alcoholRestanteDescontado === undefined) l.alcoholRestanteDescontado = true;
@@ -14445,6 +14480,294 @@ function fmtFechaHoraMs(ms) {
 function psFrascoFinalEsperado(lote) {
   if (!lote || !lote.pesaje) return null;
   try { const r = psCalcular(lote).rows.find(x => x.key === 'frascoFinal'); return (r && r.brutoObj !== null) ? r.brutoObj : null; } catch (e) { return null; }
+}
+
+// ═══════════════ V113: FINANZAS (compras, ventas vs gasto, fondo de reinversión) ═══════════════
+function finCfg() {
+  if (!db.finanzas) db.finanzas = {};
+  const f = db.finanzas;
+  if (f.pctCrecimiento === undefined) f.pctCrecimiento = 20;
+  if (f.saldoInicial === undefined) f.saldoInicial = 0;
+  if (!f.origen) f.origen = {};
+  if (!f.movimientos) f.movimientos = [];
+  return f;
+}
+function finPct() { return (finCfg().pctCrecimiento || 0) / 100; }
+function finFmt(n) { return '$' + (n || 0).toFixed(2); }
+function finMes(fecha) { return (fecha || '').slice(0, 7); }
+function finMesLabel(m) {
+  if (!m) return 'Sin fecha';
+  const p = m.split('-'); return ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][+p[1] - 1] + ' ' + p[0];
+}
+const FIN_CATS = { esencia: 'Esencias', insumo: 'Insumos', insumoAditivo: 'Insumos aditivos', envase: 'Envases', caja: 'Cajas', vineta: 'Viñetas', extra: 'Artículos extra', equipo: 'Equipos (inversión)' };
+const FIN_ESTADOS = { usado: 'Usado', parcial: 'En uso', stock: 'En stock', baja: 'Baja', equipo: 'Equipo' };
+// Historial de compras de lo que se consume por unidades (envases, cajas, viñetas, artículos extra): cada compra queda con su fecha, aunque sea de hace tiempo.
+function registrarCompraLog(tipo, refId, nombre, proveedor, fecha, cantidad, monto) {
+  if (!(monto > 0) || !(cantidad > 0)) return;
+  if (!db.comprasLog) db.comprasLog = [];
+  db.comprasLog.push({ id: Date.now() + Math.random(), tipo, refId, nombre: nombre || '', proveedor: proveedor || '', fecha: fecha || hoyISO(), cantidad, monto: +monto.toFixed(2) });
+}
+// Todas las compras, calculadas a partir de lo que ya está registrado (sin volver a teclear nada).
+function finCompras() {
+  const out = [];
+  const add = (o) => { o.valorBaja = o.valorBaja || 0; out.push(o); };
+  (db.esencias || []).forEach(e => (e.botes || []).forEach(b => {
+    const monto = costoBoteEsencia(b); if (!(monto > 0)) return;
+    add({ key: 'esencia:' + b.id, tipo: 'esencia', nombre: e.nombre, proveedor: b.proveedor || '', fecha: b.fechaRegistro || '', monto, valorConsumido: b.usado ? monto : 0, valorStock: b.usado ? 0 : monto, estado: b.usado ? 'usado' : 'stock' });
+  }));
+  const insumosDe = (col, tipo, pref) => Object.keys(col || {}).forEach(nombre => ((col[nombre] && col[nombre].grupos) || []).forEach(g => {
+    const peso = g.pesoOriginal || 0, cpg = g.costoPorGramo || 0; if (!peso || !cpg) return;
+    const montoTotal = peso * cpg, stock = g.agotado ? 0 : Math.max(0, g.stock || 0) * cpg, consumido = Math.max(0, montoTotal - stock);
+    const frac = g.agotado ? 1 : (montoTotal > 0 ? consumido / montoTotal : 0);
+    const estado = g.agotado ? 'usado' : (consumido > 0.005 ? 'parcial' : 'stock');
+    const cs = (g.compras || []).filter(c => c.gramos > 0);
+    const partes = (cs.length > 1 && Math.abs(cs.reduce((s, c) => s + c.gramos, 0) - peso) < 0.01) ? cs : [{ fecha: g.fechaRegistro || '', gramos: peso }];
+    partes.forEach((c, i) => {                                   // el consumo se reparte en proporción entre las compras del mismo registro
+      const m = c.gramos * cpg;
+      add({ key: pref + ':' + nombre + ':' + g.id + (i ? ':' + (i + 1) : ''), tipo, nombre, proveedor: g.proveedor || '', fecha: c.fecha || g.fechaRegistro || '', monto: m, valorConsumido: m * frac, valorStock: m * (1 - frac), estado });
+    });
+  }));
+  insumosDe(db.insumos, 'insumo', 'insumo'); insumosDe(db.insumosAditivos, 'insumoAditivo', 'aditivo');
+  (db.equipos || []).forEach(q => {
+    const monto = (q.costoUnitario || 0) * (q.cantidad || 0); if (!(monto > 0)) return;
+    add({ key: 'equipo:' + q.id, tipo: 'equipo', nombre: q.nombre, proveedor: q.proveedor || '', fecha: q.fechaCompra || '', monto, valorConsumido: 0, valorStock: monto, estado: 'equipo' });
+  });
+  const RECS = { envase: db.envases || [], caja: db.cajas || [], extra: db.articulosExtra || [], vineta: db.vinetas || [] };
+  const nombreRec = (tipo, r) => tipo === 'vineta' ? (r.tipo === 'ilustrativa' ? 'Viñeta de esencia — ' + (r.esenciaNombre || '') : (r.esenciaNombre || 'Viñeta')) : (r.nombre || '');
+  const log = (db.comprasLog || []).slice();
+  Object.keys(RECS).forEach(tipo => RECS[tipo].forEach(r => {          // registros anteriores a la V113: se estiman con su stock actual
+    if (log.some(l => l.tipo === tipo && l.refId === r.id)) return;
+    const monto = (r.costoUnitario || 0) * (r.stock || 0); if (!(monto > 0)) return;
+    log.push({ id: 'est:' + tipo + ':' + r.id, tipo, refId: r.id, nombre: nombreRec(tipo, r), proveedor: r.proveedor || '', fecha: r.fechaRegistro || r.fechaCompra || '', cantidad: r.stock || 0, monto, estimado: true });
+  }));
+  const totalRef = {}, montoRef = {}, perdidoRef = {};
+  log.forEach(l => { const k = l.tipo + ':' + l.refId; totalRef[k] = (totalRef[k] || 0) + l.cantidad; montoRef[k] = (montoRef[k] || 0) + l.monto; });
+  (db.bajasInventario || []).forEach(b => (b.refIds || []).forEach(id => { perdidoRef[b.tipo + ':' + id] = ((b.precio || 0) * (b.cantidad || 1)) / b.refIds.length; }));
+  log.forEach(l => {
+    const rec = (RECS[l.tipo] || []).find(r => r.id === l.refId);
+    let estado, frac = 0;
+    if (!rec) estado = 'baja';
+    else { const tot = totalRef[l.tipo + ':' + l.refId] || 1; frac = Math.min(1, Math.max(0, 1 - (rec.stock || 0) / tot)); estado = (rec.agotado || (rec.stock || 0) <= 0) ? 'usado' : (frac > 0.005 ? 'parcial' : 'stock'); if (estado === 'usado') frac = 1; }
+    let vBaja = 0, vCons = l.monto * frac, vStock = l.monto * (1 - frac);
+    if (estado === 'baja') {
+      const k = l.tipo + ':' + l.refId, perd = perdidoRef[k];
+      vBaja = perd === undefined ? l.monto : Math.min(l.monto, perd * l.monto / (montoRef[k] || l.monto));   // lo que quedaba al darlo de baja
+      vCons = l.monto - vBaja; vStock = 0;
+    }
+    add({ key: 'log:' + l.id, tipo: l.tipo, nombre: l.nombre, proveedor: l.proveedor, fecha: l.fecha, monto: l.monto, estimado: !!l.estimado, estado,
+      valorConsumido: vCons, valorStock: vStock, valorBaja: vBaja });
+  });
+  (db.bajasInventario || []).forEach(b => {
+    if (!['esencia', 'insumo', 'insumoAditivo'].includes(b.tipo)) return;
+    const perdido = (b.precio || 0) * (b.cantidad || 1);
+    const monto = b.montoCompra !== undefined ? b.montoCompra : perdido; if (!(monto > 0)) return;
+    add({ key: 'baja:' + b.id, tipo: b.tipo, nombre: b.nombre, proveedor: b.proveedor || '', fecha: b.fechaRegistro || b.fechaBaja || '', monto, valorConsumido: Math.max(0, monto - perdido), valorStock: 0, valorBaja: Math.min(monto, perdido), estado: 'baja' });
+  });
+  return out;
+}
+function finFondoDeCompra(x) {
+  const o = finCfg().origen[x.key];
+  if (!o) return null;                                   // sin clasificar
+  if (o.origen === 'fondo') return x.monto;
+  if (o.origen === 'mixto') return Math.min(x.monto, o.fondoMonto || 0);
+  return 0;
+}
+function finVentas() {
+  const p = finPct();
+  return (db.ventas || []).filter(v => !v.esRegalo).map(v => {
+    const precio = v.precio || 0, costo = v.costo || 0, ganancia = precio - costo, crecimiento = Math.max(0, ganancia) * p;
+    return { fecha: v.fecha || '', precio, costo, ganancia, crecimiento, reposicion: Math.min(precio, costo), libre: ganancia - crecimiento };
+  });
+}
+function finFondo(compras) {
+  const c = finCfg(), ventas = finVentas();
+  const reposicion = ventas.reduce((s, v) => s + v.reposicion, 0), crecimiento = ventas.reduce((s, v) => s + v.crecimiento, 0);
+  const suma = (t) => c.movimientos.filter(m => m.tipo === t).reduce((s, m) => s + (m.monto || 0), 0);
+  const aportes = suma('aporte'), retiros = suma('retiro'), ajustes = suma('ajuste');
+  let usado = 0, bolsillo = 0, sinClas = 0, nSin = 0;
+  compras.forEach(x => { const f = finFondoDeCompra(x); if (f === null) { sinClas += x.monto; nSin++; } else { usado += f; bolsillo += x.monto - f; } });
+  const disponible = (c.saldoInicial || 0) + aportes + ajustes + reposicion + crecimiento - usado - retiros;
+  const libre = ventas.reduce((s, v) => s + v.libre, 0), aportePropio = bolsillo + aportes;
+  return { reposicion, crecimiento, entradas: reposicion + crecimiento, saldoInicial: c.saldoInicial || 0, aportes, retiros, ajustes, usado, bolsillo, sinClas, nSin, disponible, libre, aportePropio, recuperacion: aportePropio > 0 ? libre / aportePropio * 100 : null };
+}
+function abrirFinanzas() { dashboardVistaActual = 'finanzas'; renderDashboardPanel(); }
+function renderDashFinanzasAviso() {
+  const el = document.getElementById('dash-finanzas-aviso'); if (!el) return;
+  let n = 0, tot = 0;
+  try { const c = finCfg(); finCompras().forEach(x => { if (!c.origen[x.key]) { n++; tot += x.monto; } }); } catch (e) {}
+  el.innerHTML = n > 0 ? `<div class="card" style="cursor:pointer;border-color:var(--gold);margin-bottom:4px;" onclick="abrirFinanzas()"><div style="display:flex;align-items:center;gap:10px;"><span style="font-size:20px;">💵</span><span style="font-size:14px;"><strong>${n}</strong> compra${n === 1 ? '' : 's'} sin clasificar (${finFmt(tot)}): indica si se pagaron con el fondo de reinversión o de tu bolsillo.</span></div></div>` : '';
+}
+function renderDashPanelFinanzas(panel) {
+  const c = finCfg();
+  const opts = (o) => Object.keys(o).map(k => `<option value="${k}">${o[k]}</option>`).join('');
+  panel.innerHTML = `
+    <div class="card">
+      <div class="card-title" style="font-size:15px;">💵 Finanzas — compras, ventas y fondo de reinversión</div>
+      <div class="filter-bar">
+        <div class="field"><label>% de crecimiento sobre la ganancia</label><input id="fin-pct" type="number" step="1" min="0" value="${c.pctCrecimiento}"></div>
+        <div class="field"><label>Saldo inicial del fondo ($)</label><input id="fin-saldo" type="number" step="0.01" value="${c.saldoInicial}"></div>
+        <button class="btn btn-outline btn-sm" onclick="finGuardarConfig()">Guardar ajustes</button>
+      </div>
+      <div style="font-size:11px;color:#56CCF2;opacity:0.7;margin-bottom:12px;">Por cada venta (sin contar regalos ni uso propio) entra al fondo el 100 % del costo de producción (reposición) más este % de la ganancia (crecimiento). El resto es ganancia libre.</div>
+      <div class="filter-totals" id="fin-resumen-fondo"></div>
+      <div id="fin-presupuesto" style="font-size:13px;margin-top:12px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="font-size:14px;">🧾 Compras</div>
+      <div class="filter-bar">
+        <div class="field"><label>Tipo</label><select id="fin-f-cat" onchange="finRenderCompras()"><option value="">Todos</option>${opts(FIN_CATS)}</select></div>
+        <div class="field"><label>Estado</label><select id="fin-f-estado" onchange="finRenderCompras()"><option value="">Todos</option><option value="usado">Usado</option><option value="parcial">En uso</option><option value="stock">En stock</option><option value="baja">Baja</option></select></div>
+        <div class="field"><label>Pagado con</label><select id="fin-f-origen" onchange="finRenderCompras()"><option value="">Todos</option><option value="sin">Sin clasificar</option><option value="fondo">Fondo</option><option value="bolsillo">Mi bolsillo</option><option value="mixto">Mixto</option></select></div>
+        <div class="field"><label>Desde</label><input id="fin-f-desde" type="date" onchange="finRenderCompras()"></div>
+        <div class="field"><label>Hasta</label><input id="fin-f-hasta" type="date" onchange="finRenderCompras()"></div>
+        <button class="btn btn-outline btn-sm" onclick="finLimpiarFiltros()">Limpiar filtros</button>
+      </div>
+      <div class="filter-totals" id="fin-compras-totales"></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;font-size:12px;">
+        <span>Marcar las <strong>sin clasificar</strong> que se ven como:</span>
+        <button class="btn btn-outline btn-sm" onclick="finMasivo('fondo')">Fondo de reinversión</button>
+        <button class="btn btn-outline btn-sm" onclick="finMasivo('bolsillo')">Mi bolsillo</button>
+      </div>
+      <div class="table-wrap" style="max-height:420px;overflow:auto;"><table>
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Producto</th><th>Proveedor</th><th class="cell-num">Monto</th><th class="cell-num">Consumido</th><th class="cell-num">En stock</th><th>Estado</th><th>Pagado con</th></tr></thead>
+        <tbody id="fin-compras-tbody"></tbody></table></div>
+      <div style="font-size:11px;opacity:0.6;margin-top:6px;">El monto cuenta en el mes de la fecha de compra/registro. Las filas con * se estimaron con el stock actual porque se registraron antes de la V113.</div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="font-size:14px;">📅 Mes a mes: compras vs ventas</div>
+      <div style="height:260px;margin-bottom:12px;"><canvas id="fin-chart"></canvas></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Mes</th><th class="cell-num">Materia prima</th><th class="cell-num">Equipos</th><th class="cell-num">Ventas</th><th class="cell-num">Costo vendido</th><th class="cell-num">Ganancia neta</th><th class="cell-num">Ventas ÷ compras</th><th class="cell-num">Entra al fondo</th><th class="cell-num">Sale del fondo</th></tr></thead>
+        <tbody id="fin-mensual-tbody"></tbody><tfoot id="fin-mensual-tfoot"></tfoot></table></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="font-size:14px;">🏦 Movimientos del fondo</div>
+      <div class="filter-bar">
+        <div class="field"><label>Tipo</label><select id="fin-mov-tipo"><option value="aporte">Aporte propio al fondo (+)</option><option value="retiro">Retiro del fondo (−)</option><option value="ajuste">Ajuste (+ o −)</option></select></div>
+        <div class="field"><label>Fecha</label><input id="fin-mov-fecha" type="date"></div>
+        <div class="field"><label>Monto ($)</label><input id="fin-mov-monto" type="number" step="0.01"></div>
+        <div class="field"><label>Concepto</label><input id="fin-mov-concepto" type="text" placeholder="ej. dinero propio para comprar esencias"></div>
+        <button class="btn btn-primary btn-sm" onclick="finAgregarMovimiento()">Registrar</button>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th class="cell-num">Monto</th><th>Concepto</th><th></th></tr></thead><tbody id="fin-mov-tbody"></tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="font-size:14px;">🔎 Cuadre de integridad</div>
+      <div id="fin-cuadre" style="font-size:13px;line-height:1.7;"></div>
+    </div>`;
+  document.getElementById('fin-mov-fecha').value = hoyISO();
+  finRenderTodo();
+}
+function finGuardarConfig() {
+  const c = finCfg(), p = parseFloat(document.getElementById('fin-pct').value), s = parseFloat(document.getElementById('fin-saldo').value);
+  if (isNaN(p) || p < 0 || p > 100) { alert('El porcentaje debe estar entre 0 y 100.'); return; }
+  c.pctCrecimiento = p; c.saldoInicial = isNaN(s) ? 0 : s;
+  saveToDrive(); finRenderTodo(); try { renderVentas(); } catch (e) {}
+}
+function finLimpiarFiltros() { ['fin-f-cat', 'fin-f-estado', 'fin-f-origen', 'fin-f-desde', 'fin-f-hasta'].forEach(id => { document.getElementById(id).value = ''; }); finRenderCompras(); }
+function finRenderTodo() { if (!document.getElementById('fin-compras-tbody')) return; finRenderResumen(); finRenderCompras(); finRenderMensual(); finRenderMovimientos(); finRenderCuadre(); renderDashFinanzasAviso(); }
+function finRenderResumen() {
+  const compras = finCompras(), f = finFondo(compras), c = finCfg();
+  const it = (n, l, st) => `<div class="ft-item"><div class="ft-num" style="${st || ''}">${n}</div><div class="ft-label">${l}</div></div>`;
+  document.getElementById('fin-resumen-fondo').innerHTML =
+    it(finFmt(f.disponible), 'Fondo disponible', 'font-size:26px;color:' + (f.disponible < 0 ? '#FF2D2D' : '#FFD60A') + ';') +
+    it(finFmt(f.reposicion), 'Reposición (costo recuperado)') + it(finFmt(f.crecimiento), `Crecimiento (${c.pctCrecimiento} %)`) +
+    it(finFmt(f.usado), 'Usado en compras') + it(finFmt(f.libre), 'Ganancia libre') + it(finFmt(f.aportePropio), 'Aporte propio acumulado') +
+    it(f.recuperacion === null ? '—' : f.recuperacion.toFixed(0) + ' %', 'Capital propio recuperado');
+  const mes = finMes(hoyISO());
+  const delMes = compras.filter(x => finMes(x.fecha) === mes);
+  const compMes = delMes.reduce((s, x) => s + x.monto, 0), fondoMes = delMes.reduce((s, x) => s + (finFondoDeCompra(x) || 0), 0);
+  document.getElementById('fin-presupuesto').innerHTML =
+    `<strong>Presupuesto del mes (${finMesLabel(mes)}):</strong> puedes comprar hasta <strong style="color:#FFD60A;font-size:16px;">${finFmt(Math.max(0, f.disponible))}</strong> con el fondo. Este mes has comprado ${finFmt(compMes)} (${finFmt(fondoMes)} con el fondo).` +
+    (f.disponible < 0 ? `<div style="color:#FF2D2D;margin-top:4px;">⚠️ El fondo está en negativo: se ha gastado más de lo que entró. Revisa si alguna compra marcada "fondo" en realidad salió de tu bolsillo.</div>` : '') +
+    (f.nSin ? `<div style="color:#56CCF2;margin-top:4px;">💡 Hay ${f.nSin} compra${f.nSin === 1 ? '' : 's'} sin clasificar (${finFmt(f.sinClas)}): mientras no las clasifiques no restan del fondo ni cuentan como aporte propio.</div>` : '');
+}
+function finComprasFiltradas() {
+  const g = (id) => document.getElementById(id).value, c = finCfg();
+  const cat = g('fin-f-cat'), est = g('fin-f-estado'), ori = g('fin-f-origen'), d1 = g('fin-f-desde'), d2 = g('fin-f-hasta');
+  return finCompras().filter(x => {
+    if (cat && x.tipo !== cat) return false;
+    if (est && x.estado !== est) return false;
+    const o = c.origen[x.key];
+    if (ori === 'sin' && o) return false;
+    if (ori && ori !== 'sin' && (!o || o.origen !== ori)) return false;
+    if (d1 && (!x.fecha || x.fecha < d1)) return false;
+    if (d2 && (!x.fecha || x.fecha > d2)) return false;
+    return true;
+  }).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+}
+function finRenderCompras() {
+  const filas = finComprasFiltradas(), c = finCfg();
+  const sum = (arr, k) => arr.reduce((s, x) => s + (x[k] || 0), 0);
+  const mp = filas.filter(x => x.tipo !== 'equipo'), eq = filas.filter(x => x.tipo === 'equipo');
+  const it = (n, l) => `<div class="ft-item"><div class="ft-num">${n}</div><div class="ft-label">${l}</div></div>`;
+  document.getElementById('fin-compras-totales').innerHTML = it(filas.length, 'Compras') + it(finFmt(sum(mp, 'monto')), 'Gasto en materia prima') + it(finFmt(sum(eq, 'monto')), 'Inversión en equipos') +
+    it(finFmt(sum(filas, 'monto')), 'Total salidas') + it(finFmt(sum(mp, 'valorConsumido')), 'Ya consumido') + it(finFmt(sum(mp, 'valorStock')), 'En stock') + it(finFmt(sum(mp, 'valorBaja')), 'Dado de baja');
+  document.getElementById('fin-compras-tbody').innerHTML = filas.length ? filas.map(x => {
+    const o = c.origen[x.key], sel = o ? o.origen : '';
+    return `<tr><td>${x.fecha ? formatFecha(x.fecha) : '—'}</td><td>${FIN_CATS[x.tipo] || x.tipo}</td><td>${x.nombre}${x.estimado ? ' *' : ''}</td><td>${x.proveedor || '—'}</td>
+      <td class="cell-num">${finFmt(x.monto)}</td><td class="cell-num">${finFmt(x.valorConsumido)}</td><td class="cell-num">${finFmt(x.valorStock)}</td><td>${FIN_ESTADOS[x.estado] || x.estado}</td>
+      <td><select data-k="${encodeURIComponent(x.key)}" onchange="finSetOrigen(this)" style="min-width:120px;"><option value="" ${sel === '' ? 'selected' : ''}>Sin clasificar</option><option value="fondo" ${sel === 'fondo' ? 'selected' : ''}>Fondo</option><option value="bolsillo" ${sel === 'bolsillo' ? 'selected' : ''}>Mi bolsillo</option><option value="mixto" ${sel === 'mixto' ? 'selected' : ''}>Mixto${o && o.origen === 'mixto' ? ' (' + finFmt(o.fondoMonto) + ' fondo)' : '…'}</option></select></td></tr>`;
+  }).join('') : '<tr><td colspan="9"><div class="empty-state"><div class="es-icon">🧾</div><p>Sin compras que coincidan con los filtros</p></div></td></tr>';
+}
+function finSetOrigen(el) {
+  const key = decodeURIComponent(el.dataset.k), c = finCfg(), v = el.value;
+  if (!v) delete c.origen[key];
+  else if (v === 'mixto') {
+    const x = finCompras().find(q => q.key === key); if (!x) return;
+    const r = prompt(`¿Cuánto de los ${finFmt(x.monto)} de "${x.nombre}" se pagó con el fondo? (el resto cuenta como tu bolsillo)`, (c.origen[key] && c.origen[key].fondoMonto) || '');
+    const n = parseFloat(r); if (isNaN(n) || n < 0) { finRenderCompras(); return; }
+    c.origen[key] = { origen: 'mixto', fondoMonto: Math.min(n, x.monto) };
+  } else c.origen[key] = { origen: v };
+  saveToDrive(); finRenderTodo();
+}
+function finMasivo(origen) {
+  const c = finCfg(), filas = finComprasFiltradas().filter(x => !c.origen[x.key]);
+  if (!filas.length) { alert('No hay compras sin clasificar en la lista que estás viendo.'); return; }
+  if (!confirm(`¿Marcar ${filas.length} compra${filas.length === 1 ? '' : 's'} (${finFmt(filas.reduce((s, x) => s + x.monto, 0))}) como pagada${filas.length === 1 ? '' : 's'} con ${origen === 'fondo' ? 'el fondo de reinversión' : 'tu bolsillo'}?`)) return;
+  filas.forEach(x => { c.origen[x.key] = { origen }; });
+  saveToDrive(); finRenderTodo();
+}
+function finRenderMensual() {
+  const compras = finCompras(), ventas = finVentas(), c = finCfg();
+  const meses = {}; const m = (k) => (meses[k] = meses[k] || { mp: 0, eq: 0, ventas: 0, costo: 0, ganancia: 0, entra: 0, sale: 0 });
+  compras.forEach(x => { const r = m(finMes(x.fecha)); if (x.tipo === 'equipo') r.eq += x.monto; else r.mp += x.monto; r.sale += finFondoDeCompra(x) || 0; });
+  ventas.forEach(v => { const r = m(finMes(v.fecha)); r.ventas += v.precio; r.costo += v.costo; r.ganancia += v.ganancia; r.entra += v.reposicion + v.crecimiento; });
+  c.movimientos.forEach(mv => { const r = m(finMes(mv.fecha)); if (mv.tipo === 'aporte') r.entra += mv.monto || 0; if (mv.tipo === 'retiro') r.sale += mv.monto || 0; });
+  const keys = Object.keys(meses).sort().reverse();
+  const tot = keys.reduce((a, k) => { Object.keys(meses[k]).forEach(f => { a[f] = (a[f] || 0) + meses[k][f]; }); return a; }, {});
+  const ratio = (r) => (r.mp + r.eq) > 0 ? (r.ventas / (r.mp + r.eq)).toFixed(2) + '×' : '—';
+  document.getElementById('fin-mensual-tbody').innerHTML = keys.length ? keys.map(k => { const r = meses[k]; return `<tr><td>${finMesLabel(k)}</td><td class="cell-num">${finFmt(r.mp)}</td><td class="cell-num">${finFmt(r.eq)}</td><td class="cell-num">${finFmt(r.ventas)}</td><td class="cell-num">${finFmt(r.costo)}</td><td class="cell-num">${finFmt(r.ganancia)}</td><td class="cell-num">${ratio(r)}</td><td class="cell-num">${finFmt(r.entra)}</td><td class="cell-num">${finFmt(r.sale)}</td></tr>`; }).join('') : '<tr><td colspan="9"><div class="empty-state"><div class="es-icon">📅</div><p>Aún no hay movimientos</p></div></td></tr>';
+  document.getElementById('fin-mensual-tfoot').innerHTML = keys.length ? `<tr style="font-weight:700;"><td>Total</td><td class="cell-num">${finFmt(tot.mp)}</td><td class="cell-num">${finFmt(tot.eq)}</td><td class="cell-num">${finFmt(tot.ventas)}</td><td class="cell-num">${finFmt(tot.costo)}</td><td class="cell-num">${finFmt(tot.ganancia)}</td><td class="cell-num">${ratio(tot)}</td><td class="cell-num">${finFmt(tot.entra)}</td><td class="cell-num">${finFmt(tot.sale)}</td></tr>` : '';
+  const asc = keys.slice().reverse();
+  try { renderChart('fin-chart', 'bar', asc.map(finMesLabel), [{ label: 'Compras (mat. prima + equipos)', data: asc.map(k => +(meses[k].mp + meses[k].eq).toFixed(2)), backgroundColor: '#E5484D' }, { label: 'Ventas', data: asc.map(k => +meses[k].ventas.toFixed(2)), backgroundColor: '#4CAF50' }]); } catch (e) {}
+}
+function finAgregarMovimiento() {
+  const c = finCfg(), tipo = document.getElementById('fin-mov-tipo').value, fecha = document.getElementById('fin-mov-fecha').value || hoyISO();
+  let monto = parseFloat(document.getElementById('fin-mov-monto').value);
+  if (isNaN(monto) || monto === 0) { alert('Escribe el monto del movimiento.'); return; }
+  if (tipo !== 'ajuste') monto = Math.abs(monto);
+  c.movimientos.push({ id: Date.now() + Math.random(), tipo, fecha, monto, concepto: document.getElementById('fin-mov-concepto').value.trim() });
+  document.getElementById('fin-mov-monto').value = ''; document.getElementById('fin-mov-concepto').value = '';
+  saveToDrive(); finRenderTodo();
+}
+function finEliminarMovimiento(id) { const c = finCfg(); if (!confirm('¿Eliminar este movimiento del fondo?')) return; c.movimientos = c.movimientos.filter(m => String(m.id) !== String(id)); saveToDrive(); finRenderTodo(); }
+function finRenderMovimientos() {
+  const c = finCfg(), L = { aporte: 'Aporte propio al fondo', retiro: 'Retiro del fondo', ajuste: 'Ajuste' };
+  const filas = c.movimientos.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+  document.getElementById('fin-mov-tbody').innerHTML = filas.length ? filas.map(m => `<tr><td>${formatFecha(m.fecha)}</td><td>${L[m.tipo] || m.tipo}</td><td class="cell-num">${finFmt(m.monto)}</td><td>${m.concepto || '—'}</td><td><button class="btn btn-danger btn-sm" onclick="finEliminarMovimiento('${m.id}')">✕</button></td></tr>`).join('') : '<tr><td colspan="5"><div class="empty-state"><p>Sin movimientos manuales. El saldo inicial se cambia arriba.</p></div></td></tr>';
+}
+function finRenderCuadre() {
+  const compras = finCompras(), c = finCfg();
+  const mpCons = compras.filter(x => x.tipo === 'esencia' || x.tipo === 'insumo').reduce((s, x) => s + x.valorConsumido, 0);
+  const lotesCosto = (db.lotes || []).filter(l => !l.loteMadreId).reduce((s, l) => s + (l.costoMaterialesBatch || 0), 0);
+  const dif = mpCons - lotesCosto, sinFecha = compras.filter(x => !x.fecha).length, estim = compras.filter(x => x.estimado).length, sin = compras.filter(x => !c.origen[x.key]).length;
+  const linea = (ok, t) => `<div>${ok ? '✓' : '⚠️'} ${t}</div>`;
+  document.getElementById('fin-cuadre').innerHTML =
+    linea(Math.abs(dif) < 1, `Materia prima consumida según compras (esencias + insumos): <strong>${finFmt(mpCons)}</strong> · costo de materiales de los lotes: <strong>${finFmt(lotesCosto)}</strong> · diferencia <strong>${finFmt(dif)}</strong>. ${Math.abs(dif) < 1 ? '' : 'Puede venir de mermas, stock ajustado a mano, lotes eliminados o alcohol restante estimado de lotes en predilución; si es grande, revisa los registros.'}`) +
+    linea(sinFecha === 0, sinFecha ? `${sinFecha} compra${sinFecha === 1 ? '' : 's'} sin fecha (no entran en ningún mes).` : 'Todas las compras tienen fecha.') +
+    linea(sin === 0, sin ? `${sin} compra${sin === 1 ? '' : 's'} sin clasificar (origen del dinero).` : 'Todas las compras están clasificadas.') +
+    linea(estim === 0, estim ? `${estim} compra${estim === 1 ? '' : 's'} estimada${estim === 1 ? '' : 's'} con el stock actual (marcadas con *): las nuevas compras ya guardan cantidad y fecha reales.` : 'Todas las compras tienen cantidad y fecha reales.');
 }
 
 function addDays(dateStr, days) {
@@ -15915,7 +16238,7 @@ function guardarVenta() {
   const clienteMadreVenta = cliente ? buscarOCrearCliente(cliente) : null;
 
   const gananciaNeta = precio - costo;
-  const fondoReinversion = +(gananciaNeta * 0.20).toFixed(2);
+  const fondoReinversion = +(gananciaNeta * finPct()).toFixed(2);
   const gananciaLibre = +(gananciaNeta - fondoReinversion).toFixed(2);
   const categoriaLabel = labelCategoriaEnvase(frasco.categoria);
   const codigoVenta = ventaEnfrascadoActual.codigoCompleto || ventaLoteActual.codigo;
@@ -16042,11 +16365,11 @@ function renderVentas() {
   const totalVentas = db.ventas.reduce((s, v) => s + (v.total||0), 0);
   // (stat-ventas del Dashboard antiguo fue reemplazado por el panel "Estadísticas de Ventas")
 
-  // Ganancia Neta / Fondo Reinversión / Ganancia Libre se recalculan aquí siempre a partir de
+  // Ganancia Neta / Fondo de Crecimiento / Ganancia Libre se recalculan aquí siempre a partir de
   // costo y precio (en vez de leer directo el campo guardado), para que registros antiguos —
   // guardados con la fórmula anterior — también se muestren consistentes con la fórmula actual.
   const gananciaNetaDe = v => (v.precio||0) - (v.costo||0);
-  const fondoReinversionDe = v => gananciaNetaDe(v) * 0.20;
+  const fondoReinversionDe = v => gananciaNetaDe(v) * finPct();
   const gananciaLibreDe = v => gananciaNetaDe(v) - fondoReinversionDe(v);
 
   // Los registros marcados como regalo/uso propio no generan ingreso — se excluyen de las 6
@@ -16066,7 +16389,7 @@ function renderVentas() {
     <div class="ft-item"><div class="ft-num">$${sum('costo').toFixed(2)}</div><div class="ft-label">Costo Producción</div></div>
     <div class="ft-item"><div class="ft-num">$${sum('precio').toFixed(2)}</div><div class="ft-label">Monto Ventas</div></div>
     <div class="ft-item"><div class="ft-num">$${sumaGananciaNeta.toFixed(2)}</div><div class="ft-label">Ganancia Neta</div></div>
-    <div class="ft-item"><div class="ft-num">$${sumaFondoReinversion.toFixed(2)}</div><div class="ft-label">Fondo Reinversión</div></div>
+    <div class="ft-item"><div class="ft-num">$${sumaFondoReinversion.toFixed(2)}</div><div class="ft-label">Fondo de Crecimiento</div></div>
     <div class="ft-item"><div class="ft-num">$${sumaGananciaLibre.toFixed(2)}</div><div class="ft-label">Ganancia Libre</div></div>
     ${filtradasRegalo.length ? `<div class="ft-item" style="opacity:0.7;"><div class="ft-num">🎁 ${filtradasRegalo.length}</div><div class="ft-label">Regalos/Uso propio — $${filtradasRegalo.reduce((s,v)=>s+(v.costo||0),0).toFixed(2)} en costo</div></div>` : ''}
   `;
@@ -16240,10 +16563,13 @@ function guardarArticuloExtra() {
   const nota = document.getElementById('ae-nota').value;
   const fechaCompra = document.getElementById('ae-fecha-compra').value || hoyISO();
   const proveedor = resolverProveedor('ae-proveedor', 'ae-proveedor-nuevo');
+  const costoLoteAe = parseFloat(document.getElementById('ae-costo-lote').value) || 0;
+  let refAe = null;
 
   if (editandoArticuloExtraId) {
     const a = db.articulosExtra.find(x => x.id === editandoArticuloExtraId);
     if (a) {
+      refAe = a.id;
       a.nombre = nombre;
       a.tamano = tamano;
       a.color = color;
@@ -16255,8 +16581,9 @@ function guardarArticuloExtra() {
       a.nota = nota;
     }
   } else {
+    const nuevoAeId = Date.now(); refAe = nuevoAeId;
     db.articulosExtra.push({
-      id: Date.now(),
+      id: nuevoAeId,
       nombre, tamano, color,
       stock: cantidad,
       costoUnitario: +costo.toFixed(2),
@@ -16267,6 +16594,7 @@ function guardarArticuloExtra() {
       nota,
     });
   }
+  if (cantidad > 0 && refAe) { const aeRec = db.articulosExtra.find(x => x.id === refAe) || {}; registrarCompraLog('extra', refAe, nombre, proveedor, fechaCompra, cantidad, costoLoteAe > 0 ? costoLoteAe : cantidad * (costo > 0 ? costo : (aeRec.costoUnitario || 0))); }
   saveToDrive();
   closeModal('modal-articulo-extra');
   resetArticuloExtraForm();
@@ -16687,7 +17015,7 @@ function cambiarVistaDashboard(vista) {
 }
 
 function renderDashboardPanel() {
-  ['pedidos','lotes','ventas','stock'].forEach(v => {
+  ['pedidos','lotes','ventas','stock','finanzas'].forEach(v => {
     const btn = document.getElementById('btn-dash-' + v);
     if (btn) btn.className = (dashboardVistaActual === v) ? 'btn btn-primary' : 'btn btn-outline';
   });
@@ -16698,6 +17026,7 @@ function renderDashboardPanel() {
   else if (dashboardVistaActual === 'lotes') renderDashPanelLotes(panel);
   else if (dashboardVistaActual === 'ventas') renderDashPanelVentas(panel);
   else if (dashboardVistaActual === 'stock') renderDashPanelStock(panel);
+  else if (dashboardVistaActual === 'finanzas') renderDashPanelFinanzas(panel);
 }
 
 // ── Resumen de Pedidos: Solicitudes Ingresadas vs Pedidos Entregados, por quincena ──
@@ -17180,6 +17509,7 @@ function renderDashboard() {
 
   renderDashPendientesAviso();
   renderDashLealtadAviso();
+  renderDashFinanzasAviso();
   renderDashboardPanel();
 }
 
