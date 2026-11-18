@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<!-- Admin V117 -->
+<!-- Admin V118 -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
@@ -8137,7 +8137,7 @@ function resetEnvaseForm() {
   editandoEnvaseId = null;
   document.getElementById('env-nombre').value = '';
   document.getElementById('env-nombre').disabled = false;
-  ['env-volumen','env-cierre','env-genero','env-color'].forEach(id => document.getElementById(id).disabled = false);
+  ['env-volumen','env-cierre','env-genero','env-color','env-alto','env-largo','env-ancho','env-volumen-real'].forEach(id => document.getElementById(id).disabled = false);
   document.getElementById('env-volumen').value = 100;
   document.getElementById('env-cierre').value = 'rosca';
   document.getElementById('env-genero').value = 'Unisex';
@@ -8194,6 +8194,7 @@ function abrirAgregarAlConjuntoEnvase(conjuntoId) {
   document.getElementById('env-genero').value = c.genero;
   document.getElementById('env-color').value = c.color;
   ['env-volumen','env-cierre','env-genero','env-color'].forEach(id => document.getElementById(id).disabled = true);
+  envaseAplicarDimsPadre(c.nombre, c.categoria);
   const registroConFoto = registrosActivosConjuntoEnvase(c).find(ev => ev.foto);
   if (registroConFoto) {
     document.getElementById('env-foto-data').value = registroConFoto.foto;
@@ -8337,6 +8338,18 @@ function eliminarEnvase(id) {
 // (Los datos no cambian: cada color/género sigue siendo su propio conjunto, así que ventas, pedidos y stock funcionan igual.)
 let envaseGruposKeys = [];
 let envaseGruposAbiertos = {};
+// Las dimensiones y el volumen real son del envase físico: todas las variantes (colores) heredan los del registro padre.
+function envaseAplicarDimsPadre(nombre, categoria) {
+  const mismos = db.envases.filter(ev => ev.nombre === nombre && ev.categoria === categoria);
+  const padre = mismos.find(ev => ev.alto || ev.largo || ev.ancho || ev.volumenRealMl);
+  const ids = ['env-alto', 'env-largo', 'env-ancho', 'env-volumen-real'];
+  if (!padre) return;
+  document.getElementById('env-alto').value = padre.alto || '';
+  document.getElementById('env-largo').value = padre.largo || '';
+  document.getElementById('env-ancho').value = padre.ancho || '';
+  document.getElementById('env-volumen-real').value = padre.volumenRealMl || '';
+  ids.forEach(id => { document.getElementById(id).disabled = true; });
+}
 function toggleGrupoEnvase(gi) { const k = envaseGruposKeys[gi]; if (k === undefined) return; envaseGruposAbiertos[k] = !envaseGruposAbiertos[k]; renderEnvases(); }
 function abrirNuevaVarianteEnvaseIdx(gi) {
   const k = envaseGruposKeys[gi]; if (k === undefined) return;
@@ -8349,6 +8362,7 @@ function abrirNuevaVarianteEnvaseIdx(gi) {
   document.getElementById('env-nombre').value = c.nombre;
   ['env-nombre', 'env-volumen', 'env-cierre'].forEach(id => { document.getElementById(id).disabled = true; });   // nombre, medida y cierre quedan fijos; color y género son libres
   document.getElementById('env-color').value = '';
+  envaseAplicarDimsPadre(c.nombre, c.categoria);
   document.querySelector('#envase-modal-title').textContent = `🍶 Nueva variante — ${c.nombre}`;
   openModal('modal-envase');
 }
@@ -13322,7 +13336,7 @@ function htmlSelectorInsumoLote(cfg, gramosNecesarios) {
     ? `<div style="font-size:11px;color:#56CCF2;opacity:0.8;margin:0 0 6px;">Solo el alcohol que va en el Recipiente B, la primera parte. El resto se descuenta al terminar la predilución.${comp > 0.01 ? ` Ya comprometidos para completar otros lotes en predilución: <strong>${comp.toFixed(2)}g</strong>.` : ''}</div>`
     : '';
   return `<div class="field">
-    <label>${cfg.label} <span style="opacity:0.5;font-weight:400;">— necesita ~${(gramosNecesarios||0).toFixed(2)}g${esAlcohol ? ' (Recipiente B)' : ''}</span></label>
+    <label>${cfg.label} <span style="opacity:0.5;font-weight:400;">— necesita ~${(gramosNecesarios||0).toFixed(2)}g${esAlcohol ? ' (Recipiente B)' : ''}${psUsadoRealBorrador(cfg.key) !== null ? ' · real según pesajes' : ''}</span></label>
     ${nota}
     <div id="ins-${cfg.key}-lista" style="margin-bottom:6px;"></div>
     <div id="ins-${cfg.key}-agregar" style="display:flex;gap:6px;align-items:flex-end;">
@@ -13627,6 +13641,8 @@ function costoPreviewLote(botes, formula) {
 }
 function gramosNecesariosInsumoLote(cfg, formula) {
   if (!formula) return 0;
+  const real = psUsadoRealBorrador(cfg.key);          // lo realmente usado según los pesajes (promedio de las dos lecturas)
+  if (real !== null) return +real.toFixed(2);
   if (cfg.key === 'alcohol') {
     const nom = formula.volumenNominal || parseFloat(document.getElementById('l-volumen-nominal').value) || sugerirVolumenNominal(formula.volumenMl);
     return alcoholRecipienteA(nom, formula.alcohol);
@@ -14128,7 +14144,7 @@ function psAsegurar(lote) {
     const esenciaF = db.esencias.find(e => e.id === lote.esenciaId);
     ['frasco', 'boteB', 'taza'].forEach(k => { p[k] = p[k] || { taraId: '', tara: null, vacio: null }; });
     ['esencia', 'pg', 'ipadeo', 'cimalide', 'alcA', 'alcR', 'frascoAlc', 'frascoFinal'].forEach(k => { p[k] = p[k] || { bruto: null, agregado: null }; });
-    if (!p.boteB.taraId && (p.boteB.tara === null || p.boteB.tara === undefined)) {
+    if (!p.esenciaCalc && !p.boteB.taraId && (p.boteB.tara === null || p.boteB.tara === undefined)) {
       const idsF = lote.botesEsenciaIds || (lote.boteEsenciaId ? [lote.boteEsenciaId] : []);
       const b0 = esenciaF && (esenciaF.botes || []).find(x => x.id === idsF[0]);
       const sug = b0 ? psTaraSugeridaBote(b0) : null;
@@ -14159,41 +14175,52 @@ function psAsegurar(lote) {
 // V116: método nuevo — Recipiente A = frasco (esencia + PG), Recipiente B = bote (IPADEO, Cimalide y 1ª parte del alcohol)
 function psCalcularFrasco(lote) {
   const p = psAsegurar(lote), f = lote.formula || {}, tol = p.tol, rows = [];
+  const media = (a, b) => (a !== null && b !== null) ? (a + b) / 2 : (a !== null ? a : b);
   function paso(key, etiqueta, base, objetivo, reg) {
     const bruto = reg.bruto === undefined ? null : reg.bruto, agregado = reg.agregado === undefined ? null : reg.agregado;
-    let real = null, brutoFinal = null, cuadra = null;
-    if (agregado !== null) real = agregado; else if (bruto !== null && base !== null) real = +(bruto - base).toFixed(4);
+    const difConj = (bruto !== null && base !== null) ? +(bruto - base).toFixed(4) : null;
+    const real = media(agregado, difConj);                 // promedio entre lo pesado desde 0 y la diferencia del peso en conjunto
+    let brutoFinal = null, cuadra = null;
     if (bruto !== null) brutoFinal = bruto; else if (agregado !== null && base !== null) brutoFinal = +(base + agregado).toFixed(4);
     if (bruto !== null && agregado !== null && base !== null) { const dif = +(bruto - (base + agregado)).toFixed(4); cuadra = { dif, ok: Math.abs(dif) <= tol + 1e-9 }; }
     const desv = (real !== null && objetivo !== null) ? +(real - objetivo).toFixed(4) : null;
-    const r = { key, etiqueta, base, objetivo, brutoObj: (base !== null && objetivo !== null) ? +(base + objetivo).toFixed(4) : null, bruto, agregado, real, brutoFinal, desv, desvPct: (desv !== null && objetivo > 0) ? desv / objetivo * 100 : null, ok: desv !== null ? Math.abs(desv) <= tol + 1e-9 : null, cuadra };
+    const r = { key, etiqueta, base, objetivo, brutoObj: (base !== null && objetivo !== null) ? +(base + objetivo).toFixed(4) : null, bruto, agregado, real, brutoFinal, prom: (agregado !== null && difConj !== null), desv, desvPct: (desv !== null && objetivo > 0) ? desv / objetivo * 100 : null, ok: desv !== null ? Math.abs(desv) <= tol + 1e-9 : null, cuadra };
     rows.push(r); return r;
   }
   const vac = (r) => (r.vacio !== null && r.vacio !== undefined) ? r.vacio : (r.tara === undefined ? null : r.tara);
-  const es = paso('esencia', 'Esencia (pesada sola)', vac(p.frasco), null, p.esencia);
-  es.brutoObj = (es.base !== null && es.real !== null) ? +(es.base + es.real).toFixed(4) : null;
+  let es, ecRes = null;
+  if (p.esenciaCalc) {                                      // la esencia ya se pesó en Nuevo Lote (frasco + botes)
+    ecRes = psEsenciaDeCalc(p.esenciaCalc, lote.botesEsenciaIds || []);
+    const bf = ecRes.frascoFinal !== null ? ecRes.frascoFinal : ((ecRes.frascoVacio !== null && ecRes.total !== null) ? +(ecRes.frascoVacio + ecRes.total).toFixed(4) : null);
+    es = { key: 'esencia', etiqueta: 'Esencia (promedio de las pesadas)', base: ecRes.frascoVacio, objetivo: null, brutoObj: bf, bruto: ecRes.frascoFinal, agregado: null, real: ecRes.total, brutoFinal: bf, prom: false, desv: null, desvPct: null, ok: null, cuadra: null };
+    rows.push(es);
+  } else {
+    es = paso('esencia', 'Esencia (pesada sola)', vac(p.frasco), null, p.esencia);
+    es.brutoObj = (es.base !== null && es.real !== null) ? +(es.base + es.real).toFixed(4) : null;
+  }
   const pg = paso('pg0', 'Propilenglicol', es.brutoFinal, f.pg || 0, p.pg);
   const ip = paso('ipadeo', 'IPADEO', vac(p.boteB), f.ipadeo || 0, p.ipadeo);
   const cm = paso('cimalide', 'Cimalide 50', ip.brutoFinal, f.cimalide || 0, p.cimalide);
   const baseTaza = vac(p.taza);
   const alcARow = paso('alcA', 'Alcohol 95° → Recipiente B (primera parte)', baseTaza, alcoholALote(lote), p.alcA);
   const alcAReal = alcARow.real !== null ? alcARow.real : alcoholALote(lote);
-  paso('frascoAlc', 'Bote con IPADEO, Cimalide y la primera parte del alcohol', cm.brutoFinal, alcAReal, p.frascoAlc);
+  const frAlc = paso('frascoAlc', 'Bote con IPADEO, Cimalide y la primera parte del alcohol', cm.brutoFinal, alcAReal, p.frascoAlc);
   const alcRRow = paso('alcR', 'Alcohol restante (al terminar la predilución)', baseTaza, alcoholRestanteLote(lote), p.alcR);
   const alcRReal = alcRRow.real !== null ? alcRRow.real : alcoholRestanteLote(lote);
   const contB = (ip.real !== null ? ip.real : (f.ipadeo || 0)) + (cm.real !== null ? cm.real : (f.cimalide || 0)) + alcAReal;
   paso('frascoFinal', 'Frasco final con toda la fórmula unida', pg.brutoFinal !== null ? pg.brutoFinal : pg.brutoObj, contB + alcRReal, p.frascoFinal);
   const get = (k) => { const r = rows.find(x => x.key === k); return r ? r.real : null; };
   const esenciaReal = es.real;
+  const usados = { pg: pg.real, ipadeo: ip.real, cimalide: cm.real, alcohol: media(alcARow.real, frAlc.real) };   // lo realmente usado (para descontar del stock)
   const resumen = [
-    { etiqueta: 'Esencia (pesada sola)', formula: f.esencia || 0, real: esenciaReal },
+    { etiqueta: 'Esencia (promedio de las pesadas)', formula: f.esencia || 0, real: esenciaReal },
     { etiqueta: 'Propilenglicol', formula: f.pg || 0, real: get('pg0') },
     { etiqueta: 'IPADEO', formula: f.ipadeo || 0, real: get('ipadeo') },
     { etiqueta: 'Cimalide 50', formula: f.cimalide || 0, real: get('cimalide') },
-    { etiqueta: 'Alcohol — Recipiente B (primera parte)', formula: alcoholALote(lote), real: get('alcA') },
+    { etiqueta: 'Alcohol — Recipiente B (primera parte)', formula: alcoholALote(lote), real: usados.alcohol },
     { etiqueta: 'Alcohol restante', formula: alcoholRestanteLote(lote), real: get('alcR') },
   ].map(x => ({ ...x, desv: x.real !== null ? x.real - x.formula : null, desvPct: (x.real !== null && x.formula > 0) ? (x.real - x.formula) / x.formula * 100 : null }));
-  return { rows, netos: [esenciaReal], todosNetos: esenciaReal !== null && esenciaReal > 0, sumNeto: esenciaReal || 0, resumen };
+  return { rows, netos: [esenciaReal], todosNetos: esenciaReal !== null && esenciaReal > 0, sumNeto: esenciaReal || 0, resumen, usados, ec: ecRes };
 }
 function psCalcular(lote) {
   const p = psAsegurar(lote);
@@ -14328,11 +14355,82 @@ function psRefrescarPantallasAbiertas() {
 }
 
 // ── Nuevo Lote: calculadora de esencia neta (peso del bote lleno − tara) ──
+// Estado de las pesadas de la esencia: vive dentro del borrador del pesaje para guardarse con el lote.
+function psEstadoEsencia() {
+  const p = lPesajeDraft = lPesajeDraft || { tol: db.pesajeTol || 0.09, modo: 'frasco' };
+  if (!p.esenciaCalc) p.esenciaCalc = { frascoVacio: null, botes: {} };
+  return p.esenciaCalc;
+}
+// Por cada bote: lado del frasco = promedio entre lo pesado a 0 y la diferencia del frasco; lado del bote = lleno − vacío; la esencia del bote es el promedio de los dos lados.
+function psEsenciaDeCalc(ec, ids) {
+  const num = (v) => (v === null || v === undefined || isNaN(v)) ? null : +v;
+  const media = (arr) => { const a = arr.filter(x => x !== null); return a.length ? a.reduce((s, x) => s + x, 0) / a.length : null; };
+  const fv = num(ec.frascoVacio);
+  let prev = fv, total = 0, todos = (ids || []).length > 0, ultimo = null;
+  const porBote = [];
+  (ids || []).forEach(id => {
+    const b = (ec.botes && ec.botes[id]) || {};
+    const lleno = num(b.lleno), vert = num(b.vertida), fc = num(b.frascoCon), vac = num(b.vacio);
+    const dF = (fc !== null && prev !== null) ? fc - prev : null;
+    const dB = (lleno !== null && vac !== null) ? lleno - vac : null;
+    const lado = media([vert, dF]);
+    const esencia = media([lado, dB]);
+    porBote.push({ id, dF, dB, vert, lado, esencia });
+    if (esencia === null) todos = false; else total += esencia;
+    if (fc !== null) { prev = fc; ultimo = fc; } else prev = null;
+  });
+  return { frascoVacio: fv, porBote, total: (todos && total > 0) ? +total.toFixed(4) : null, frascoFinal: ultimo };
+}
 function renderPesajeBotesLote() {
   const box = document.getElementById('l-pesaje-botes'); if (!box) return;
   const esencia = db.esencias.find(e => e.id === parseInt(document.getElementById('l-esencia').value));
   if (!esencia || !lBotesSeleccionados.length) { box.innerHTML = ''; actualizarEstadoPesajeLote(); return; }
-  box.innerHTML = '<div class="alert alert-info" style="font-size:12px;"><div>⚖️ <strong>La esencia se pesa en la Hoja de pesaje:</strong> pásala al frasco de maceración y pésala sola. De ese peso salen los gramos de esencia del lote y todas las cantidades.</div></div>';
+  const ec = psEstadoEsencia();
+  const v = (x) => (x === null || x === undefined) ? '' : x;
+  const campo = (etq, dataId, f, val) => `<div class="ps-fila"><span style="min-width:300px;">${etq}</span><input class="ec-in" type="number" step="0.01" inputmode="decimal" placeholder="g" style="width:120px;" ${dataId !== '' ? `data-id="${dataId}" ` : ''}data-f="${f}" value="${v(val)}" oninput="psEcInput(this)"></div>`;
+  const bloques = lBotesSeleccionados.map((id, i) => {
+    const b = ec.botes[id] = ec.botes[id] || {};
+    return `<div style="border:1px solid var(--border-soft);border-radius:8px;padding:10px;margin-top:10px;">
+      <div style="font-weight:600;margin-bottom:6px;color:var(--gold-light);">Bote ${i + 1}</div>
+      ${campo(`② Bote ${i + 1} lleno (g)`, id, 'lleno', b.lleno)}
+      ${campo('③ Esencia vertida al frasco, con la báscula en 0 (g)', id, 'vertida', b.vertida)}
+      ${campo(`④ Frasco con la esencia${lBotesSeleccionados.length > 1 ? ' (acumulado hasta este bote)' : ''} (g)`, id, 'frascoCon', b.frascoCon)}
+      ${campo(`⑤ Bote ${i + 1} vacío (g)`, id, 'vacio', b.vacio)}
+      <div id="ec-res-${i}" style="font-size:12px;margin-top:6px;line-height:1.6;"></div>
+    </div>`;
+  }).join('');
+  box.innerHTML = `<div class="alert alert-info" style="font-size:12px;"><div style="width:100%;" onkeydown="psEcKey(event)">
+    <div style="margin-bottom:8px;">⚖️ <strong>Peso de la esencia</strong> — pasa la esencia al frasco de maceración y escribe lo que marca la báscula, en este orden. Los gramos de esencia salen del promedio entre lo que pesó el frasco y lo que pesó el bote (cada bote por separado).</div>
+    ${campo('① Frasco de maceración vacío (g)', '', 'frascoVacio', ec.frascoVacio)}
+    ${bloques}
+    <div id="ec-total" style="margin-top:10px;font-size:13px;"></div>
+  </div></div>`;
+  psEcActualizarUI(false);
+}
+function psEcInput(el) {
+  const ec = psEstadoEsencia(), val = psNum(el.value);
+  if (el.dataset.f === 'frascoVacio') ec.frascoVacio = val;
+  else { const b = ec.botes[el.dataset.id] = ec.botes[el.dataset.id] || {}; b[el.dataset.f] = val; }
+  psEcActualizarUI(true);
+}
+function psEcKey(e) {
+  if (e.key !== 'Enter' || !e.target.classList || !e.target.classList.contains('ec-in')) return;
+  e.preventDefault();
+  const todos = [...document.querySelectorAll('#l-pesaje-botes .ec-in')], i = todos.indexOf(e.target);
+  if (i >= 0 && todos[i + 1]) todos[i + 1].focus();
+}
+function psEcActualizarUI(sincronizar) {
+  const ec = psEstadoEsencia(), r = psEsenciaDeCalc(ec, lBotesSeleccionados);
+  const f2 = (x) => (x === null || x === undefined) ? '—' : x.toFixed(2);
+  r.porBote.forEach((x, i) => {
+    const el = document.getElementById('ec-res-' + i); if (!el) return;
+    el.innerHTML = `Frasco: diferencia <b>${f2(x.dF)}</b> g · a 0: <b>${f2(x.vert)}</b> g → promedio del frasco <b>${f2(x.lado)}</b> g<br>Bote: lleno − vacío = <b>${f2(x.dB)}</b> g<br><span style="color:#FFD60A;font-size:14px;">Esencia de este bote (promedio): <b>${f2(x.esencia)}</b> g</span>`;
+  });
+  const tot = document.getElementById('ec-total');
+  if (tot) tot.innerHTML = r.total !== null
+    ? `✓ <strong>Esencia total: <span style="font-size:20px;font-weight:700;color:#FFD60A;">${r.total.toFixed(2)} g</span></strong> — ya quedó aplicada en "Gramos de esencia" y en la fórmula.`
+    : 'Escribe las pesadas de cada paso: la esencia se calcula cuando todos los botes tienen sus datos.';
+  if (sincronizar) psSincronizarEsenciaBorrador();
   actualizarEstadoPesajeLote();
 }
 function psOnBruto(id, v) { (lPesajeBotes[id] = lPesajeBotes[id] || {}).bruto = psNum(v); psActualizarPesajeBotes(); }
@@ -14386,29 +14484,36 @@ function psBorradorLote() {
   const p = lPesajeDraft = lPesajeDraft || { tol: db.pesajeTol || 0.09, modo: 'frasco' };
   return { esBorrador: true, id: null, codigo: 'Lote nuevo', esenciaId: esId, esenciaNombre: esencia.nombre, botesEsenciaIds: botes.map(b => b.id), formula, alcoholPredilucion: alcoholRecipienteA(formula.volumenNominal, formula.alcohol), pesaje: p };
 }
-// Al pesar la esencia en la Hoja (borrador), esos gramos pasan al lote: se recalculan la fórmula y los insumos.
+// Al pesar la esencia, esos gramos pasan al lote: se recalculan la fórmula y los insumos.
 function psSincronizarEsenciaBorrador() {
-  if (!psLote || !psLote.esBorrador) return;
-  const r = psCalcular(psLote).rows.find(x => x.key === 'esencia');
+  const d = psBorradorLote(); if (!d) return;
+  const r = psCalcular(d).rows.find(x => x.key === 'esencia');
   const g = (r && r.real !== null && r.real > 0) ? r.real : null;
   if (g === null) return;
   const campo = document.getElementById('l-gramos-esencia');
   if (Math.abs((parseFloat(campo.value) || 0) - g) < 0.005) return;
   campo.value = g.toFixed(2); lGramosTocadoManual = true;
   actualizarCostoLotePreview();
-  const d = psBorradorLote();
-  if (d) {
-    psLote.formula = d.formula; psLote.alcoholPredilucion = d.alcoholPredilucion;
-    INSUMOS_LOTE_CONFIG.forEach(cfg => {                      // un solo registro elegido → se ajusta a los gramos nuevos
-      const sel = lInsumosSeleccionados[cfg.key] || [], need = gramosNecesariosInsumoLote(cfg, d.formula);
-      if (sel.length === 1) { const gr = gruposActivosInsumo(cfg.nombre).find(x => x.id === sel[0].grupoId); sel[0].gramos = +Math.min(need, gr ? (gr.stock || 0) : need).toFixed(2); }
-      renderListaInsumoLote(cfg.key, need);
-    });
-  }
+  const d2 = psBorradorLote();
+  if (psLote && psLote.esBorrador && d2) { psLote.formula = d2.formula; psLote.alcoholPredilucion = d2.alcoholPredilucion; }
+  psReajustarInsumosLote();
+}
+// Los insumos elegidos con un solo registro se ajustan a lo que realmente se usó según los pesajes (o a la fórmula, si aún no hay pesajes).
+function psReajustarInsumosLote() {
+  const d = psBorradorLote(); if (!d) return;
+  INSUMOS_LOTE_CONFIG.forEach(cfg => {
+    const sel = lInsumosSeleccionados[cfg.key] || [], need = gramosNecesariosInsumoLote(cfg, d.formula);
+    if (sel.length === 1) { const gr = gruposActivosInsumo(cfg.nombre).find(x => x.id === sel[0].grupoId); sel[0].gramos = +Math.min(need, gr ? (gr.stock || 0) : need).toFixed(2); }
+    renderListaInsumoLote(cfg.key, need);
+  });
+}
+function psUsadoRealBorrador(key) {
+  if (!lPesajeDraft) return null;
+  try { const d = psBorradorLote(); if (!d) return null; const u = psCalcular(d).usados; const v = u ? u[key] : null; return (v === null || v === undefined || isNaN(v)) ? null : v; } catch (e) { return null; }
 }
 function psPendientesInicio(lote) {
   const c = psCalcular(lote);
-  if (!c.todosNetos) return { ok: false, faltan: [lote.pesaje.modo === 'frasco' ? 'la esencia (frasco vacío y esencia sola)' : 'esencia neta de los botes (bote lleno y bote vacío)'] };
+  if (!c.todosNetos) return { ok: false, faltan: [lote.pesaje.modo === 'frasco' ? (lote.pesaje.esenciaCalc ? 'el peso de la esencia (frasco y botes)' : 'la esencia (frasco vacío y esencia sola)') : 'esencia neta de los botes (bote lleno y bote vacío)'] };
   const faltan = c.rows.filter(r => r.key !== 'alcR' && r.key !== 'frascoFinal' && r.real === null).map(r => r.etiqueta);
   return { ok: faltan.length === 0, faltan };
 }
@@ -14417,7 +14522,7 @@ function actualizarEstadoPesajeLote() {
   if (!caja) return;
   let d = null; try { d = psBorradorLote(); } catch (e) { d = null; }
   let ok = false, html;
-  if (!d) html = 'Elige la esencia y los botes; luego haz la Hoja de pesaje: ahí pesas la esencia (ya pasada al frasco de maceración) y de ese peso salen los gramos de esencia y todas las cantidades.';
+  if (!d) html = 'Elige la esencia y los botes; luego escribe las pesadas de la esencia (frasco y botes) y haz la Hoja de pesaje.';
   else {
     const pe = psPendientesInicio(d); ok = pe.ok;
     html = ok ? '✓ <strong>Pesajes de inicio completos.</strong> Ya puedes iniciar la predilución: se guardan con el lote y podrás editarlos después desde su tarjeta.'
@@ -14430,6 +14535,7 @@ function actualizarEstadoPesajeLote() {
 function abrirHojaPesajeBorrador() {
   let d = null; try { d = psBorradorLote(); } catch (e) { d = null; }
   if (!d) { alert('Primero elige la esencia y el/los bote(s) de los que sale.'); return; }
+  if (!psCalcular(d).todosNetos) { alert('Primero pesa la esencia (frasco vacío, bote lleno, esencia vertida, frasco con la esencia y bote vacío): de ahí salen los gramos de esencia y todas las cantidades.'); return; }
   psLote = d; psAsegurar(d); psAbierta = true;
   document.getElementById('ps-titulo').textContent = `Lote nuevo · ${d.esenciaNombre}`;
   document.getElementById('ps-guardado').textContent = 'Se guarda con el lote al iniciar la predilución';
@@ -14461,11 +14567,8 @@ function psRender() {
   const inp = (k, i, fld, ph) => `<input class="ps-in" type="number" step="0.01" inputmode="decimal" placeholder="${ph || 'g'}" data-k="${k}" data-i="${i}" data-f="${fld}" value="${val(k, i, fld)}" oninput="psInput(this)">`;
   const tareRow = (k, i, tipo, label) => `<div class="ps-fila"><span>${label}</span><select onchange="psSelTara('${k}',${i},this.value)">${optsTara(tipo, psReg(k, i).taraId)}</select><input class="ps-in" type="number" step="0.01" inputmode="decimal" id="ps-tara-${k}-${i}" data-k="${k}" data-i="${i}" data-f="tara" style="width:90px;" value="${val(k, i, 'tara')}" oninput="psInput(this)"> g</div>`;
   const paso = (key, titulo, k, i, soloConjunto) => {
-    const big = key === 'alcR' ? ' style="font-size:20px;font-weight:700;color:#FFD60A;"' : '';
-    const bigBo = key === 'frascoFinal' ? ' style="font-size:20px;font-weight:700;color:#FFD60A;"' : '';
-    const obj = soloConjunto
-      ? `Debe marcar <b id="ps-bo-${key}"${bigBo}>—</b> g · parte de <b id="ps-base-${key}">—</b> g y se agregan <b id="ps-obj-${key}">—</b> g`
-      : `Objetivo <b id="ps-obj-${key}"${big}>—</b> g agregados · peso en conjunto: desde <b id="ps-base-${key}">—</b> hasta <b id="ps-bo-${key}">—</b> g`;
+    const big = ' style="font-size:20px;font-weight:700;color:#FFD60A;"';
+    const obj = `Objetivo <b id="ps-obj-${key}"${big}>—</b> g agregados · peso en conjunto: desde <b id="ps-base-${key}">—</b> hasta <b id="ps-bo-${key}">—</b> g`;
     const ins = soloConjunto
       ? `<label>Peso en conjunto${inp(k, i, 'bruto')}</label>`
       : `<label>Peso agregado desde 0${inp(k, i, 'agregado')}</label><label>Peso en conjunto${inp(k, i, 'bruto')}</label>`;
@@ -14500,6 +14603,7 @@ function psRender() {
 }
 function psRenderFrasco() {
   const lote = psLote, p = lote.pesaje, f = lote.formula || {};
+  const ecMode = !!p.esenciaCalc;
   const optsTara = (tipo, sel) => '<option value="">— escribir el peso a mano —</option>' + psRecipientes(tipo).map(r => `<option value="${r.id}" ${String(r.id) === String(sel) ? 'selected' : ''}>${r.nombre} · ${r.tara.toFixed(2)} g</option>`).join('');
   const val = (k, i, fld) => { const v = psReg(k, i)[fld]; return (v === null || v === undefined) ? '' : v; };
   const inp = (k, i, fld, ph) => `<input class="ps-in" type="number" step="0.01" inputmode="decimal" placeholder="${ph || 'g'}" data-k="${k}" data-i="${i}" data-f="${fld}" value="${val(k, i, fld)}" oninput="psInput(this)">`;
@@ -14510,28 +14614,38 @@ function psRenderFrasco() {
     if (modo === 'esencia') {
       obj = `Peso en conjunto esperado: <b id="ps-bo-${key}">—</b> g = frasco vacío <b id="ps-base-${key}">—</b> g + la esencia que pesaste`;
       ins = `<label>Esencia sola (báscula en 0)${inp(k, i, 'agregado')}</label><label>Peso en conjunto (frasco + esencia)${inp(k, i, 'bruto')}</label>`;
-    } else if (modo === 'conjunto') {
-      obj = `Debe marcar <b id="ps-bo-${key}"${key === 'frascoFinal' ? amarillo : ''}>—</b> g · parte de <b id="ps-base-${key}">—</b> g y se agregan <b id="ps-obj-${key}">—</b> g`;
-      ins = `<label>Peso en conjunto${inp(k, i, 'bruto')}</label>`;
     } else {
-      obj = `Objetivo <b id="ps-obj-${key}"${key === 'alcR' ? amarillo : ''}>—</b> g agregados · peso en conjunto: desde <b id="ps-base-${key}">—</b> hasta <b id="ps-bo-${key}">—</b> g`;
-      ins = `<label>Peso agregado desde 0${inp(k, i, 'agregado')}</label><label>Peso en conjunto${inp(k, i, 'bruto')}</label>`;
+      obj = `Objetivo <b id="ps-obj-${key}"${amarillo}>—</b> g agregados · peso en conjunto: desde <b id="ps-base-${key}">—</b> hasta <b id="ps-bo-${key}"${key === 'frascoFinal' ? ' style="font-weight:700;color:#FFD60A;"' : ''}>—</b> g`;
+      ins = modo === 'conjunto'
+        ? `<label>Peso en conjunto${inp(k, i, 'bruto')}</label>`
+        : `<label>Peso agregado desde 0${inp(k, i, 'agregado')}</label><label>Peso en conjunto${inp(k, i, 'bruto')}</label>`;
     }
     return `<div class="ps-paso"><div class="ps-tit">${titulo}</div><div class="ps-obj">${obj}</div><div class="ps-ins">${ins}</div><div class="ps-res" id="ps-res-${key}"></div></div>`;
   };
-  document.getElementById('ps-contenido').innerHTML = `
-    <div class="alert alert-info" style="font-size:12px;"><div><div style="margin-bottom:6px;">Escribe <strong>solo lo que marca la báscula</strong>: en cada paso puedes poner el peso agregado desde 0, el peso en conjunto, o ambos (la app compara y avisa si no cuadran). Enter pasa al siguiente campo.</div><div style="margin-bottom:6px;"><strong>Orden:</strong> ① Recipiente A (frasco de maceración): frasco vacío → esencia sola → PG → ② Recipiente B (el bote donde venía la esencia, ya vacío): IPADEO y Cimalide 50 → ③ Taza medidora (primera parte del alcohol) y pesar el bote con los tres ingredientes → ④ Al terminar la predilución: alcohol restante y peso final del frasco → ⑤ Resumen.</div><div>${lote.esBorrador ? '<strong>El peso de la esencia define los gramos de esencia del lote</strong>: al escribirlo se recalculan las cantidades de PG, IPADEO, Cimalide y alcohol. ' : ''}Fórmula del lote: esencia ${(f.esencia || 0).toFixed(2)} g · alcohol ${(f.alcohol || 0).toFixed(2)} g · PG ${(f.pg || 0).toFixed(2)} g · IPADEO ${(f.ipadeo || 0).toFixed(2)} g · Cimalide ${(f.cimalide || 0).toFixed(2)} g.</div></div></div>
-    <div class="ps-fila"><span>Tolerancia aceptada (g)</span><input type="number" step="0.01" id="ps-tol" style="width:90px;" value="${p.tol}" oninput="psOnTol(this.value)"><span style="opacity:0.7;">(compara cada peso real con su objetivo)</span></div>
-    <div id="ps-aviso" style="font-size:12px;margin-bottom:10px;"></div>
-    <div class="ps-bloque"><div class="ps-bt">① Recipiente A — frasco de maceración con la esencia y el PG</div>
+  const c0 = psCalcular(lote), ec = c0.ec, f2 = (x) => (x === null || x === undefined) ? '—' : (+x).toFixed(2);
+  const bloqueA = ecMode
+    ? `<div class="ps-bloque"><div class="ps-bt">① Recipiente A — frasco de maceración con la esencia y el PG</div>
+      <div class="ps-fila" style="line-height:1.7;">Frasco vacío <b>${f2(ec && ec.frascoVacio)}</b> g · esencia <b>${f2(ec && ec.total)}</b> g (promedio de las pesadas de Nuevo Lote) · frasco con la esencia <b>${f2(c0.rows.find(r => r.key === 'esencia').brutoFinal)}</b> g</div>
+      ${paso('pg0', 'Propilenglicol: pésalo solo (báscula en 0) y luego pesa el frasco con la esencia y el PG', 'pg', 0)}</div>`
+    : `<div class="ps-bloque"><div class="ps-bt">① Recipiente A — frasco de maceración con la esencia y el PG</div>
       ${tareRow('frasco', 0, 'frasco', 'Frasco: peso vacío de la tabla')}
       <div class="ps-fila"><span>Frasco vacío pesado hoy (opcional)</span>${inp('frasco', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('frasco')" title="Suma este peso a las mediciones del recipiente elegido">➕ Sumar a la tabla</button></div>
       ${paso('esencia', 'Pasa toda la esencia al frasco: pésala sola (báscula en 0) y luego pesa el frasco con la esencia', 'esencia', 0, 'esencia')}
-      ${paso('pg0', 'Propilenglicol: pésalo solo (báscula en 0) y luego pesa el frasco con la esencia y el PG', 'pg', 0)}</div>
-    <div class="ps-bloque"><div class="ps-bt">② Recipiente B — el bote donde venía la esencia (ya vacío): IPADEO y Cimalide 50</div>
+      ${paso('pg0', 'Propilenglicol: pésalo solo (báscula en 0) y luego pesa el frasco con la esencia y el PG', 'pg', 0)}</div>`;
+  const bloqueB = ecMode
+    ? `<div class="ps-bloque"><div class="ps-bt">② Recipiente B — el bote donde venía la esencia (ya vacío): IPADEO y Cimalide 50</div>
+      <div class="ps-fila"><span>Peso del bote vacío, sin tapón (g)</span>${inp('boteB', 0, 'vacio')}</div>
+      ${paso('ipadeo', 'IPADEO', 'ipadeo', 0)}${paso('cimalide', 'Cimalide 50', 'cimalide', 0)}</div>`
+    : `<div class="ps-bloque"><div class="ps-bt">② Recipiente B — el bote donde venía la esencia (ya vacío): IPADEO y Cimalide 50</div>
       ${tareRow('boteB', 0, 'bote', 'Bote vacío: peso de la tabla')}
       <div class="ps-fila"><span>Bote vacío pesado hoy (opcional)</span>${inp('boteB', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('boteB')">➕ Sumar a la tabla</button></div>
-      ${paso('ipadeo', 'IPADEO', 'ipadeo', 0)}${paso('cimalide', 'Cimalide 50', 'cimalide', 0)}</div>
+      ${paso('ipadeo', 'IPADEO', 'ipadeo', 0)}${paso('cimalide', 'Cimalide 50', 'cimalide', 0)}</div>`;
+  document.getElementById('ps-contenido').innerHTML = `
+    <div class="alert alert-info" style="font-size:12px;"><div><div style="margin-bottom:6px;">Escribe <strong>solo lo que marca la báscula</strong>: en cada paso puedes poner el peso agregado desde 0, el peso en conjunto, o ambos (la app compara y avisa si no cuadran). Enter pasa al siguiente campo.</div><div style="margin-bottom:6px;"><strong>Orden:</strong> ① Recipiente A (frasco de maceración): ${ecMode ? 'la esencia ya se pesó en Nuevo Lote → PG' : 'frasco vacío → esencia sola → PG'} → ② Recipiente B (el bote donde venía la esencia, ya vacío${ecMode ? ', sin tapón' : ''}): IPADEO y Cimalide 50 → ③ Taza medidora (primera parte del alcohol) y pesar el bote con los tres ingredientes → ④ Al terminar la predilución: alcohol restante y peso final del frasco → ⑤ Resumen.</div>${ecMode ? '<div style="margin-bottom:6px;">El valor <strong>real</strong> de PG, IPADEO, Cimalide y alcohol es el <strong>promedio</strong> entre el peso agregado desde 0 y la diferencia del peso en conjunto. Al volver a Nuevo Lote, esos gramos reales quedan como cantidad a descontar.</div>' : ''}<div>${(lote.esBorrador && !ecMode) ? '<strong>El peso de la esencia define los gramos de esencia del lote</strong>: al escribirlo se recalculan las cantidades de PG, IPADEO, Cimalide y alcohol. ' : ''}Fórmula del lote: esencia ${(f.esencia || 0).toFixed(2)} g · alcohol ${(f.alcohol || 0).toFixed(2)} g · PG ${(f.pg || 0).toFixed(2)} g · IPADEO ${(f.ipadeo || 0).toFixed(2)} g · Cimalide ${(f.cimalide || 0).toFixed(2)} g.</div></div></div>
+    <div class="ps-fila"><span>Tolerancia aceptada (g)</span><input type="number" step="0.01" id="ps-tol" style="width:90px;" value="${p.tol}" oninput="psOnTol(this.value)"><span style="opacity:0.7;">(compara cada peso real con su objetivo)</span></div>
+    <div id="ps-aviso" style="font-size:12px;margin-bottom:10px;"></div>
+    ${bloqueA}
+    ${bloqueB}
     <div class="ps-bloque"><div class="ps-bt">③ Taza medidora — primera parte del alcohol, y el bote con ese alcohol</div>
       ${tareRow('taza', 0, 'taza', 'Taza: peso vacío de la tabla')}
       <div class="ps-fila"><span>Taza vacía pesada hoy (opcional)</span>${inp('taza', 0, 'vacio')}<button type="button" class="btn btn-outline btn-sm" onclick="psSumarMedicion('taza')">➕ Sumar a la tabla</button></div>
@@ -14560,7 +14674,7 @@ function psActualizar() {
       t += `<span style="color:${col};">Diferencia contra lo esperado: ${psSigno(r.desv)} g ${r.ok ? '✓' : '⚠️'}</span>`;
     } else if (r.real !== null) {
       const col = r.ok === null ? '#56CCF2' : (r.ok ? '#7CB87C' : '#FF2D2D');
-      t += `<span style="color:${col};">Real <b>${psFmt(r.real)}</b> g · desviación ${psSigno(r.desv)} g${r.desvPct !== null ? ` (${psSigno(r.desvPct, 1)} %)` : ''} ${r.ok === null ? '' : (r.ok ? '✓' : '⚠️')}</span>`;
+      t += `<span style="color:${col};">Real <b>${psFmt(r.real)}</b> g${r.prom ? ' (promedio de las dos lecturas)' : ''} · desviación ${psSigno(r.desv)} g${r.desvPct !== null ? ` (${psSigno(r.desvPct, 1)} %)` : ''} ${r.ok === null ? '' : (r.ok ? '✓' : '⚠️')}</span>`;
     }
     if (r.cuadra) t += r.cuadra.ok ? ` <span style="color:#7CB87C;">· ✓ peso en conjunto y agregado cuadran</span>` : ` <span style="color:#FF2D2D;">· ⚠️ no cuadra: el peso en conjunto marca ${psFmt(r.bruto)} g y base + agregado = ${psFmt(r.base + r.agregado)} g (diferencia ${psSigno(r.cuadra.dif)} g)</span>`;
     el.innerHTML = t;
@@ -14611,7 +14725,11 @@ function psGuardar(silencioso) {
   return p;
 }
 function psCerrar() {
-  if (psLote && psLote.esBorrador) { lPesajeDraft = psLote.pesaje; psAbierta = false; closeModal('modal-pesaje'); actualizarEstadoPesajeLote(); return; }
+  if (psLote && psLote.esBorrador) {
+    lPesajeDraft = psLote.pesaje; psAbierta = false; closeModal('modal-pesaje');
+    try { psReajustarInsumosLote(); actualizarCostoLotePreview(); } catch (e) {}      // los insumos pasan a lo realmente usado según los pesajes
+    actualizarEstadoPesajeLote(); return;
+  }
   psGuardar(true); psAbierta = false; closeModal('modal-pesaje'); try { renderAll(); } catch (e) {}
 }
 function psExportarCSV() {
